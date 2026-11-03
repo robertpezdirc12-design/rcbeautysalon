@@ -2,7 +2,9 @@
  * P1 #18 (audit-2026-11) — one-time DB migration (local/dev entrypoint).
  *
  * The shared logic lives in src/lib/default-media-migration.ts (also
- * used by the one-time production endpoint POST /api/admin/migrate-default-media).
+ * used by the one-time production run of 2026-11-03, which was executed
+ * via the temporary guarded endpoint POST /api/admin/migrate-default-media —
+ * that endpoint and the MIGRATION_TOKEN env var were removed after the run).
  *
  * Run:  bun scripts/migrate-default-media.ts --dry   (report only)
  *       bun scripts/migrate-default-media.ts         (apply)

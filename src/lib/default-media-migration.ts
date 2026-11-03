@@ -19,8 +19,10 @@
  *
  * Used by:
  *  - scripts/migrate-default-media.ts (local/dev DB)
- *  - POST /api/admin/migrate-default-media (one-time production run,
- *    guarded by the MIGRATION_TOKEN env var; route removed after use)
+ *  - the one-time production run of 2026-11-03 via the temporary guarded
+ *    endpoint POST /api/admin/migrate-default-media (route and the
+ *    MIGRATION_TOKEN env var removed immediately after the successful run:
+ *    89 values rewritten — 57 Service, 4 Staff, 6 Product, 22 SalonConfig JSON)
  */
 import type { PrismaClient } from "@prisma/client"
 
