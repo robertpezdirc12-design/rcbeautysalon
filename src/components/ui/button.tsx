@@ -22,8 +22,12 @@ const buttonVariants = cva(
           "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90 hover:shadow-md dark:bg-destructive/80 dark:hover:bg-destructive/70",
 
         // Outline - border with hover fill
+        // P1 #22 (re-audit): text-primary-text je pri svetli paleti padel na
+        // ~4.4:1 (AA meja 4.5). text-foreground je AA-varen na vsaki svetli
+        // podlagi; rdeča obroba ostane. Temni način ohranja svoje odtenki
+        // (paletteDarkTextVars so že AA-varni).
         outline:
-          "border-2 border-primary bg-transparent text-primary-text hover:bg-primary hover:text-primary-foreground shadow-xs dark:border-primary dark:text-primary-text dark:hover:bg-primary dark:hover:text-primary-foreground",
+          "border-2 border-primary bg-transparent text-foreground hover:bg-primary hover:text-primary-foreground shadow-xs dark:border-primary dark:text-primary-text dark:hover:bg-primary dark:hover:text-primary-foreground",
 
         // Outline Accent
         "outline-accent":

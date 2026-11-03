@@ -185,11 +185,11 @@ export function HomeContent({
               <p className="text-muted-foreground md:text-lg">
                 {content.services.subtitle}
               </p>
-              {/* P1 #39-3: vidna oznaka "izbranih N od M" — grid vsebuje samo
-                  izpostavljene storitve, ne celotnega kataloga. */}
+              {/* P1 #39-3 + #22: vidna oznaka "izbranih N od M" — polna
+                  muted-foreground barva (the /80 odtenek je padel pod AA). */}
               {servicesTotal > featuredServices.length &&
                 featuredServices.length > 0 && (
-                  <p className="text-muted-foreground/80 mt-2 text-sm">
+                  <p className="text-muted-foreground mt-2 text-sm">
                     {t.public.featuredServicesCount(
                       featuredServices.length,
                       servicesTotal

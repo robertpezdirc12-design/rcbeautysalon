@@ -44,7 +44,10 @@ export function Logo({ className, variant = "navbar", src, alt }: LogoProps) {
         role="img"
         aria-label={name}
         className={cn(
-          "font-heading text-primary-text flex items-center justify-center rounded-full bg-primary/10",
+          // P1 #22 (re-audit): text-primary-text na bg-primary/10 je pri svetli
+          // rozni paleti padel pod 4.5:1 (4.17). text-foreground zagotovi AA
+          // kontrast v obeh temah pri vsaki paleti.
+          "font-heading text-foreground flex items-center justify-center rounded-full bg-primary/10",
           className
         )}
         style={{ width, height, fontSize: Math.min(Math.max(height * 0.5, 14), 22) }}

@@ -100,15 +100,18 @@ export function ServicesFilter({
           </SelectContent>
         </Select>
 
-        {/* Toggle Advanced Filters */}
+        {/* Toggle Advanced Filters — P1 #22: ikonski gumb MORA imeti
+            dostopno ime (axe: button-name, critical) + stanje razširjenosti. */}
         <Button
           type="button"
           variant="outline"
           size="icon"
           onClick={() => setShowAdvanced(!showAdvanced)}
+          aria-label={showAdvanced ? "Skrij napredne filtre" : "Pokaži napredne filtre"}
+          aria-expanded={showAdvanced}
           className="shrink-0"
         >
-          <SlidersIcon size={16} weight="regular" />
+          <SlidersIcon size={16} weight="regular" aria-hidden />
         </Button>
       </div>
 
