@@ -1,8 +1,6 @@
-import { redirect } from "next/navigation"
 import type { Metadata } from "next"
 import { getResolvedOrg } from "@/lib/tenant"
 import { canonicalMetadata } from "@/lib/seo"
-import { orgPath } from "@/lib/org-path"
 import { term as profileTerm } from "@/lib/profiles/registry"
 import { resolveEffectiveProfile } from "@/lib/profiles/resolve"
 import { getPublicForms } from "@/app/actions/forms"
@@ -33,16 +31,10 @@ export default async function InquiryPage() {
   await redirectBareToTenant("/inquiry")
 
   const org = await getResolvedOrg()
-  const p = (path: string) => orgPath(org?.slug, path)
-
-  // Booking-capable tenants keep their calendar; the inquiry page
-  // is for inquiry/quote/order profiles (and a universal fallback).
-  const profile = resolveEffectiveProfile(org)
-  if (profile.website.ctaMode === "booking") {
-    redirect(p("/"))
-  }
+  // Guard (booking → domov) je v inquiry/layout.tsx — shell faza (P0 #24).
 
   const forms = await getPublicForms()
+  const profile = resolveEffectiveProfile(org)
   const ctaLabel = profileTerm(profile, "bookingCta", "sl")
 
   return (

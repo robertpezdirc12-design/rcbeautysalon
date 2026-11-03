@@ -6,7 +6,6 @@ import { auth } from "@/lib/auth/auth"
 import { getResolvedOrg } from "@/lib/tenant"
 import { canonicalMetadata } from "@/lib/seo"
 import { orgPath } from "@/lib/org-path"
-import { isBookingEnabled } from "@/lib/public-cta"
 import { getPublicServicesGrouped, redirectBareToTenant } from "@/lib/public-site"
 import {
   getServiceForBooking,
@@ -45,12 +44,8 @@ export default async function BookingPage(props: BookingPageProps) {
   // Tenant-aware redirects: /s/[slug]/booking must keep its prefix
   const org = await getResolvedOrg()
   const p = (path: string) => orgPath(org?.slug, path)
-
-  // Profile guard (EPIC #1 §21): non-appointment businesses never see
-  // a booking calendar — they are routed to the inquiry form instead.
-  if (!isBookingEnabled(org?.vertical, org?.profileOverrides)) {
-    redirect(p("/inquiry"))
-  }
+  // Profile guard (EPIC #1 §21) lives in booking/layout.tsx — shell faza,
+  // tako da je preusmeritev pravi 307 (P0 #24).
 
   // Get current session
   const session = await auth()
