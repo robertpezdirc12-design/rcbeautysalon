@@ -20,6 +20,12 @@
  *     `migrate deploy` retries it. If the migration is healthy
  *     (applied or pending), the script is a no-op.
  *
+ * Probe semantics: `prisma db execute --stdin` exits 0 when the DO block
+ * completes (no failed row) and exits non-zero printing
+ * FAILED_MIGRATION_PRESENT when a failed row exists. Note that NOTICE
+ * output is not echoed by db execute — that's why exit code 0 (not
+ * NOTICE text) is the healthy signal.
+ *
  * Fail-loud policy: unexpected probe errors are rethrown — this guard
  * must never mask a different database problem.
  */
@@ -29,24 +35,17 @@ import { execFileSync } from "node:child_process"
 // safe to roll back + retry because their SQL is idempotent.
 const RESOLVABLE = ["20261105000000_onboarding_answers"]
 
-function prisma(args, { allowFailure = false, input } = {}) {
-  try {
-    return execFileSync("npx", ["prisma", ...args], {
-      encoding: "utf8",
-      stdio: ["pipe", "pipe", "pipe"],
-      input,
-      env: { ...process.env },
-    })
-  } catch (err) {
-    if (allowFailure) return err
-    throw err
-  }
+function runPrisma(args, { input } = {}) {
+  return execFileSync("npx", ["prisma", ...args], {
+    encoding: "utf8",
+    stdio: ["pipe", "pipe", "pipe"],
+    input,
+    env: { ...process.env },
+  })
 }
 
 for (const name of RESOLVABLE) {
-  // Probe: raise a distinctive exception when a FAILED row exists.
-  // (`prisma db execute` cannot return SELECT results, so failure is
-  // the affirmative signal — this is why the logic looks inverted.)
+  // Probe: abort with a distinctive exception when a FAILED row exists.
   const probeSql = `DO $$ BEGIN
   IF EXISTS (
     SELECT 1 FROM "_prisma_migrations"
@@ -55,28 +54,31 @@ for (const name of RESOLVABLE) {
       AND rolled_back_at IS NULL
   ) THEN
     RAISE EXCEPTION 'FAILED_MIGRATION_PRESENT';
-  ELSE
-    RAISE NOTICE 'healthy';
   END IF;
 END $$;`
 
-  const probe = prisma(
-    ["db", "execute", "--stdin", "--schema", "prisma/schema.prisma"],
-    { allowFailure: true, input: probeSql }
-  )
-  const probeOutput = `${probe.stdout || ""}${probe.stderr || ""}`
+  let probeError = null
+  try {
+    runPrisma(["db", "execute", "--stdin", "--schema", "prisma/schema.prisma"], { input: probeSql })
+  } catch (err) {
+    probeError = err
+  }
 
+  if (!probeError) {
+    // DO block completed → no failed row for this migration.
+    console.log(`resolve-guard: ${name} is healthy — nothing to do`)
+    continue
+  }
+
+  const probeOutput = `${probeError.stdout || ""}${probeError.stderr || ""}`
   if (!probeOutput.includes("FAILED_MIGRATION_PRESENT")) {
-    // healthy OR an unrelated error — distinguish the two
-    if (probeOutput.includes("healthy")) {
-      console.log(`resolve-guard: ${name} is healthy — nothing to do`)
-      continue
-    }
-    console.error(`resolve-guard: probe failed unexpectedly:\n${probeOutput}`)
+    console.error(
+      `resolve-guard: probe failed unexpectedly (not a failed-migration signal):\n${probeOutput}`
+    )
     process.exit(1)
   }
 
   console.log(`resolve-guard: ${name} is FAILED — marking rolled back for retry…`)
-  prisma(["migrate", "resolve", "--rolled-back", name, "--schema", "prisma/schema.prisma"])
+  runPrisma(["migrate", "resolve", "--rolled-back", name, "--schema", "prisma/schema.prisma"])
   console.log(`resolve-guard: ${name} rolled back; migrate deploy will retry it (idempotent SQL).`)
 }
