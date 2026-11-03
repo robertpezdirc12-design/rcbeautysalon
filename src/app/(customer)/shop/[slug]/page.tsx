@@ -210,7 +210,7 @@ const ProductDetails = async ({ params }: ProductDetailsProps) => {
               {inStock ? (
                 <>
                   <Check size={20} weight="bold" className="text-green-600" />
-                  <span className="font-medium text-green-600">
+                  <span className="font-medium text-green-700">
                     Na zalogi ({product.stockQuantity} kos)
                   </span>
                 </>

@@ -223,7 +223,7 @@ export function CartContent() {
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Dostava</span>
                 {shipping === 0 ? (
-                  <span className="font-medium text-green-600">Brezplačno</span>
+                  <span className="font-medium text-green-700">Brezplačno</span>
                 ) : (
                   <span className="font-medium">{fmt(shipping)}</span>
                 )}
