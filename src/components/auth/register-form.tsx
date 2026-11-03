@@ -89,7 +89,7 @@ export function RegisterForm() {
               <AlertDescription className="break-all">
                 <Link
                   href={fallbackVerificationUrl}
-                  className="text-primary font-medium underline underline-offset-4"
+                  className="text-primary-text font-medium underline underline-offset-4"
                 >
                   {t.auth.register.fallbackLink}
                 </Link>
@@ -211,7 +211,7 @@ export function RegisterForm() {
               {t.auth.register.haveAccount}{" "}
               <Link
                 href="/login"
-                className="text-primary font-medium hover:underline"
+                className="text-primary-text font-medium hover:underline"
               >
                 {t.auth.register.signIn}
               </Link>
@@ -220,7 +220,7 @@ export function RegisterForm() {
             <div className="text-center">
               <Link
                 href="/"
-                className="text-muted-foreground hover:text-primary text-sm"
+                className="text-muted-foreground hover:text-primary-text text-sm"
               >
                 {t.auth.register.backToHome}
               </Link>

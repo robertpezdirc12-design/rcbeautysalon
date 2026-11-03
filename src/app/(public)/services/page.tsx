@@ -133,7 +133,8 @@ export default async function ServicesPage() {
             alt={content.cta.title}
             fill
             className="object-cover"
-          />
+          
+              sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"/>
         </div>
 
         {/* Dark overlay for text readability */}

@@ -20,11 +20,13 @@ export const bookingSl = {
   pickDateTime: "Izberite datum in uro",
   pickDateTimeDesc: "Izberite, kdaj želite obiskati salon",
   pickStaffFirst: "Najprej izberite osebje",
-  resourceLabel: "Prostor / vir (neobvezno)",
-  resourcePlaceholder: "Izberite prostor ali vir",
-  resourceNone: "Brez posebnega prostora",
+  // P2 #15 (audit-2026-11): "vir" is back-office jargon — customers see
+  // "prostor"; note no longer repeats the word "prost" twice.
+  resourceLabel: "Želeni prostor (neobvezno)",
+  resourcePlaceholder: "Izberite prostor",
+  resourceNone: "Vseeno mi je",
   resourceNote:
-    "Termin bo rezerviran tudi za izbrani prostor — preverjamo, da je prost prost.",
+    "Termin bomo rezervirali tudi za izbrani prostor; preverili bomo, ali je prost.",
   slotsFor: (date: string) => `Prosti termini za ${date}`,
   noSlots: "Za ta dan ni prostih terminov",
 
@@ -45,6 +47,8 @@ export const bookingSl = {
 
   // ---- Povzetek ----
   summaryTitle: "Povzetek rezervacije",
+  // P1 #9 (audit-2026-11): vidni seznam manjkajočih korakov pred oddajo
+  missingHeading: "Za oddajo še manjka:",
   service: "Storitev",
   staff: "Osebje",
   dateTime: "Datum in ura",
@@ -127,9 +131,9 @@ export const bookingEn: BookingDict = {
   pickDateTime: "Pick a date and time",
   pickDateTimeDesc: "Choose when you would like to visit the salon",
   pickStaffFirst: "Choose a staff member first",
-  resourceLabel: "Space / resource (optional)",
-  resourcePlaceholder: "Choose a space or resource",
-  resourceNone: "No special space",
+  resourceLabel: "Preferred space (optional)",
+  resourcePlaceholder: "Choose a space",
+  resourceNone: "It doesn't matter to me",
   resourceNote:
     "The slot will also be reserved for the chosen space — we make sure it is free.",
   slotsFor: (date: string) => `Available slots for ${date}`,
@@ -150,6 +154,7 @@ export const bookingEn: BookingDict = {
   notesPlaceholder: "Any special requests or preferences?",
 
   summaryTitle: "Booking summary",
+  missingHeading: "Still missing before you can submit:",
   service: "Service",
   staff: "Staff",
   dateTime: "Date and time",

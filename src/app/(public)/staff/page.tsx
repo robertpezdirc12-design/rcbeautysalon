@@ -47,7 +47,7 @@ const StaffPage = async () => {
       <section className="relative overflow-hidden bg-linear-to-br from-primary/10 via-background to-accent/10 py-16 md:py-24">
         <div className="container relative z-10 mx-auto px-4">
           <div className="mx-auto max-w-3xl text-center">
-            <span className="mb-4 inline-block rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary font-body">
+            <span className="mb-4 inline-block rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary-text font-body">
               Spoznajte strokovnjake
             </span>
             <h1 className="font-heading mb-4 text-5xl sm:text-6xl md:text-7xl lg:text-8xl">
@@ -118,7 +118,7 @@ const StaffPage = async () => {
                     </div>
 
                     {/* Name */}
-                    <h3 className="font-heading text-3xl md:text-4xl lg:text-5xl mb-2 drop-shadow-lg transition-colors duration-300 group-hover:text-accent">
+                    <h3 className="font-heading text-3xl md:text-4xl lg:text-5xl mb-2 drop-shadow-lg transition-colors duration-300 group-hover:text-accent-text">
                       {staff.name}
                     </h3>
 
@@ -130,7 +130,7 @@ const StaffPage = async () => {
                     )}
 
                     {/* View Profile Button */}
-                    <div className="flex items-center gap-2 text-sm font-medium text-accent opacity-0 translate-y-4 transition-all duration-300 group-hover:opacity-100 group-hover:translate-y-0 font-body">
+                    <div className="flex items-center gap-2 text-sm font-medium text-accent-text opacity-0 translate-y-4 transition-all duration-300 group-hover:opacity-100 group-hover:translate-y-0 font-body">
                       <span>Poglej profil</span>
                       <svg
                         className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1"

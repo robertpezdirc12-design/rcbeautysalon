@@ -460,7 +460,8 @@ export function ProductForm({ categories, product, mode = "create" }: ProductFor
                           alt={t.products.imageAlt(index + 1)}
                           fill
                           className="object-cover"
-                        />
+                        
+              sizes="128px"/>
                         <Button
                           type="button"
                           variant="destructive"

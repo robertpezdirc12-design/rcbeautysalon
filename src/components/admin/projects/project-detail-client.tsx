@@ -101,14 +101,14 @@ interface ProjectDetailClientProps {
 
 const statusColors: Record<string, string> = {
   PLANNING: "bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-400",
-  IN_PROGRESS: "bg-primary/10 text-primary",
+  IN_PROGRESS: "bg-primary/10 text-primary-text",
   COMPLETED: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400",
   CANCELLED: "bg-muted text-muted-foreground line-through",
 }
 
 const taskStatusColors: Record<string, string> = {
   OPEN: "bg-muted text-muted-foreground",
-  IN_PROGRESS: "bg-primary/10 text-primary",
+  IN_PROGRESS: "bg-primary/10 text-primary-text",
   DONE: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400",
 }
 
@@ -345,7 +345,7 @@ export function ProjectDetailClient({ project, tasks, locale, labels }: ProjectD
                   {project.workOrderId && project.workOrderNumber !== null ? (
                     <a
                       href={`/dashboard/work-orders/${project.workOrderId}`}
-                      className="text-primary hover:underline"
+                      className="text-primary-text hover:underline"
                     >
                       {labels.workOrderShort} #{project.workOrderNumber}
                     </a>
@@ -391,7 +391,7 @@ export function ProjectDetailClient({ project, tasks, locale, labels }: ProjectD
               <span className="text-emerald-600 dark:text-emerald-400">
                 ✓ {project.progress.done}
               </span>
-              <span className="text-primary">◐ {project.progress.inProgress}</span>
+              <span className="text-primary-text">◐ {project.progress.inProgress}</span>
               <span>○ {project.progress.open}</span>
             </div>
           </CardContent>

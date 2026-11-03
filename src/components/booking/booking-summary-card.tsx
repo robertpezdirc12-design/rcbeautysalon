@@ -61,6 +61,14 @@ export function BookingSummaryCard({
   const dfLocale = getDateFnsLocale(locale)
   const selectedSlot = availableSlots.find((s) => s.time === selectedTime)
 
+  // P1 #9 (audit-2026-11): a visible checklist of what's still missing, so
+  // the submit button can't look broken when it refuses an incomplete
+  // booking. Rendered right above the CTA with aria-live="polite".
+  const missing: string[] = []
+  if (!service?.name) missing.push(t.booking.service)
+  if (!selectedStaff) missing.push(t.booking.staff)
+  if (!selectedDate || !selectedTime) missing.push(t.booking.dateTime)
+
   // Calculate employee discount (20%)
   const employeeDiscountRate = 0.20
   const originalPrice = service?.price || 0
@@ -94,7 +102,7 @@ export function BookingSummaryCard({
                   <>
                     <CalendarIcon
                       size={14}
-                      className="mr-1 inline text-primary"
+                      className="mr-1 inline text-primary-text"
                       weight="regular"
                     />
                     {format(selectedDate, locale === "sl" ? "d. MMMM yyyy" : "MMMM d, yyyy", { locale: dfLocale })} {t.booking.atSeparator}{" "}
@@ -109,7 +117,7 @@ export function BookingSummaryCard({
             <div>
               <p className="font-semibold text-muted-foreground">{t.booking.duration}</p>
               <p className="text-base font-medium text-foreground">
-                <ClockIcon size={14} className="mr-1 inline text-primary" weight="regular" />
+                <ClockIcon size={14} className="mr-1 inline text-primary-text" weight="regular" />
                 {t.booking.minutes(service?.duration || 0)}
               </p>
             </div>
@@ -131,7 +139,7 @@ export function BookingSummaryCard({
             {isEmployee && (
               <div className="flex justify-between text-sm font-semibold">
                 <span className="text-foreground">{t.booking.finalPrice}</span>
-                <span className="text-primary">{fmt(finalPrice)}</span>
+                <span className="text-primary-text">{fmt(finalPrice)}</span>
               </div>
             )}
             <Separator className="my-2 bg-border/50" />
@@ -146,11 +154,11 @@ export function BookingSummaryCard({
                   {t.booking.notRequired}
                 </span>
               ) : paymentsEnabled ? (
-                <span className="text-primary">
+                <span className="text-primary-text">
                   {fmt(salonConfig.bookingDeposit)}
                 </span>
               ) : (
-                <span className="text-primary">{t.booking.depositInSalonValue}</span>
+                <span className="text-primary-text">{t.booking.depositInSalonValue}</span>
               )}
             </div>
           </div>
@@ -175,7 +183,7 @@ export function BookingSummaryCard({
               </div>
             </div>
           ) : !isEmployee ? (
-            <div className="rounded-xl border-2 border-amber-400 bg-white p-4 dark:border-amber-600 dark:bg-amber-950/40!">
+            <div className="rounded-xl border-2 border-amber-400 bg-white p-4 dark:border-amber-600 dark:bg-amber-950/40">
               <div className="flex gap-3">
                 <WarningCircleIcon
                   size={32}
@@ -220,6 +228,19 @@ export function BookingSummaryCard({
                 weight="regular"
               />
               {error}
+            </div>
+          )}
+          {missing.length > 0 && (
+            <div
+              aria-live="polite"
+              className="border-accent/40 bg-accent/10 text-foreground w-full rounded-lg border p-3 text-sm"
+            >
+              <p className="font-semibold">{t.booking.missingHeading}</p>
+              <ul className="mt-1 list-inside list-disc space-y-0.5 text-muted-foreground">
+                {missing.map((m) => (
+                  <li key={m}>{m}</li>
+                ))}
+              </ul>
             </div>
           )}
           <Button

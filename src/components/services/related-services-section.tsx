@@ -8,6 +8,7 @@ import { CalendarIcon, ClockIcon, CurrencyDollarIcon } from "@/components/icons"
 import { cloudinaryPresets } from "@/lib/utils/cloudinary"
 import { orgPath } from "@/lib/org-path"
 import { formatCurrency } from "@/lib/utils/format"
+import { useI18n } from "@/lib/i18n/provider"
 
 interface RelatedService {
   id: string
@@ -30,6 +31,7 @@ export function RelatedServicesSection({
   currentServiceId,
   orgSlug,
 }: RelatedServicesSectionProps) {
+  const { t } = useI18n()
   // Filter out current service and limit to 3
   const relatedServices = services
     .filter((service) => service.id !== currentServiceId)
@@ -71,10 +73,11 @@ export function RelatedServicesSection({
                       alt={service.name}
                       fill
                       className="object-cover transition-transform duration-500 group-hover:scale-110"
-                    />
+                    
+              sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"/>
                   ) : (
                     <div className="from-muted to-muted/50 flex h-full w-full items-center justify-center bg-linear-to-br">
-                      <CalendarIcon size={48} weight="regular" className="text-primary/30" />
+                      <CalendarIcon size={48} weight="regular" className="text-primary-text/30" />
                     </div>
                   )}
                   <div className="absolute inset-0 bg-linear-to-t from-black/60 via-black/20 to-transparent" />
@@ -82,7 +85,7 @@ export function RelatedServicesSection({
 
                 {/* Service Info */}
                 <CardContent className="p-5 flex flex-col flex-1">
-                  <h3 className="mb-2 text-xl font-bold group-hover:text-accent transition-colors">
+                  <h3 className="mb-2 text-xl font-bold group-hover:text-accent-text transition-colors">
                     {service.name}
                   </h3>
 
@@ -96,7 +99,7 @@ export function RelatedServicesSection({
 
                   {/* Service Details */}
                   <div className="mb-4 flex items-center gap-4 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-1 group-hover:text-accent transition-colors">
+                    <div className="flex items-center gap-1 group-hover:text-accent-text transition-colors">
                       <CurrencyDollarIcon size={16} weight="regular" />
                       <span className="font-semibold">
                         {formatCurrency(service.price)}
@@ -109,14 +112,16 @@ export function RelatedServicesSection({
                   </div>
 
                   {/* View Details Button */}
-                  <Link href={orgPath(orgSlug, `/services/${service.slug}`)}>
-                    <Button
-                      variant="outline"
-                      className="border-primary/50 hover:bg-primary/5 w-full"
-                    >
-                      Podrobnosti
-                    </Button>
-                  </Link>
+                  {/* P1 #8 (audit-2026-11): asChild — no <a><button> nesting */}
+                  <Button
+                    asChild
+                    variant="outline"
+                    className="border-primary/50 hover:bg-primary/5 w-full"
+                  >
+                    <Link href={orgPath(orgSlug, `/services/${service.slug}`)}>
+                      {t.public.details}
+                    </Link>
+                  </Button>
                 </CardContent>
               </Card>
             ))}

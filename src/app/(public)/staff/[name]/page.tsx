@@ -100,7 +100,7 @@ const StaffDetailPage = async ({ params }: StaffDetailPageProps) => {
                     key={i}
                     size={20}
                     weight="fill"
-                    className="text-accent"
+                    className="text-accent-text"
                   />
                 ))}
                 <span className="ml-2 text-sm text-muted-foreground font-body">
@@ -125,7 +125,7 @@ const StaffDetailPage = async ({ params }: StaffDetailPageProps) => {
                 {staffMember.email && (
                   <a
                     href={`mailto:${staffMember.email}`}
-                    className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/20 font-body"
+                    className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-2 text-sm font-medium text-primary-text transition-colors hover:bg-primary/20 font-body"
                   >
                     <EnvelopeIcon size={18} />
                     {staffMember.email}
@@ -178,10 +178,10 @@ const StaffDetailPage = async ({ params }: StaffDetailPageProps) => {
                   className="group rounded-2xl border border-border bg-card p-6 transition-all duration-300 hover:border-primary/50 hover:shadow-lg hover:-translate-y-1"
                 >
                   <div className="mb-4 flex items-start justify-between">
-                    <h3 className="font-heading text-2xl transition-colors group-hover:text-accent">
+                    <h3 className="font-heading text-2xl transition-colors group-hover:text-accent-text">
                       {service.name}
                     </h3>
-                    <span className="rounded-full bg-accent/10 px-3 py-1 text-sm font-semibold text-accent font-body">
+                    <span className="rounded-full bg-accent/10 px-3 py-1 text-sm font-semibold text-accent-text font-body">
                       {formatCurrency(Number(service.price))}
                     </span>
                   </div>

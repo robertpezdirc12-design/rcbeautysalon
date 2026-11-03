@@ -17,16 +17,13 @@ export function CTAButton({
   children,
   variant = "default"
 }: CTAButtonProps) {
+  // P1 #8 (audit-2026-11): asChild — no <a><button> nesting
   return (
-    <Link href={href}>
-      <Button
-        size={size}
-        variant={variant}
-        className={className}
-      >
-        <CalendarIcon className="group-hover:text-accent mr-2 h-5 w-5 transition-colors" />
+    <Button asChild size={size} variant={variant} className={className}>
+      <Link href={href}>
+        <CalendarIcon className="group-hover:text-accent-text mr-2 h-5 w-5 transition-colors" aria-hidden />
         {children}
-      </Button>
-    </Link>
+      </Link>
+    </Button>
   )
 }

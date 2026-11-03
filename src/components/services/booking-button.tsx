@@ -19,12 +19,13 @@ export function BookingButton({
   className = "bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg",
   label = "Rezerviraj zdaj",
 }: BookingButtonProps) {
+  // P1 #8 (audit-2026-11): asChild — no <a><button> nesting
   return (
-    <Link href={href}>
-      <Button size={size} variant={variant} className={className}>
-        <CalendarIcon size={20} weight="regular" className="mr-2" />
+    <Button asChild size={size} variant={variant} className={className}>
+      <Link href={href} aria-label={label}>
+        <CalendarIcon size={20} weight="regular" className="mr-2" aria-hidden />
         {label}
-      </Button>
-    </Link>
+      </Link>
+    </Button>
   )
 }

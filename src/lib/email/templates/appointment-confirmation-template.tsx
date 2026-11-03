@@ -1,3 +1,4 @@
+import { DEFAULT_EMAIL_LOGO } from "@/lib/default-assets"
 import {
   Body,
   Button,
@@ -39,8 +40,9 @@ export function AppointmentConfirmationTemplate({
   depositAmount,
   appointmentId,
 }: AppointmentConfirmationTemplateProps) {
-  const logoUrl =
-    "https://res.cloudinary.com/caballerorandy/image/upload/v1764553458/Beauty%20Salon/services/logo_yfvhhd.png"
+  // P1 #18 (audit-2026-11): logo URL centralized — tenant-logo plumbing
+  // (org.logo per e-mail) is a documented follow-up.
+  const logoUrl = DEFAULT_EMAIL_LOGO
 
   const formattedDate = format(new Date(appointmentDate), "EEEE, MMMM d, yyyy")
   const bookingRef = appointmentId.slice(-8).toUpperCase()

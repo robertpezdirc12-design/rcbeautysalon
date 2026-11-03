@@ -6,8 +6,11 @@
  * - NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
  */
 
-// Cloudinary configuration
-const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'caballerorandy'
+import { FALLBACK_CLOUD_NAME } from '@/lib/default-assets'
+
+// Cloudinary configuration (P1 #18: the third-party fallback name lives in
+// lib/default-assets.ts — the ONLY place allowed to reference it).
+const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || FALLBACK_CLOUD_NAME
 
 /**
  * Generates a Cloudinary URL with transformations

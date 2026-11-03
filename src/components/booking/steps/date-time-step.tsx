@@ -118,7 +118,7 @@ export function DateTimeStep({
                     const maxDate = addDays(today, maxBookingAdvance)
                     return date < today || date > maxDate
                   }}
-                  className="rounded-lg border-2 shadow-sm"
+                  className="rounded-lg border shadow-sm"
                 />
               </div>
               {dateError && <p className="text-center text-sm text-destructive">{dateError}</p>}
@@ -142,8 +142,9 @@ export function DateTimeStep({
                     <SelectItem value="none">{t.booking.resourceNone}</SelectItem>
                     {resources.map((r) => (
                       <SelectItem key={r.id} value={r.id}>
+                        {/* P2 #15 (audit-2026-11): samo ime — "Stol 1 — Stol"
+                            ponavlja vrsto, ki jo stranki ni treba videti. */}
                         {r.name}
-                        {r.kind ? ` — ${r.kind}` : ""}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -161,7 +162,7 @@ export function DateTimeStep({
                 </Label>
                 {loadingSlots ? (
                   <div className="flex justify-center py-8">
-                    <SpinnerGapIcon size={32} className="animate-spin text-primary" weight="regular" />
+                    <SpinnerGapIcon size={32} className="animate-spin text-primary-text" weight="regular" />
                   </div>
                 ) : availableSlots.length === 0 ? (
                   <p className="text-center text-muted-foreground">

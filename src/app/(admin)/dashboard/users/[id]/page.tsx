@@ -278,10 +278,11 @@ export default async function UserDetailsPage({ params }: PageProps) {
                       alt={user.name || t.users.altUser}
                       fill
                       className="object-cover"
-                    />
+                    
+              sizes="80px"/>
                   </div>
                 ) : (
-                  <div className="bg-primary/10 text-primary flex h-16 w-16 items-center justify-center rounded-full text-xl font-semibold">
+                  <div className="bg-primary/10 text-primary-text flex h-16 w-16 items-center justify-center rounded-full text-xl font-semibold">
                     {user.name
                       ?.split(" ")
                       .map((n) => n[0])
@@ -331,7 +332,7 @@ export default async function UserDetailsPage({ params }: PageProps) {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-muted/50 rounded-lg p-3 text-center">
-                    <p className="text-primary text-2xl font-bold">
+                    <p className="text-primary-text text-2xl font-bold">
                       {appointments.length}
                     </p>
                     <p className="text-muted-foreground text-xs">
@@ -339,7 +340,7 @@ export default async function UserDetailsPage({ params }: PageProps) {
                     </p>
                   </div>
                   <div className="bg-muted/50 rounded-lg p-3 text-center">
-                    <p className="text-primary text-2xl font-bold">
+                    <p className="text-primary-text text-2xl font-bold">
                       {orders.length}
                     </p>
                     <p className="text-muted-foreground text-xs">{t.users.ordersLabel}</p>

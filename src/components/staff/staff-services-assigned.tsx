@@ -57,7 +57,7 @@ export function StaffServicesAssigned({ services }: StaffServicesAssignedProps) 
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <ScissorsIcon size={20} className="text-primary" />
+            <ScissorsIcon size={20} className="text-primary-text" />
             <CardTitle className="text-lg">Dodeljene storitve</CardTitle>
           </div>
           <Badge variant="secondary" className="text-xs">

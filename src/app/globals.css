@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* P0 #6 (audit-2026-11): Tailwind v4 `dark:` must follow the app-selected
+   theme (.dark class toggled by next-themes), not the OS preference.
+   Without this, `dark:` variants use the default `prefers-color-scheme`. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* Tremor v3 gradi barvne razrede med izvajanjem (`bg-${color}-${shade}` v dist kodi).
    Brez tega Tailwind v4 ne skenira node_modules → donut/area/bar grafikoni brez barv
    (črn krog na črnem v temni temi). P0 #3 — vizualni walkthrough. */
@@ -94,6 +99,9 @@
 
   --primary: var(--primary-500);
   --primary-foreground: 0 0% 100%;
+  /* P1 #7: rose platform defaults (org palettes override via <style id=org-theme>) */
+  --primary-text: 340 45% 36%;
+  --accent-text: 38 70% 30%;
   --primary-hover: var(--primary-600);
   --primary-active: var(--primary-700);
 
@@ -184,6 +192,10 @@
 
   --primary: var(--primary-500);
   --primary-foreground: 340 10% 8%;
+  /* P1 #7: dark-mode text-safe brand shades (lighter, AA on dark bg).
+     Org palettes inject their own .dark overrides later (layout.tsx). */
+  --primary-text: 340 50% 78%;
+  --accent-text: 42 80% 72%;
   --primary-hover: var(--primary-400);
   --primary-active: var(--primary-300);
 
@@ -255,6 +267,10 @@
   --color-primary-900: hsl(var(--primary-900));
   --color-primary: hsl(var(--primary));
   --color-primary-foreground: hsl(var(--primary-foreground));
+  /* P1 #7 (audit-2026-11): besedilno varni blagovni odtenki — prvi odtenek
+     z ≥ 4.5:1 glede na ozadje (svetli/temni način ima ločeni vrednosti). */
+  --color-primary-text: hsl(var(--primary-text));
+  --color-accent-text: hsl(var(--accent-text));
 
   /* Accent scale */
   --color-accent-50: hsl(var(--accent-50));

@@ -482,7 +482,8 @@ export function ServiceForm({
                     alt={t.services.imageAlt}
                     fill
                     className="object-cover"
-                  />
+                  
+              sizes="128px"/>
                   <Button
                     type="button"
                     variant="destructive"

@@ -157,7 +157,7 @@ export function WorkOrderDetailClient({
                     <span className="text-foreground font-medium">{fmtDate(order.dueDate)}</span>
                   </span>
                   {order.sourceSubmissionId && (
-                    <span className="text-primary">⎘ {labels.created} (obrazec)</span>
+                    <span className="text-primary-text">⎘ {labels.created} (obrazec)</span>
                   )}
                 </div>
               </div>
@@ -208,7 +208,7 @@ export function WorkOrderDetailClient({
                             "flex h-7 w-7 items-center justify-center rounded-full border-2 text-[11px] font-bold transition-colors",
                             done && "border-primary bg-primary text-primary-foreground",
                             isCurrent &&
-                              "border-primary text-primary bg-primary/10 ring-primary/20 ring-4",
+                              "border-primary text-primary-text bg-primary/10 ring-primary/20 ring-4",
                             !done && !isCurrent && "border-border bg-background text-muted-foreground"
                           )}
                         >
@@ -217,7 +217,7 @@ export function WorkOrderDetailClient({
                         <span
                           className={cn(
                             "max-w-20 truncate text-center text-[11px] leading-tight",
-                            isCurrent ? "text-primary font-semibold" : "text-muted-foreground"
+                            isCurrent ? "text-primary-text font-semibold" : "text-muted-foreground"
                           )}
                           title={stage.name}
                         >
@@ -336,7 +336,7 @@ export function WorkOrderDetailClient({
                 {order.customer.email && (
                   <a
                     href={`mailto:${order.customer.email}`}
-                    className="text-primary hover:underline"
+                    className="text-primary-text hover:underline"
                   >
                     {order.customer.email}
                   </a>
@@ -387,7 +387,7 @@ export function WorkOrderDetailClient({
               </dl>
               <Link
                 href="/dashboard/records"
-                className="text-primary mt-3 inline-block text-xs hover:underline"
+                className="text-primary-text mt-3 inline-block text-xs hover:underline"
               >
                 {recordsLinkLabel}
               </Link>

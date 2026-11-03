@@ -32,7 +32,7 @@ function Stars({ rating }: { rating: number }) {
           key={i}
           size={16}
           weight={i < rating ? "fill" : "regular"}
-          className={i < rating ? "text-accent" : "text-muted-foreground/30"}
+          className={i < rating ? "text-accent-text" : "text-muted-foreground/30"}
         />
       ))}
     </div>
@@ -61,7 +61,7 @@ export function TestimonialsSection({ testimonials }: { testimonials: LandingTes
           </h2>
           <p className="text-muted-foreground md:text-lg">{t.public.testimonialsSubtitle}</p>
           <div className="mt-4 flex items-center justify-center gap-2">
-            <StarIcon size={20} weight="fill" className="text-accent" />
+            <StarIcon size={20} weight="fill" className="text-accent-text" />
             <span className="text-xl font-bold">{average.toFixed(1)}</span>
           </div>
         </div>
@@ -86,7 +86,7 @@ export function TestimonialsSection({ testimonials }: { testimonials: LandingTes
                           alt={review.user.name ?? ""}
                         />
                       )}
-                      <AvatarFallback className="bg-primary/10 text-primary">
+                      <AvatarFallback className="bg-primary/10 text-primary-text">
                         {displayAuthor(review.user.name, t.public.reviewAnonym).charAt(0).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>

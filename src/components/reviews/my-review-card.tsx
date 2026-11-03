@@ -75,7 +75,8 @@ export function MyReviewCard({ review }: MyReviewCardProps) {
                 alt={review.service.name}
                 fill
                 className="object-cover"
-              />
+              
+              sizes="56px"/>
             ) : (
               <div className="bg-muted flex h-full w-full items-center justify-center">
                 <span className="text-muted-foreground text-xs">Ni slike</span>
@@ -101,7 +102,7 @@ export function MyReviewCard({ review }: MyReviewCardProps) {
                       weight={star <= review.rating ? "fill" : "regular"}
                       className={
                         star <= review.rating
-                          ? "text-accent"
+                          ? "text-accent-text"
                           : "text-muted-foreground"
                       }
                     />
@@ -120,7 +121,7 @@ export function MyReviewCard({ review }: MyReviewCardProps) {
                   size="icon"
                   onClick={() => setShowEditDialog(true)}
                   disabled={isPending}
-                  className="text-muted-foreground hover:text-primary h-8 w-8"
+                  className="text-muted-foreground hover:text-primary-text h-8 w-8"
                 >
                   <PencilIcon size={16} />
                 </Button>

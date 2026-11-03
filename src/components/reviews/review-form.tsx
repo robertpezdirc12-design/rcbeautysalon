@@ -79,7 +79,7 @@ export function ReviewForm({ serviceId, serviceName }: ReviewFormProps) {
                 weight={star <= (hoveredRating || rating) ? "fill" : "regular"}
                 className={`${
                   star <= (hoveredRating || rating)
-                    ? "text-accent"
+                    ? "text-accent-text"
                     : "text-muted-foreground"
                 } transition-colors`}
               />

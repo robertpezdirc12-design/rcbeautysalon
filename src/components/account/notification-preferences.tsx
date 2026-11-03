@@ -68,7 +68,7 @@ export function NotificationPreferences({ preferences }: NotificationPreferences
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <BellIcon size={20} className="text-primary" />
+          <BellIcon size={20} className="text-primary-text" />
           Nastavitve obveščanja
         </CardTitle>
         <CardDescription>

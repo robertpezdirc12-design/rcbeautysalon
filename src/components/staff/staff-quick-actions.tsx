@@ -25,7 +25,7 @@ export function StaffQuickActions() {
       <CardContent className="grid gap-3">
         <Button variant="outline" className="h-auto justify-start py-3" asChild>
           <Link href="/staff-portal/appointments">
-            <CalendarIcon size={20} className="mr-3 text-primary" />
+            <CalendarIcon size={20} className="mr-3 text-primary-text" />
             <div className="text-left">
               <p className="font-medium text-foreground">Prikaži vse termine</p>
               <p className="text-xs text-muted-foreground">Poglejte svoj celoten urnik</p>

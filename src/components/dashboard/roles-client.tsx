@@ -245,7 +245,7 @@ export function RolesClient({
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between gap-2">
                   <CardTitle className="flex items-center gap-2 text-base">
-                    <LockIcon size={15} className="text-primary shrink-0" />
+                    <LockIcon size={15} className="text-primary-text shrink-0" />
                     <span className="truncate">{role.name}</span>
                   </CardTitle>
                   <div className="flex shrink-0 items-center gap-1">

@@ -149,7 +149,7 @@ export default async function AppointmentDetailPage({ params }: PageProps) {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="flex items-center gap-3">
                   <div className="bg-primary/10 flex h-10 w-10 items-center justify-center rounded-full">
-                    <CalendarIcon size={20} className="text-primary" />
+                    <CalendarIcon size={20} className="text-primary-text" />
                   </div>
                   <div>
                     <p className="text-muted-foreground text-sm">
@@ -162,7 +162,7 @@ export default async function AppointmentDetailPage({ params }: PageProps) {
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="bg-primary/10 flex h-10 w-10 items-center justify-center rounded-full">
-                    <ClockIcon size={20} className="text-primary" />
+                    <ClockIcon size={20} className="text-primary-text" />
                   </div>
                   <div>
                     <p className="text-muted-foreground text-sm">
@@ -247,7 +247,7 @@ export default async function AppointmentDetailPage({ params }: PageProps) {
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-3">
-                <div className="bg-primary/10 text-primary flex h-12 w-12 items-center justify-center rounded-full font-semibold">
+                <div className="bg-primary/10 text-primary-text flex h-12 w-12 items-center justify-center rounded-full font-semibold">
                   {appointment.staff.name
                     .split(" ")
                     .map((n) => n[0])

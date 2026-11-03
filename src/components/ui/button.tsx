@@ -23,7 +23,7 @@ const buttonVariants = cva(
 
         // Outline - border with hover fill
         outline:
-          "border-2 border-primary bg-transparent text-primary hover:bg-primary hover:text-primary-foreground shadow-xs dark:border-primary dark:text-primary dark:hover:bg-primary dark:hover:text-primary-foreground",
+          "border-2 border-primary bg-transparent text-primary-text hover:bg-primary hover:text-primary-foreground shadow-xs dark:border-primary dark:text-primary-text dark:hover:bg-primary dark:hover:text-primary-foreground",
 
         // Outline Accent
         "outline-accent":
@@ -35,14 +35,14 @@ const buttonVariants = cva(
 
         // Ghost - minimal, no background
         ghost:
-          "text-foreground/80 hover:bg-primary/10 hover:text-primary dark:hover:bg-primary/20 dark:hover:text-primary",
+          "text-foreground/80 hover:bg-primary/10 hover:text-primary-text dark:hover:bg-primary/20 dark:hover:text-primary-text",
 
         // Ghost Accent
         "ghost-accent":
-          "text-foreground/80 hover:bg-accent/10 hover:text-accent dark:hover:bg-accent/20 dark:hover:text-accent",
+          "text-foreground/80 hover:bg-accent/10 hover:text-accent-text dark:hover:bg-accent/20 dark:hover:text-accent-text",
 
         // Link
-        link: "text-primary underline-offset-4 hover:underline dark:text-primary",
+        link: "text-primary-text underline-offset-4 hover:underline dark:text-primary-text",
 
         // Glass - frosted glass effect
         glass:
@@ -50,7 +50,7 @@ const buttonVariants = cva(
 
         // Glass Primary - tinted glass
         "glass-primary":
-          "glass-primary text-primary hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0",
+          "glass-primary text-primary-text hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0",
 
         // Glass Accent - gold tinted glass
         "glass-accent":

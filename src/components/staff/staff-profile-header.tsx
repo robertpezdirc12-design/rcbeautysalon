@@ -104,7 +104,7 @@ export function StaffProfileHeader({ profile }: StaffProfileHeaderProps) {
           {/* Completed Appointments */}
           <div className="bg-muted/50 rounded-xl p-3 text-center sm:p-4">
             <div className="flex items-center justify-center gap-1.5">
-              <CalendarCheckIcon size={18} className="text-primary" />
+              <CalendarCheckIcon size={18} className="text-primary-text" />
               <span className="text-lg font-bold sm:text-xl">
                 {profile.totalCompletedAppointments}
               </span>

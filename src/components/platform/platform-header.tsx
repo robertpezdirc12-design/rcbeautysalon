@@ -19,7 +19,7 @@ export function PlatformHeader({ labels, operatorEmail }: PlatformHeaderProps) {
       <div className="container mx-auto flex items-center justify-between gap-4 px-4 py-3 sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10">
-            <ShieldCheck className="h-5 w-5 text-primary" aria-hidden="true" />
+            <ShieldCheck className="h-5 w-5 text-primary-text" aria-hidden="true" />
           </div>
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold leading-tight">

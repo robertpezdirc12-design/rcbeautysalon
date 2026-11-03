@@ -54,7 +54,7 @@ export function ServiceSelectionStep({
                     <CheckCircleIcon
                       size={24}
                       weight="fill"
-                      className="text-primary"
+                      className="text-primary-text"
                     />
                   </div>
                 )}
@@ -63,7 +63,7 @@ export function ServiceSelectionStep({
                 <div className="mb-2">
                   <h4 className={cn(
                     "font-semibold",
-                    isSelected ? "text-primary" : "text-foreground"
+                    isSelected ? "text-primary-text" : "text-foreground"
                   )}>
                     {service.name}
                   </h4>

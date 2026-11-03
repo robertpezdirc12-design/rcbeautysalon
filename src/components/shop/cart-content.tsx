@@ -142,7 +142,7 @@ export function CartContent() {
                     <ShoppingBag
                       size={48}
                       weight="light"
-                      className="text-primary/60"
+                      className="text-primary-text/60"
                     />
                   </div>
                   <h3 className="mb-2 text-xl font-semibold">
@@ -201,7 +201,7 @@ export function CartContent() {
               <Separator />
               <div className="flex justify-between text-lg font-bold">
                 <span>Skupaj</span>
-                <span className="text-primary">{fmt(grandTotal)}</span>
+                <span className="text-primary-text">{fmt(grandTotal)}</span>
               </div>
             </CardContent>
             <CardFooter className="flex flex-col gap-3 p-6 pt-0">

@@ -180,7 +180,7 @@ export function defaultSiteContent(vertical: string): SiteContent {
       },
       features: {
         title: "Zakaj izbrati nas",
-        subtitle: "Zmerno luksuzna izkušnja, prilagojena vam",
+        subtitle: "Dostopno razkošje, prilagojeno vam",
         items: [
           { icon: "CalendarCheck", title: "Enostavno naročanje", description: "Rezervirajte termin v nekaj klikih, 24/7." },
           { icon: "Sparkles", title: "Strokovnjakinje", description: "Izkušena ekipa z občutkom za detajle." },

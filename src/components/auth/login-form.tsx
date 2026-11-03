@@ -16,7 +16,13 @@ import { Logo } from "@/components/ui/logo"
 import { loginSchema, type LoginInput } from "@/lib/validations/auth"
 import { useI18n } from "@/lib/i18n/provider"
 
-export function LoginForm() {
+interface LoginFormProps {
+  orgName?: string | null
+  orgLogo?: string | null
+  orgSlug?: string | null
+}
+
+export function LoginForm({ orgName, orgLogo, orgSlug }: LoginFormProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { t } = useI18n()
@@ -79,8 +85,16 @@ export function LoginForm() {
     <div className="flex min-h-screen items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <div className="mb-6 flex justify-center">
-            <Logo variant="auth" />
+          <div className="mb-6 flex flex-col items-center gap-2">
+            <Logo variant="auth" src={orgLogo ?? undefined} alt={orgName ?? undefined} />
+            {orgName && orgSlug && (
+              <Link
+                href={`/s/${orgSlug}`}
+                className="text-muted-foreground hover:text-primary-text text-sm transition-colors"
+              >
+                ← Nazaj na {orgName}
+              </Link>
+            )}
           </div>
           <CardTitle className="text-center text-2xl">{t.auth.login.welcomeBack}</CardTitle>
           <CardDescription className="text-center">
@@ -109,7 +123,7 @@ export function LoginForm() {
                 <Label htmlFor="password">{t.auth.login.password}</Label>
                 <Link
                   href="/forgot-password"
-                  className="text-sm text-muted-foreground hover:text-primary"
+                  className="text-sm text-muted-foreground hover:text-primary-text"
                 >
                   {t.auth.login.forgotPassword}
                 </Link>
@@ -138,20 +152,20 @@ export function LoginForm() {
 
             <div className="text-center text-sm text-muted-foreground">
               {t.auth.login.noAccount}{" "}
-              <Link href="/register" className="font-medium text-primary hover:underline">
+              <Link href="/register" className="font-medium text-primary-text hover:underline">
                 {t.auth.login.createAccount}
               </Link>
             </div>
 
             <div className="text-center text-sm text-muted-foreground">
               {t.auth.login.ownSalon}{" "}
-              <Link href="/start" className="font-medium text-primary hover:underline">
+              <Link href="/start" className="font-medium text-primary-text hover:underline">
                 Ustvari svoj salon
               </Link>
             </div>
 
             <div className="text-center">
-              <Link href="/" className="text-sm text-muted-foreground hover:text-primary">
+              <Link href="/" className="text-sm text-muted-foreground hover:text-primary-text">
                 {t.auth.login.backToHome}
               </Link>
             </div>

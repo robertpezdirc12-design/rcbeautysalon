@@ -97,7 +97,7 @@ const priorityColors: Record<string, string> = {
 }
 
 const statusColors: Record<string, string> = {
-  OPEN: "bg-primary/10 text-primary",
+  OPEN: "bg-primary/10 text-primary-text",
   COMPLETED: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400",
   CANCELLED: "bg-muted text-muted-foreground line-through",
 }
@@ -365,7 +365,7 @@ export function WorkOrdersClient({
                     <td className="max-w-56 px-2 py-3">
                       <Link
                         href={`/dashboard/work-orders/${o.id}`}
-                        className="hover:text-primary font-medium hover:underline"
+                        className="hover:text-primary-text font-medium hover:underline"
                       >
                         {o.title}
                       </Link>
@@ -385,7 +385,7 @@ export function WorkOrdersClient({
                     </td>
                     <td className="px-2 py-3">
                       {o.status === "OPEN" && o.currentStageName ? (
-                        <span className="bg-primary/10 text-primary rounded-full px-2.5 py-0.5 text-xs font-medium">
+                        <span className="bg-primary/10 text-primary-text rounded-full px-2.5 py-0.5 text-xs font-medium">
                           {o.currentStageName}
                         </span>
                       ) : (

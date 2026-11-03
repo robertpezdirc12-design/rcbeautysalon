@@ -72,7 +72,7 @@ export function StaffDialog({ staff, open, onOpenChange }: StaffDialogProps) {
             <DialogTitle className="text-center text-2xl font-bold">
               {staff.name}
             </DialogTitle>
-            <div className="text-accent flex items-center justify-center gap-1">
+            <div className="text-accent-text flex items-center justify-center gap-1">
               {[...Array(5)].map((_, i) => (
                 <StarIcon key={i} size={16} weight="fill" />
               ))}
@@ -92,7 +92,7 @@ export function StaffDialog({ staff, open, onOpenChange }: StaffDialogProps) {
             {staff.email && (
               <div className="flex items-center gap-3 text-sm">
                 <div className="bg-primary/10 flex h-8 w-8 items-center justify-center rounded-full">
-                  <EnvelopeIcon size={16} className="text-primary" />
+                  <EnvelopeIcon size={16} className="text-primary-text" />
                 </div>
                 <span className="text-muted-foreground">{staff.email}</span>
               </div>
@@ -100,7 +100,7 @@ export function StaffDialog({ staff, open, onOpenChange }: StaffDialogProps) {
             {staff.phone && (
               <div className="flex items-center gap-3 text-sm">
                 <div className="bg-primary/10 flex h-8 w-8 items-center justify-center rounded-full">
-                  <PhoneIcon size={16} className="text-primary" />
+                  <PhoneIcon size={16} className="text-primary-text" />
                 </div>
                 <span className="text-muted-foreground">{staff.phone}</span>
               </div>
@@ -116,7 +116,7 @@ export function StaffDialog({ staff, open, onOpenChange }: StaffDialogProps) {
                   <Badge
                     key={ss.service.id}
                     variant="secondary"
-                    className="bg-primary/10 text-primary hover:bg-primary/20"
+                    className="bg-primary/10 text-primary-text hover:bg-primary/20"
                   >
                     {ss.service.name}
                   </Badge>

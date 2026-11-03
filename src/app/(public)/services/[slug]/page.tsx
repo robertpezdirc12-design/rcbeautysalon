@@ -122,7 +122,8 @@ export default async function ServiceDetailPage({
                   fill
                   className="object-cover"
                   priority
-                />
+                
+              sizes="100vw"/>
               ) : (
                 <div className="bg-muted flex h-full w-full items-center justify-center">
                   <span className="text-muted-foreground text-lg">
@@ -158,7 +159,7 @@ export default async function ServiceDetailPage({
               <div className="mb-8 grid grid-cols-2 gap-4">
                 <Card className="border-primary/20">
                   <CardHeader className="pb-3">
-                    <div className="text-primary flex items-center gap-2">
+                    <div className="text-primary-text flex items-center gap-2">
                       <CurrencyDollarIcon size={20} />
                       <CardTitle className="text-sm font-medium">
                         Cena
@@ -174,7 +175,7 @@ export default async function ServiceDetailPage({
 
                 <Card className="border-primary/20">
                   <CardHeader className="pb-3">
-                    <div className="text-primary flex items-center gap-2">
+                    <div className="text-primary-text flex items-center gap-2">
                       <ClockIcon size={20} />
                       <CardTitle className="text-sm font-medium">
                         Trajanje
@@ -191,7 +192,7 @@ export default async function ServiceDetailPage({
               {service.staffServices && service.staffServices.length > 0 && (
                 <div className="mb-8">
                   <h2 className="mb-4 flex items-center gap-2 text-xl font-semibold">
-                    <UserIcon size={20} className="text-primary" />
+                    <UserIcon size={20} className="text-primary-text" />
                     Razpoložljivi člani ekipe
                   </h2>
                   <div className="grid gap-4 sm:grid-cols-2">
@@ -223,7 +224,7 @@ export default async function ServiceDetailPage({
                   <Button
                     size="lg"
                     variant="outline"
-                    className="border-primary/50 hover:bg-primary/5 dark:hover:text-accent w-full sm:w-auto"
+                    className="border-primary/50 hover:bg-primary/5 dark:hover:text-accent-text w-full sm:w-auto"
                   >
                     Prikaži več storitev
                   </Button>

@@ -1,6 +1,8 @@
 import { PrismaClient, Prisma } from '@prisma/client'
 import { hash } from 'bcryptjs'
 import { addDays, setHours, setMinutes } from 'date-fns'
+// P1 #18 (audit-2026-11): default media centralized in one module
+import { DEFAULT_CATALOG_IMAGES, DEFAULT_DEMO_MEDIA } from '../src/lib/default-assets'
 
 const prisma = new PrismaClient()
 
@@ -212,7 +214,7 @@ async function main() {
   const haircut = await serviceUpsert({
     where: { slug: 'haircut-style' },
     update: {
-      imageUrl: 'https://res.cloudinary.com/caballerorandy/image/upload/v1763611761/Beauty%20Salon/services/classic-haircut_inzgrp.avif',
+      imageUrl: DEFAULT_CATALOG_IMAGES.haircut,
     },
     create: {
       name: 'Striženje in oblikovanje',
@@ -220,7 +222,7 @@ async function main() {
       description: 'Profesionalno striženje, prilagojeno obliki obraza in vašemu življenjskemu slogu, zaključeno z oblikovanjem za urejen videz.',
       duration: 60,
       price: 75.0,
-      imageUrl: 'https://res.cloudinary.com/caballerorandy/image/upload/v1763611761/Beauty%20Salon/services/classic-haircut_inzgrp.avif',
+      imageUrl: DEFAULT_CATALOG_IMAGES.haircut,
       categoryId: hairCategory.id,
       isActive: true,
       isFeatured: true,
@@ -231,7 +233,7 @@ async function main() {
   const coloring = await serviceUpsert({
     where: { slug: 'hair-coloring' },
     update: {
-      imageUrl: 'https://res.cloudinary.com/caballerorandy/image/upload/v1763538513/Beauty%20Salon/services/coloring_aiw6e3.avif',
+      imageUrl: DEFAULT_CATALOG_IMAGES.coloring,
     },
     create: {
       name: 'Barvanje las',
@@ -239,7 +241,7 @@ async function main() {
       description: 'Barvanje celotne glave s premium izdelki. Vključuje barvni posvet, nanos barve in regeneracijski tretmaj.',
       duration: 120,
       price: 150.0,
-      imageUrl: 'https://res.cloudinary.com/caballerorandy/image/upload/v1763538513/Beauty%20Salon/services/coloring_aiw6e3.avif',
+      imageUrl: DEFAULT_CATALOG_IMAGES.coloring,
       categoryId: hairCategory.id,
       isActive: true,
       isFeatured: true,
@@ -250,7 +252,7 @@ async function main() {
   const highlights = await serviceUpsert({
     where: { slug: 'highlights' },
     update: {
-      imageUrl: 'https://res.cloudinary.com/caballerorandy/image/upload/v1763612088/Beauty%20Salon/services/highlights_mrhaba.avif',
+      imageUrl: DEFAULT_CATALOG_IMAGES.highlights,
     },
     create: {
       name: 'Prameni in balayage',
@@ -258,7 +260,7 @@ async function main() {
       description: 'Naravni prameni ali ročno naslikan balayage za dimenzijo in globino las.',
       duration: 150,
       price: 180.0,
-      imageUrl: 'https://res.cloudinary.com/caballerorandy/image/upload/v1763612088/Beauty%20Salon/services/highlights_mrhaba.avif',
+      imageUrl: DEFAULT_CATALOG_IMAGES.highlights,
       categoryId: hairCategory.id,
       isActive: true,
       isFeatured: false,
@@ -268,7 +270,7 @@ async function main() {
   const keratin = await serviceUpsert({
     where: { slug: 'keratin-treatment' },
     update: {
-      imageUrl: 'https://res.cloudinary.com/caballerorandy/image/upload/v1763611939/Beauty%20Salon/services/hair-treatment_hs60yv.avif',
+      imageUrl: DEFAULT_CATALOG_IMAGES.hairTreatment,
     },
     create: {
       name: 'Keratin glajenje',
@@ -276,7 +278,7 @@ async function main() {
       description: 'Glajevalni keratin tretmaj, ki odpravi frizz in skrajša čas oblikovanja do 3 mesecev.',
       duration: 180,
       price: 250.0,
-      imageUrl: 'https://res.cloudinary.com/caballerorandy/image/upload/v1763611939/Beauty%20Salon/services/hair-treatment_hs60yv.avif',
+      imageUrl: DEFAULT_CATALOG_IMAGES.hairTreatment,
       categoryId: hairCategory.id,
       isActive: true,
       isFeatured: false,
@@ -286,7 +288,7 @@ async function main() {
   const manicure = await serviceUpsert({
     where: { slug: 'manicure' },
     update: {
-      imageUrl: 'https://res.cloudinary.com/caballerorandy/image/upload/v1763538512/Beauty%20Salon/services/manicure_hyudpf.avif',
+      imageUrl: DEFAULT_CATALOG_IMAGES.manicure,
     },
     create: {
       name: 'Klasična manikira',
@@ -294,7 +296,7 @@ async function main() {
       description: 'Klasična manikira z oblikovanjem nohtov, nego kožice, masažo rok in lakiranjem.',
       duration: 45,
       price: 35.0,
-      imageUrl: 'https://res.cloudinary.com/caballerorandy/image/upload/v1763538512/Beauty%20Salon/services/manicure_hyudpf.avif',
+      imageUrl: DEFAULT_CATALOG_IMAGES.manicure,
       categoryId: nailsCategory.id,
       isActive: true,
       isFeatured: true,
@@ -305,7 +307,7 @@ async function main() {
   const pedicure = await serviceUpsert({
     where: { slug: 'pedicure' },
     update: {
-      imageUrl: 'https://res.cloudinary.com/caballerorandy/image/upload/v1763613172/Beauty%20Salon/services/spa-pedicure_fpbjgq.avif',
+      imageUrl: DEFAULT_CATALOG_IMAGES.spaPedicure,
     },
     create: {
       name: 'Spa pedikura',
@@ -313,7 +315,7 @@ async function main() {
       description: 'Sproščujoča spa pedikura s kopeljo za stopala, pilingom, masažo in lakiranjem. Idealna za utrujena stopala.',
       duration: 60,
       price: 50.0,
-      imageUrl: 'https://res.cloudinary.com/caballerorandy/image/upload/v1763613172/Beauty%20Salon/services/spa-pedicure_fpbjgq.avif',
+      imageUrl: DEFAULT_CATALOG_IMAGES.spaPedicure,
       categoryId: nailsCategory.id,
       isActive: true,
       isFeatured: true,
@@ -324,7 +326,7 @@ async function main() {
   const gelNails = await serviceUpsert({
     where: { slug: 'gel-nails' },
     update: {
-      imageUrl: 'https://res.cloudinary.com/caballerorandy/image/upload/v1763613072/Beauty%20Salon/services/gel-manicure_e7k2gb.avif',
+      imageUrl: DEFAULT_CATALOG_IMAGES.gelManicure,
     },
     create: {
       name: 'Gel manikira',
@@ -332,7 +334,7 @@ async function main() {
       description: 'Trajna gel manikira z utrjevanjem pod LED svetilko. Zdrži do 3 tedne brez razpok.',
       duration: 60,
       price: 55.0,
-      imageUrl: 'https://res.cloudinary.com/caballerorandy/image/upload/v1763613072/Beauty%20Salon/services/gel-manicure_e7k2gb.avif',
+      imageUrl: DEFAULT_CATALOG_IMAGES.gelManicure,
       categoryId: nailsCategory.id,
       isActive: true,
       isFeatured: false,
@@ -342,7 +344,7 @@ async function main() {
   const facial = await serviceUpsert({
     where: { slug: 'facial-treatment' },
     update: {
-      imageUrl: 'https://res.cloudinary.com/caballerorandy/image/upload/v1763611175/Beauty%20Salon/services/deep-cleansing-facial_jzjp7l.avif',
+      imageUrl: DEFAULT_CATALOG_IMAGES.deepClean,
     },
     create: {
       name: 'Poglobljeno čiščenje obraza',
@@ -350,7 +352,7 @@ async function main() {
       description: 'Profesionalni tretmaj obraza s poglobljenim čiščenjem, pilingom, ekstrakcijo in hidratantno masko za sijočo kožo.',
       duration: 90,
       price: 120.0,
-      imageUrl: 'https://res.cloudinary.com/caballerorandy/image/upload/v1763611175/Beauty%20Salon/services/deep-cleansing-facial_jzjp7l.avif',
+      imageUrl: DEFAULT_CATALOG_IMAGES.deepClean,
       categoryId: facialCategory.id,
       isActive: true,
       isFeatured: true,
@@ -361,7 +363,7 @@ async function main() {
   const antiAging = await serviceUpsert({
     where: { slug: 'anti-aging-facial' },
     update: {
-      imageUrl: 'https://res.cloudinary.com/caballerorandy/image/upload/v1763611000/Beauty%20Salon/services/anti-aging-facial_qgusgu.avif',
+      imageUrl: DEFAULT_CATALOG_IMAGES.antiAging,
     },
     create: {
       name: 'Anti-aging tretmaj obraza',
@@ -369,7 +371,7 @@ async function main() {
       description: 'Napreden anti-aging tretmaj s peptidi in dvigom kolagena za zmanjšanje drobnih gub in bolj čvrsto kožo.',
       duration: 75,
       price: 140.0,
-      imageUrl: 'https://res.cloudinary.com/caballerorandy/image/upload/v1763611000/Beauty%20Salon/services/anti-aging-facial_qgusgu.avif',
+      imageUrl: DEFAULT_CATALOG_IMAGES.antiAging,
       categoryId: facialCategory.id,
       isActive: true,
       isFeatured: false,
@@ -379,7 +381,7 @@ async function main() {
   const microdermabrasion = await serviceUpsert({
     where: { slug: 'microdermabrasion' },
     update: {
-      imageUrl: 'https://res.cloudinary.com/caballerorandy/image/upload/v1763611296/Beauty%20Salon/services/hydrating-facial_sliwao.avif',
+      imageUrl: DEFAULT_CATALOG_IMAGES.facial,
     },
     create: {
       name: 'Mikrodermabrazija',
@@ -387,7 +389,7 @@ async function main() {
       description: 'Neinvaziven piling, ki razkrije bolj gladko in mlajše izgledajočo kožo.',
       duration: 60,
       price: 110.0,
-      imageUrl: 'https://res.cloudinary.com/caballerorandy/image/upload/v1763611296/Beauty%20Salon/services/hydrating-facial_sliwao.avif',
+      imageUrl: DEFAULT_CATALOG_IMAGES.facial,
       categoryId: facialCategory.id,
       isActive: true,
       isFeatured: false,
@@ -397,7 +399,7 @@ async function main() {
   const massage = await serviceUpsert({
     where: { slug: 'relaxing-massage' },
     update: {
-      imageUrl: 'https://res.cloudinary.com/caballerorandy/image/upload/v1763612585/Beauty%20Salon/services/swedish-massage_degn1f.avif',
+      imageUrl: DEFAULT_CATALOG_IMAGES.massage,
     },
     create: {
       name: 'Sproščujoča masaža',
@@ -405,7 +407,7 @@ async function main() {
       description: 'Masaža celega telesa, ki sprošča napetosti, izboljša prekrvavitev in prinese globinsko sprostitev.',
       duration: 60,
       price: 90.0,
-      imageUrl: 'https://res.cloudinary.com/caballerorandy/image/upload/v1763612585/Beauty%20Salon/services/swedish-massage_degn1f.avif',
+      imageUrl: DEFAULT_CATALOG_IMAGES.massage,
       categoryId: massageCategory.id,
       isActive: true,
       isFeatured: false,
@@ -415,7 +417,7 @@ async function main() {
   const hotStone = await serviceUpsert({
     where: { slug: 'hot-stone-massage' },
     update: {
-      imageUrl: 'https://res.cloudinary.com/caballerorandy/image/upload/v1763612414/Beauty%20Salon/services/hot-stone-massage_krxtkc.avif',
+      imageUrl: DEFAULT_CATALOG_IMAGES.hotStone,
     },
     create: {
       name: 'Masaža s toplimi kamni',
@@ -423,7 +425,7 @@ async function main() {
       description: 'Terapevtska masaža s segretimi kamni, ki stopi stres in mišično napetost.',
       duration: 90,
       price: 130.0,
-      imageUrl: 'https://res.cloudinary.com/caballerorandy/image/upload/v1763612414/Beauty%20Salon/services/hot-stone-massage_krxtkc.avif',
+      imageUrl: DEFAULT_CATALOG_IMAGES.hotStone,
       categoryId: massageCategory.id,
       isActive: true,
       isFeatured: false,
@@ -439,14 +441,14 @@ async function main() {
   const staffLaura = await prisma.staff.upsert({
     where: { userId: lauraUser.id },
     update: {
-      image: 'https://res.cloudinary.com/caballerorandy/image/upload/v1764141936/Beauty%20Salon/services/laura-thompson_asbi3t.avif',
+      image: DEFAULT_DEMO_MEDIA.staffLaura,
     },
     create: {
       name: 'Laura Thompson',
       email: 'laura@rcbeautysalon.org',
       phone: '+386 41 100 101',
       bio: 'Višja frizerka z več kot 15 leti izkušenj, specializirana za striženje, barvanje in keratin glajenje',
-      image: 'https://res.cloudinary.com/caballerorandy/image/upload/v1764141936/Beauty%20Salon/services/laura-thompson_asbi3t.avif',
+      image: DEFAULT_DEMO_MEDIA.staffLaura,
       isActive: true,
       userId: lauraUser.id,
     },
@@ -455,14 +457,14 @@ async function main() {
   const staffMaria = await prisma.staff.upsert({
     where: { userId: mariaUser.id },
     update: {
-      image: 'https://res.cloudinary.com/caballerorandy/image/upload/v1764142469/Beauty%20Salon/services/maria-rodriguez_uzksdw.avif',
+      image: DEFAULT_DEMO_MEDIA.staffMaria,
     },
     create: {
       name: 'Maria Rodriguez',
       email: 'maria@rcbeautysalon.org',
       phone: '+386 41 111 222',
-      bio: 'Izkušena barvarka in balayage specialistka z strastjo do naravnih pramenov',
-      image: 'https://res.cloudinary.com/caballerorandy/image/upload/v1764142469/Beauty%20Salon/services/maria-rodriguez_uzksdw.avif',
+      bio: 'Izkušena barvarka in balayage specialistka s strastjo do naravnih pramenov',
+      image: DEFAULT_DEMO_MEDIA.staffMaria,
       isActive: true,
       userId: mariaUser.id,
     },
@@ -471,14 +473,14 @@ async function main() {
   const staffSofia = await prisma.staff.upsert({
     where: { userId: sofiaUser.id },
     update: {
-      image: 'https://res.cloudinary.com/caballerorandy/image/upload/v1764142586/Beauty%20Salon/services/sofia-martinez_vc28m8.avif',
+      image: DEFAULT_DEMO_MEDIA.staffSofia,
     },
     create: {
       name: 'Sofia Martinez',
       email: 'sofia@rcbeautysalon.org',
       phone: '+386 41 333 444',
       bio: 'Certificirana tehničarka za nohte, specializirana za gel manikiro, nail art in spa pedikuro',
-      image: 'https://res.cloudinary.com/caballerorandy/image/upload/v1764142586/Beauty%20Salon/services/sofia-martinez_vc28m8.avif',
+      image: DEFAULT_DEMO_MEDIA.staffSofia,
       isActive: true,
       userId: sofiaUser.id,
     },
@@ -487,14 +489,14 @@ async function main() {
   const staffAna = await prisma.staff.upsert({
     where: { userId: anaUser.id },
     update: {
-      image: 'https://res.cloudinary.com/caballerorandy/image/upload/v1764142701/Beauty%20Salon/services/ana-garcia_cl0tgj.avif',
+      image: DEFAULT_DEMO_MEDIA.staffAna,
     },
     create: {
       name: 'Ana Garcia',
       email: 'ana@rcbeautysalon.org',
       phone: '+386 41 555 666',
       bio: 'Licencirana kozmetičarka in masažerka, specializirana za anti-aging tretmaje in terapevtske masaže',
-      image: 'https://res.cloudinary.com/caballerorandy/image/upload/v1764142701/Beauty%20Salon/services/ana-garcia_cl0tgj.avif',
+      image: DEFAULT_DEMO_MEDIA.staffAna,
       isActive: true,
       userId: anaUser.id,
     },
@@ -943,7 +945,7 @@ async function main() {
         compareAtPrice: 35.0,
         sku: 'SHP-001',
         stockQuantity: 50,
-        images: ['https://res.cloudinary.com/caballerorandy/image/upload/v1764652547/Beauty%20Salon/services/premium-hair-shampoo_lyekdy.avif'],
+        images: [DEFAULT_DEMO_MEDIA.productShampoo],
         categoryId: productsCategory.id,
         isActive: true,
         isFeatured: true,
@@ -955,7 +957,7 @@ async function main() {
         compareAtPrice: 40.0,
         sku: 'CND-001',
         stockQuantity: 45,
-        images: ['https://res.cloudinary.com/caballerorandy/image/upload/v1764652695/Beauty%20Salon/services/deep-conditioning-treatment_rkeqdp.avif'],
+        images: [DEFAULT_DEMO_MEDIA.productConditioner],
         categoryId: productsCategory.id,
         isActive: true,
         isFeatured: true,
@@ -967,7 +969,7 @@ async function main() {
         compareAtPrice: 80.0,
         sku: 'SRM-001',
         stockQuantity: 30,
-        images: ['https://res.cloudinary.com/caballerorandy/image/upload/v1764653498/Beauty%20Salon/services/anti-aging-facial-serum_grkuhs.avif'],
+        images: [DEFAULT_DEMO_MEDIA.productFacialSerum],
         categoryId: productsCategory.id,
         isActive: true,
         isFeatured: true,
@@ -978,7 +980,7 @@ async function main() {
         price: 45.0,
         sku: 'NPL-001',
         stockQuantity: 25,
-        images: ['https://res.cloudinary.com/caballerorandy/image/upload/v1764653996/Beauty%20Salon/services/premium-nail-polish-set_xag8xr.avif'],
+        images: [DEFAULT_DEMO_MEDIA.productNailPolish],
         categoryId: productsCategory.id,
         isActive: true,
         isFeatured: false,
@@ -990,7 +992,7 @@ async function main() {
         compareAtPrice: 55.0,
         sku: 'FCR-001',
         stockQuantity: 35,
-        images: ['https://res.cloudinary.com/caballerorandy/image/upload/v1764653082/Beauty%20Salon/services/hydrating-face-cream_hapgsz.avif'],
+        images: [DEFAULT_DEMO_MEDIA.productFaceCream],
         categoryId: productsCategory.id,
         isActive: true,
         isFeatured: false,
@@ -1001,7 +1003,7 @@ async function main() {
         price: 58.0,
         sku: 'HGS-001',
         stockQuantity: 20,
-        images: ['https://res.cloudinary.com/caballerorandy/image/upload/v1764653341/Beauty%20Salon/services/hair-growth-serum_zruj5f.avif'],
+        images: [DEFAULT_DEMO_MEDIA.productHairSerum],
         categoryId: productsCategory.id,
         isActive: true,
         isFeatured: false,

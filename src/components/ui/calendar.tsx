@@ -19,20 +19,27 @@ function Calendar({
     <DayPicker
       showOutsideDays={showOutsideDays}
       locale={sl}
-      className={cn("p-3", className)}
+      className={cn("relative p-3", className)}
+      // P0 #5 (audit-2026-11): localized nav aria-labels. The calendar
+      // hard-codes locale={sl} above, so Slovenian labels are consistent
+      // here (the booking flow is SL-first).
+      labels={{
+        labelPrevious: () => "Prejšnji mesec",
+        labelNext: () => "Naslednji mesec",
+      }}
       classNames={{
         months: "flex flex-col sm:flex-row gap-4",
         month: "flex flex-col gap-4",
-        month_caption: "flex justify-center pt-1 relative items-center h-10",
+        month_caption: "flex justify-center items-center h-10",
         caption_label: "text-sm font-semibold text-foreground",
-        nav: "flex items-center gap-1",
+        nav: "flex items-center justify-between absolute inset-x-3 top-3",
         button_previous: cn(
           buttonVariants({ variant: "outline" }),
-          "absolute left-1 h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100"
+          "h-7 w-7 bg-transparent p-0 opacity-70 hover:opacity-100"
         ),
         button_next: cn(
           buttonVariants({ variant: "outline" }),
-          "absolute right-1 h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100"
+          "h-7 w-7 bg-transparent p-0 opacity-70 hover:opacity-100"
         ),
         month_grid: "w-full border-collapse",
         weekdays: "flex",
@@ -46,7 +53,7 @@ function Calendar({
         range_end: "day-range-end",
         selected:
           "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground rounded-md",
-        today: "bg-accent text-accent-foreground font-semibold",
+        today: "ring-1 ring-primary/40 text-foreground font-semibold",
         outside:
           "day-outside text-muted-foreground/50 aria-selected:bg-accent/50 aria-selected:text-muted-foreground",
         disabled: "text-muted-foreground/30 cursor-not-allowed",

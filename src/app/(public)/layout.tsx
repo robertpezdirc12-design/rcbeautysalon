@@ -76,7 +76,7 @@ export default async function PublicLayout({
           Predogled — ta stran še ni objavljena. Obiščevalci vidijo vzdrževalno
           stran, dokler je ne objavite v nastavitvah.
         </div>
-        <main>{children}</main>
+        <main id="main" tabIndex={-1}>{children}</main>
         <Footer />
       </PublicI18nProvider>
     )
@@ -102,8 +102,18 @@ export default async function PublicLayout({
 
   const cta = resolvePublicCta(org?.vertical, await getLocaleFromCookies(), org?.profileOverrides)
 
+  const skipLabel = (await getLocaleFromCookies()) === "en" ? "Skip to content" : "Preskoči na vsebino"
+
   return (
     <>
+      {/* P2 #12 (audit-2026-11): skip link — first focusable element
+          (WCAG 2.4.1 Bypass Blocks), target is <main id="main"> below. */}
+      <a
+        href="#main"
+        className="bg-background text-foreground sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-100 focus:rounded-md focus:px-4 focus:py-2 focus:shadow-lg focus:outline-hidden focus:ring-2 focus:ring-primary"
+      >
+        {skipLabel}
+      </a>
       {analyticsId && (
         <>
           <Script
@@ -129,7 +139,7 @@ gtag('config', '${analyticsId}');`}
           availableSections={org ? await resolveAvailableSections(org.id) : undefined}
         />
         <CartOrgScope slug={org?.slug ?? null} />
-        <main>{children}</main>
+        <main id="main" tabIndex={-1}>{children}</main>
         <Footer />
       </PublicI18nProvider>
     </>

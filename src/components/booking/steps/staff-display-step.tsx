@@ -17,7 +17,7 @@ export function StaffDisplayStep({ staff }: StaffDisplayStepProps) {
     <Card className="border-primary/20 shadow-lg">
       <CardHeader>
         <div className="flex items-center gap-2">
-          <CheckCircleIcon size={24} weight="fill" className="text-primary" />
+          <CheckCircleIcon size={24} weight="fill" className="text-primary-text" />
           <CardTitle>{t.booking.yourSpecialist}</CardTitle>
         </div>
         <CardDescription>{t.booking.yourSpecialistDesc}</CardDescription>
@@ -35,13 +35,13 @@ export function StaffDisplayStep({ staff }: StaffDisplayStepProps) {
                   sizes="64px"
                 />
               ) : (
-                <div className="flex h-full w-full items-center justify-center bg-primary/10 text-xl font-bold text-primary">
+                <div className="flex h-full w-full items-center justify-center bg-primary/10 text-xl font-bold text-primary-text">
                   {staff.name.charAt(0)}
                 </div>
               )}
             </div>
             <div className="flex-1 overflow-hidden">
-              <h3 className="text-xl font-bold text-primary">{staff.name}</h3>
+              <h3 className="text-xl font-bold text-primary-text">{staff.name}</h3>
               {staff.bio && (
                 <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
                   {staff.bio}

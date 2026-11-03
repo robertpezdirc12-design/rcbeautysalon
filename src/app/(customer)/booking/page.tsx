@@ -143,7 +143,7 @@ export default async function BookingPage(props: BookingPageProps) {
               <p>Trenutno ni razpoložljivih storitev.</p>
               <Link
                 href={p("/")}
-                className="text-primary underline-offset-4 hover:underline"
+                className="text-primary-text underline-offset-4 hover:underline"
               >
                 Nazaj na domačo stran
               </Link>
@@ -156,12 +156,14 @@ export default async function BookingPage(props: BookingPageProps) {
                 {categoryName}
               </h2>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {/* P2 #12 (audit-2026-11): no aria-label on the card — the
+                    visible name/price/duration content is the accessible
+                    name (label-content-name-mismatch). */}
                 {services.map((service) => (
                   <Link
                     key={service.id}
                     href={p(`/booking?service=${service.slug}`)}
                     className="group overflow-hidden rounded-xl border bg-card shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
-                    aria-label={t.booking.bookServiceAria(service.name)}
                   >
                     {service.imageUrl && (
                       <div className="relative h-40 w-full overflow-hidden">
@@ -182,10 +184,10 @@ export default async function BookingPage(props: BookingPageProps) {
                         </p>
                       </div>
                       <div className="shrink-0 text-right">
-                        <p className="font-semibold text-primary">
+                        <p className="font-semibold text-primary-text">
                           {service.price.toNumber().toFixed(2).replace(".", ",")} €
                         </p>
-                        <p className="text-xs font-medium text-muted-foreground transition-colors group-hover:text-primary">
+                        <p className="text-xs font-medium text-muted-foreground transition-colors group-hover:text-primary-text">
                           Izberi →
                         </p>
                       </div>

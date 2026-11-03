@@ -90,7 +90,7 @@ export function StaffProfileForm({ profile }: StaffProfileFormProps) {
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <UserIcon size={20} className="text-primary" />
+            <UserIcon size={20} className="text-primary-text" />
             <CardTitle className="text-lg">Osebni podatki</CardTitle>
           </div>
           {!isEditing && (

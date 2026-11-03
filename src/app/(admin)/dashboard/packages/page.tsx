@@ -30,7 +30,7 @@ export default async function PackagesPage() {
     .filter((x) => x.isActive)
     .reduce((s, x) => s + x.listValue, 0)
   const stats = [
-    { label: p.title, value: String(overview.packages.length), icon: ToteIcon, accent: "text-primary" },
+    { label: p.title, value: String(overview.packages.length), icon: ToteIcon, accent: "text-primary-text" },
     { label: p.active, value: String(active), icon: SparkleIcon, accent: "text-emerald-500" },
     { label: p.listValue, value: formatCurrency(activeListValue), icon: UsersIcon, accent: "text-amber-500" },
   ]

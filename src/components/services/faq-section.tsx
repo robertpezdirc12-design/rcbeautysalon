@@ -49,7 +49,7 @@ export function FAQSection({ faqs }: FAQSectionProps) {
                 value={`item-${index}`}
                 className="border-primary/20 rounded-lg border px-6"
               >
-                <AccordionTrigger className="text-left hover:text-primary hover:no-underline">
+                <AccordionTrigger className="text-left hover:text-primary-text hover:no-underline">
                   <span className="font-semibold">{faq.question}</span>
                 </AccordionTrigger>
                 <AccordionContent className="text-muted-foreground pt-2 pb-4 leading-relaxed">

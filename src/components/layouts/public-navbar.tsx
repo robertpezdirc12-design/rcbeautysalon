@@ -102,7 +102,7 @@ export function PublicNavbar({ org, cta, availableSections }: PublicNavbarProps)
               className={`text-sm font-medium transition-all px-2.5 py-1.5 rounded-md xl:px-3 xl:py-2 ${
                 isActive(link)
                   ? "text-primary-foreground bg-primary shadow-sm"
-                  : "text-foreground/70 hover:text-primary hover:bg-primary/10"
+                  : "text-foreground/70 hover:text-primary-text hover:bg-primary/10"
               }`}
             >
               {link.label}
@@ -125,7 +125,7 @@ export function PublicNavbar({ org, cta, availableSections }: PublicNavbarProps)
             ) : isAuthenticated ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="text-foreground/80 hover:bg-secondary hover:text-primary gap-1.5">
+                  <Button variant="ghost" size="sm" className="text-foreground/80 hover:bg-secondary hover:text-primary-text gap-1.5">
                     <UserIcon size={18} />
                     <span className="hidden 2xl:inline max-w-20 truncate">{session.user.name || t.public.account}</span>
                   </Button>
@@ -202,7 +202,7 @@ export function PublicNavbar({ org, cta, availableSections }: PublicNavbarProps)
           <ThemeToggle />
           <NavCartButton />
           <button
-            className="text-foreground/70 hover:text-primary transition-colors p-2 -mr-2"
+            className="text-foreground/70 hover:text-primary-text transition-colors p-2 -mr-2"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             aria-label={t.public.toggleMenu}
           >
@@ -228,7 +228,7 @@ export function PublicNavbar({ org, cta, availableSections }: PublicNavbarProps)
                   className={`text-sm font-medium transition-all px-3 py-2.5 rounded-md text-center sm:text-left ${
                     isActive(link)
                       ? "text-primary-foreground bg-primary shadow-sm"
-                      : "text-foreground/70 hover:text-primary hover:bg-primary/10"
+                      : "text-foreground/70 hover:text-primary-text hover:bg-primary/10"
                   }`}
                   onClick={() => setMobileMenuOpen(false)}
                 >
@@ -255,7 +255,7 @@ export function PublicNavbar({ org, cta, availableSections }: PublicNavbarProps)
 
                 {session.user.role === "ADMIN" && (
                   <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>
-                    <Button variant="ghost" className="w-full h-11 text-foreground/80 hover:bg-secondary hover:text-primary gap-2 justify-start">
+                    <Button variant="ghost" className="w-full h-11 text-foreground/80 hover:bg-secondary hover:text-primary-text gap-2 justify-start">
                       <SettingsIcon size={18} />
                       {t.public.dashboard}
                     </Button>
@@ -263,7 +263,7 @@ export function PublicNavbar({ org, cta, availableSections }: PublicNavbarProps)
                 )}
                 {session.user.role === "STAFF" && (
                   <Link href="/staff-portal" onClick={() => setMobileMenuOpen(false)}>
-                    <Button variant="ghost" className="w-full h-11 text-foreground/80 hover:bg-secondary hover:text-primary gap-2 justify-start">
+                    <Button variant="ghost" className="w-full h-11 text-foreground/80 hover:bg-secondary hover:text-primary-text gap-2 justify-start">
                       <SettingsIcon size={18} />
                       {t.public.staffPortal}
                     </Button>
@@ -272,25 +272,25 @@ export function PublicNavbar({ org, cta, availableSections }: PublicNavbarProps)
                 {session.user.role === "CLIENTE" && (
                   <>
                     <Link href="/my-account" onClick={() => setMobileMenuOpen(false)}>
-                      <Button variant="ghost" className="w-full h-11 text-foreground/80 hover:bg-secondary hover:text-primary gap-2 justify-start">
+                      <Button variant="ghost" className="w-full h-11 text-foreground/80 hover:bg-secondary hover:text-primary-text gap-2 justify-start">
                         <UserCogIcon size={18} />
                         {t.public.myAccount}
                       </Button>
                     </Link>
                     <Link href="/my-appointments" onClick={() => setMobileMenuOpen(false)}>
-                      <Button variant="ghost" className="w-full h-11 text-foreground/80 hover:bg-secondary hover:text-primary gap-2 justify-start">
+                      <Button variant="ghost" className="w-full h-11 text-foreground/80 hover:bg-secondary hover:text-primary-text gap-2 justify-start">
                         <CalendarCheckIcon size={18} />
                         {t.public.myAppointments}
                       </Button>
                     </Link>
                     <Link href="/my-orders" onClick={() => setMobileMenuOpen(false)}>
-                      <Button variant="ghost" className="w-full h-11 text-foreground/80 hover:bg-secondary hover:text-primary gap-2 justify-start">
+                      <Button variant="ghost" className="w-full h-11 text-foreground/80 hover:bg-secondary hover:text-primary-text gap-2 justify-start">
                         <ReceiptIcon size={18} />
                         {t.public.myOrders}
                       </Button>
                     </Link>
                     <Link href="/my-reviews" onClick={() => setMobileMenuOpen(false)}>
-                      <Button variant="ghost" className="w-full h-11 text-foreground/80 hover:bg-secondary hover:text-primary gap-2 justify-start">
+                      <Button variant="ghost" className="w-full h-11 text-foreground/80 hover:bg-secondary hover:text-primary-text gap-2 justify-start">
                         <StarIcon size={18} />
                         {t.public.myReviews}
                       </Button>

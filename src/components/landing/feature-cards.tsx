@@ -77,7 +77,7 @@ export function FeatureCards({ title, subtitle, items }: FeatureCardsProps) {
                 >
                   <Icon size={24} className="text-white" />
                 </div>
-                <CardTitle className="group-hover:text-primary transition-colors">
+                <CardTitle className="group-hover:text-primary-text transition-colors">
                   {item.title}
                 </CardTitle>
                 <CardDescription>{item.description}</CardDescription>

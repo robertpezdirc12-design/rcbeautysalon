@@ -16,26 +16,29 @@ export function HeroActions({ primaryCta, secondaryCta, orgSlug }: HeroActionsPr
 
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:justify-center">
-      <Link href={toHref(primaryCta.href)}>
-        <Button
-          size="lg"
-          className="from-primary to-primary/90 group w-full bg-linear-to-r text-white shadow-xl hover:opacity-90 sm:w-auto"
-        >
-          <CalendarIcon className="group-hover:text-accent mr-2 h-5 w-5 transition-colors" />
+      {/* P1 #8 (audit-2026-11): asChild — no <a><button> nesting */}
+      <Button
+        asChild
+        size="lg"
+        className="from-primary to-primary/90 group w-full bg-linear-to-r text-white shadow-xl hover:opacity-90 sm:w-auto"
+      >
+        <Link href={toHref(primaryCta.href)}>
+          <CalendarIcon className="group-hover:text-accent-text mr-2 h-5 w-5 transition-colors" aria-hidden />
           {primaryCta.label}
-        </Button>
-      </Link>
-      {secondaryCta && (
-        <Link href={toHref(secondaryCta.href)}>
-          <Button
-            size="lg"
-            variant="outline"
-            className="hover:text-accent hover:border-accent/50 group w-full border-white/30 bg-white/10 text-white backdrop-blur-sm hover:bg-white/20 sm:w-auto"
-          >
-            <ShoppingBagIcon className="group-hover:text-accent mr-2 h-5 w-5 transition-colors" />
-            {secondaryCta.label}
-          </Button>
         </Link>
+      </Button>
+      {secondaryCta && (
+        <Button
+          asChild
+          size="lg"
+          variant="outline"
+          className="hover:text-accent-text hover:border-accent/50 group w-full border-white/30 bg-white/10 text-white backdrop-blur-sm hover:bg-white/20 sm:w-auto"
+        >
+          <Link href={toHref(secondaryCta.href)}>
+            <ShoppingBagIcon className="group-hover:text-accent-text mr-2 h-5 w-5 transition-colors" aria-hidden />
+            {secondaryCta.label}
+          </Link>
+        </Button>
       )}
     </div>
   )

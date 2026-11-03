@@ -45,7 +45,7 @@ export function SecuritySection({ email }: SecuritySectionProps) {
     <Card>
       <CardHeader>
         <div className="flex items-center gap-2">
-          <LockIcon size={20} className="text-primary" />
+          <LockIcon size={20} className="text-primary-text" />
           <CardTitle className="text-lg">Varnost</CardTitle>
         </div>
         <CardDescription>

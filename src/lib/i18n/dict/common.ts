@@ -1,7 +1,11 @@
 export const commonSl = {
   platformTagline: "Poslovna platforma",
+  skipToContent: "Preskoči na vsebino",
   theme: {
     toggle: "Preklopi temo",
+    light: "Svetlo",
+    dark: "Temno",
+    system: "Sistemsko",
   },
   language: {
     label: "Jezik",
@@ -77,8 +81,12 @@ export type CommonDict = typeof commonSl
 
 export const commonEn: CommonDict = {
   platformTagline: "Business platform",
+  skipToContent: "Skip to content",
   theme: {
     toggle: "Toggle theme",
+    light: "Light",
+    dark: "Dark",
+    system: "System",
   },
   language: {
     label: "Language",

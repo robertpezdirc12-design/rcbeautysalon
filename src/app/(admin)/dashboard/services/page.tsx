@@ -122,7 +122,8 @@ export default async function ServicesPage({ searchParams }: ServicesPageProps) 
                     alt={service.name}
                     fill
                     className="object-cover"
-                  />
+                  
+              sizes="64px"/>
                 ) : (
                   <div className="flex h-full items-center justify-center">
                     <ScissorsIcon size={48} className="text-muted-foreground/50" />
@@ -145,7 +146,7 @@ export default async function ServicesPage({ searchParams }: ServicesPageProps) 
                     <CardTitle className="text-lg">{service.name}</CardTitle>
                     <CardDescription>{service.category?.name}</CardDescription>
                   </div>
-                  <p className="text-primary text-xl font-bold">
+                  <p className="text-primary-text text-xl font-bold">
                     {formatCurrency(service.price)}
                   </p>
                 </div>

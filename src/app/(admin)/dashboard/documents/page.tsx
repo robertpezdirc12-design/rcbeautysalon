@@ -28,7 +28,7 @@ export default async function DocumentsPage() {
   const d = t.catalogDocs.documents
 
   const stats = [
-    { label: d.stats.quotesSent, value: String(overview.stats.quotesSent), icon: FileTextIcon, accent: "text-primary" },
+    { label: d.stats.quotesSent, value: String(overview.stats.quotesSent), icon: FileTextIcon, accent: "text-primary-text" },
     { label: d.stats.quotesAccepted, value: String(overview.stats.quotesAccepted), icon: CheckCircleIcon, accent: "text-emerald-500" },
     { label: d.stats.invoicesIssued, value: String(overview.stats.invoicesIssued), icon: ClockIcon, accent: "text-amber-500" },
     { label: d.stats.unpaidTotal, value: formatCurrency(overview.stats.unpaidTotal), icon: CurrencyDollarIcon, accent: "text-violet-500" },

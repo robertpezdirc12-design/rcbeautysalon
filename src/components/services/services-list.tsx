@@ -63,7 +63,8 @@ export function ServicesList({
             alt={service.name}
             fill
             className="object-cover transition-transform duration-700 group-hover:scale-110"
-          />
+          
+              sizes="(min-width: 768px) 240px, 100vw"/>
         ) : (
           <div className="from-muted to-muted/50 flex h-full w-full items-center justify-center bg-linear-to-br">
             <div className="p-4 text-center">
@@ -71,7 +72,7 @@ export function ServicesList({
                 <CalendarIcon
                   size={32}
                   weight="regular"
-                  className="text-primary/50"
+                  className="text-primary-text/50"
                 />
               </div>
               <span className="text-muted-foreground text-sm font-medium">
@@ -87,7 +88,7 @@ export function ServicesList({
         {/* Content Overlay */}
         <div className="absolute inset-0 flex flex-col justify-end p-5">
           <div className="transform transition-transform duration-500 group-hover:-translate-y-1">
-            <h3 className="font-heading group-hover:text-accent mb-2 text-lg font-semibold tracking-tight text-white transition-colors duration-300">
+            <h3 className="font-heading group-hover:text-accent-text mb-2 text-lg font-semibold tracking-tight text-white transition-colors duration-300">
               {service.name}
             </h3>
 
@@ -97,12 +98,12 @@ export function ServicesList({
               </p>
             )}
 
-            <div className="group-hover:text-accent/90 flex items-center justify-between text-sm text-white/90 transition-colors duration-300">
+            <div className="group-hover:text-accent-text/90 flex items-center justify-between text-sm text-white/90 transition-colors duration-300">
               <span className="font-medium">
                 {fmt(Number(service.price))}
               </span>
               {service.duration && (
-                <span className="group-hover:text-accent/70 text-white/70">
+                <span className="group-hover:text-accent-text/70 text-white/70">
                   {service.duration} min
                 </span>
               )}
@@ -110,7 +111,7 @@ export function ServicesList({
 
             {/* Hover Button */}
             <div className="mt-3 translate-y-2 transform opacity-0 transition-all duration-500 group-hover:translate-y-0 group-hover:opacity-100">
-              <div className="text-accent border-accent/50 inline-flex items-center border-b pb-1 text-xs font-medium">
+              <div className="text-accent-text border-accent/50 inline-flex items-center border-b pb-1 text-xs font-medium">
                 Podrobnosti
                 <svg
                   className="ml-1 h-3 w-3"
@@ -151,7 +152,7 @@ export function ServicesList({
             <TabsList className="bg-muted text-muted-foreground inline-flex h-12 items-center justify-center rounded-lg p-1">
               <TabsTrigger
                 value={ALL_TAB}
-                className="ring-offset-background focus-visible:ring-ring hover:text-accent data-[state=active]:bg-background data-[state=active]:text-accent inline-flex items-center justify-center rounded-md px-6 py-2 text-sm font-medium whitespace-nowrap transition-all focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 data-[state=active]:shadow-sm"
+                className="ring-offset-background focus-visible:ring-ring hover:text-accent-text data-[state=active]:bg-background data-[state=active]:text-accent-text inline-flex items-center justify-center rounded-md px-6 py-2 text-sm font-medium whitespace-nowrap transition-all focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 data-[state=active]:shadow-sm"
               >
                 Vse
               </TabsTrigger>
@@ -159,7 +160,7 @@ export function ServicesList({
                 <TabsTrigger
                   key={category}
                   value={category}
-                  className="ring-offset-background focus-visible:ring-ring hover:text-accent data-[state=active]:bg-background data-[state=active]:text-accent inline-flex items-center justify-center rounded-md px-6 py-2 text-sm font-medium whitespace-nowrap transition-all focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 data-[state=active]:shadow-sm"
+                  className="ring-offset-background focus-visible:ring-ring hover:text-accent-text data-[state=active]:bg-background data-[state=active]:text-accent-text inline-flex items-center justify-center rounded-md px-6 py-2 text-sm font-medium whitespace-nowrap transition-all focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 data-[state=active]:shadow-sm"
                 >
                   {category}
                 </TabsTrigger>

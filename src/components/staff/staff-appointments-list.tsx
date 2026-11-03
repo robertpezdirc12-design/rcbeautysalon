@@ -162,7 +162,7 @@ export function StaffAppointmentsList({
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar className="h-8 w-8">
-                          <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                          <AvatarFallback className="bg-primary/10 text-primary-text text-xs">
                             {appointment.customerName
                               .split(" ")
                               .map((n) => n[0])

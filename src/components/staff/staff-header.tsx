@@ -69,7 +69,7 @@ export function StaffHeader({ user }: StaffHeaderProps) {
             </Link>
 
             {/* Portal Label */}
-            <span className="hidden rounded-md bg-primary/10 px-2 py-1 text-xs font-semibold text-primary sm:inline-block">
+            <span className="hidden rounded-md bg-primary/10 px-2 py-1 text-xs font-semibold text-primary-text sm:inline-block">
               Portal za osebje
             </span>
           </div>

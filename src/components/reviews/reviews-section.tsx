@@ -31,11 +31,11 @@ function StarRating({ rating }: { rating: number }) {
     <div className="flex items-center gap-1">
       {/* Full stars */}
       {Array.from({ length: fullStars }).map((_, i) => (
-        <StarIcon key={`full-${i}`} size={16} weight="fill" className="text-accent" />
+        <StarIcon key={`full-${i}`} size={16} weight="fill" className="text-accent-text" />
       ))}
 
       {/* Half star */}
-      {hasHalfStar && <StarHalfIcon size={16} weight="fill" className="text-accent" />}
+      {hasHalfStar && <StarHalfIcon size={16} weight="fill" className="text-accent-text" />}
 
       {/* Empty stars */}
       {Array.from({ length: emptyStars }).map((_, i) => (
@@ -111,7 +111,7 @@ export function ReviewsSection({ reviews }: ReviewsSectionProps) {
                             alt={review.user.name || "Uporabnik"}
                           />
                         )}
-                        <AvatarFallback className="bg-primary/10 text-primary">
+                        <AvatarFallback className="bg-primary/10 text-primary-text">
                           {review.user.name?.charAt(0).toUpperCase() || "U"}
                         </AvatarFallback>
                       </Avatar>

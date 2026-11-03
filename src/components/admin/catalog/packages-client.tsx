@@ -470,7 +470,7 @@ export function PackagesClient({ packages, catalog, labels }: PackagesClientProp
                     )}
                   </div>
                   <div className="text-right">
-                    <div className="text-lg font-bold text-primary">{money(p.price)}</div>
+                    <div className="text-lg font-bold text-primary-text">{money(p.price)}</div>
                     {p.compareAtPrice !== null && (
                       <div className="text-muted-foreground text-xs line-through">
                         {money(p.compareAtPrice)}

@@ -18,8 +18,13 @@ export function LanguageSwitcher() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm" className="gap-2" aria-label={t.common.language.label}>
-          <LanguagesIcon size={18} />
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-11 gap-2 md:h-8"
+          aria-label={`${t.common.language.label}: ${locale.toUpperCase()}`}
+        >
+          <LanguagesIcon size={18} aria-hidden />
           <span className="hidden text-sm font-medium uppercase sm:inline">
             {locale}
           </span>
@@ -37,7 +42,7 @@ export function LanguageSwitcher() {
             className="flex items-center justify-between"
           >
             <span>{localeLabels[l]}</span>
-            {l === locale && <Check size={16} className="text-primary" />}
+            {l === locale && <Check size={16} className="text-primary-text" />}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

@@ -24,7 +24,9 @@ export function StaffAvatar({
   image,
   name,
   className = "",
-  sizes,
+  // P3 #19 (audit-2026-11): default sizes matching the avatar's rendered
+  // boxes (next/image otherwise assumes 100vw and over-downloads).
+  sizes = "(min-width: 768px) 128px, 96px",
   priority,
 }: StaffAvatarProps) {
   const [failed, setFailed] = useState(false)
@@ -41,7 +43,7 @@ export function StaffAvatar({
         className={`absolute inset-0 flex items-center justify-center bg-linear-to-br from-primary/15 via-primary/5 to-accent/15 ${className}`}
       >
         <div className="bg-primary/10 flex h-20 w-20 items-center justify-center rounded-full">
-          <span className="text-primary text-2xl font-bold">
+          <span className="text-primary-text text-2xl font-bold">
             {name
               .split(" ")
               .map((part) => part.charAt(0))

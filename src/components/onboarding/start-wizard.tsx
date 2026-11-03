@@ -387,7 +387,7 @@ export function StartWizard() {
           </Link>
           <p className="text-sm text-muted-foreground">
             Imate že račun?{" "}
-            <Link href="/login" className="font-medium text-primary hover:underline">
+            <Link href="/login" className="font-medium text-primary-text hover:underline">
               Prijava
             </Link>
           </p>
@@ -439,7 +439,7 @@ export function StartWizard() {
                       className={cn(
                         "flex h-9 w-9 items-center justify-center rounded-full border text-sm font-semibold transition-colors",
                         isDone && "border-primary bg-primary text-primary-foreground",
-                        isActive && "border-primary bg-primary/10 text-primary",
+                        isActive && "border-primary bg-primary/10 text-primary-text",
                         !isActive && !isDone && "border-border bg-background text-muted-foreground"
                       )}
                     >
@@ -705,7 +705,7 @@ export function StartWizard() {
 
               <div className="rounded-lg border border-border bg-muted/50 p-4">
                 <p className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <SparkleIcon size={18} weight="fill" className="mt-0.5 shrink-0 text-primary" />
+                  <SparkleIcon size={18} weight="fill" className="mt-0.5 shrink-0 text-primary-text" />
                   <span>
                     Po registraciji dobite takoj svojo spletno stran z rezervacijami in trgovino.
                     {slug ? (
@@ -719,7 +719,7 @@ export function StartWizard() {
                 </p>
                 {selectedVertical && (
                   <p className="mt-2 flex items-start gap-2.5 text-sm text-muted-foreground">
-                    <StorefrontIcon size={18} weight="fill" className="mt-0.5 shrink-0 text-primary" />
+                    <StorefrontIcon size={18} weight="fill" className="mt-0.5 shrink-0 text-primary-text" />
                     <span>
                       Panoga <span className="font-medium text-foreground">{selectedVertical.label}</span>{" "}
                       prihaja s pripravljenim katalogom storitev, ki ga lahko poljubno urejate.

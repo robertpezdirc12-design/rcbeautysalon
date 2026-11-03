@@ -56,7 +56,7 @@ export default async function CheckoutCancelPage() {
             Imate težave?{" "}
             <Link
               href={`${orgPath(org?.slug, "/")}#contact`}
-              className="text-primary hover:underline"
+              className="text-primary-text hover:underline"
             >
               Kontaktirajte nas
             </Link>

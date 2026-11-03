@@ -27,21 +27,27 @@ export function Logo({ className, variant = "navbar", src, alt }: LogoProps) {
 
   // No custom logo uploaded — render the salon's initials instead of a
   // generic platform mark (avoids wrong branding for other tenants).
+  // P2 #17 (audit-2026-11): keep a leading acronym intact — "RC Beauty
+  // Salon" must monogram as "RC", not "RB". role="img" makes the
+  // aria-label meaningful, and the size reads ≥ 18 px in the navbar.
   if (!src || src.trim().length === 0) {
-    const initials = name
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((w) => w[0]!.toUpperCase())
-      .join("")
+    const words = name.split(/\s+/).filter(Boolean)
+    const initials =
+      words.length >= 2 && /^[A-ZČŠŽ]{2,4}$/.test(words[0])
+        ? words[0].toUpperCase()
+        : words
+            .slice(0, 2)
+            .map((w) => w[0]!.toUpperCase())
+            .join("")
     return (
       <div
+        role="img"
+        aria-label={name}
         className={cn(
-          "font-heading text-primary flex items-center justify-center rounded-full bg-primary/10",
+          "font-heading text-primary-text flex items-center justify-center rounded-full bg-primary/10",
           className
         )}
-        style={{ width, height, fontSize: Math.min(height * 0.42, 22) }}
-        aria-label={name}
+        style={{ width, height, fontSize: Math.min(Math.max(height * 0.5, 14), 22) }}
       >
         {initials || name[0]?.toUpperCase()}
       </div>

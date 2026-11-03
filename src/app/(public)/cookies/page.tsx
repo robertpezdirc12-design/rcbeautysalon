@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import { LegalPage } from "@/components/legal/legal-page"
+import { getServerI18n } from "@/lib/i18n/server"
 
 export const metadata: Metadata = {
   title: "Piškotki",
@@ -7,11 +8,14 @@ export const metadata: Metadata = {
     "Katere piškotke uporablja platforma: prijava, košarica in temni način — brez sledilnih piškotkov tretjih oseb.",
 }
 
-export default function CookiesPage() {
+export default async function CookiesPage() {
+  const { t } = await getServerI18n()
   return (
     <LegalPage
       title="Politika piškotkov"
       updated="2. november 2026"
+      backLabel={t.public.backToHome}
+      updatedLabel={t.public.lastUpdated}
       sections={[
         {
           heading: "Katere piškotke uporabljamo",

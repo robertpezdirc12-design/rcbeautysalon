@@ -124,7 +124,8 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                                 alt={product.name}
                                 fill
                                 className="object-cover"
-                              />
+                              
+              sizes="64px"/>
                             </div>
                           ) : (
                             <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-muted">

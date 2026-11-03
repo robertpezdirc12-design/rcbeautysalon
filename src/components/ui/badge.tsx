@@ -42,11 +42,11 @@ const badgeVariants = cva(
 
         // Outline Primary
         "outline-primary":
-          "border-2 border-primary text-primary bg-transparent hover:bg-primary/10",
+          "border-2 border-primary text-primary-text bg-transparent hover:bg-primary/10",
 
         // Outline Accent
         "outline-accent":
-          "border-2 border-accent text-accent bg-transparent hover:bg-accent/10",
+          "border-2 border-accent text-accent-text bg-transparent hover:bg-accent/10",
 
         // Glass - frosted effect
         glass:
@@ -54,7 +54,7 @@ const badgeVariants = cva(
 
         // Glass Primary
         "glass-primary":
-          "glass-primary border-0 text-primary",
+          "glass-primary border-0 text-primary-text",
 
         // Glass Accent
         "glass-accent":

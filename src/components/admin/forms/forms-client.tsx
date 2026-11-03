@@ -71,7 +71,7 @@ interface FormsClientProps {
 }
 
 const statusBadge: Record<string, string> = {
-  NEW: "bg-primary/10 text-primary",
+  NEW: "bg-primary/10 text-primary-text",
   IN_REVIEW: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
   PROCESSED: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400",
 }
@@ -251,7 +251,7 @@ export function FormsClient({
                               {sub.contact.email && (
                                 <a
                                   href={`mailto:${sub.contact.email}`}
-                                  className="text-primary hover:underline"
+                                  className="text-primary-text hover:underline"
                                 >
                                   {sub.contact.email}
                                 </a>

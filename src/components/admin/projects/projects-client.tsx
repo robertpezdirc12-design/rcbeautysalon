@@ -105,7 +105,7 @@ interface ProjectsClientProps {
 
 const statusColors: Record<string, string> = {
   PLANNING: "bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-400",
-  IN_PROGRESS: "bg-primary/10 text-primary",
+  IN_PROGRESS: "bg-primary/10 text-primary-text",
   COMPLETED: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400",
   CANCELLED: "bg-muted text-muted-foreground line-through",
 }

@@ -322,7 +322,8 @@ export function StaffForm({ services, staff, mode = "create", onSubmit, onDelete
                     alt={t.staff.form.staffPhotoAlt}
                     fill
                     className="object-cover"
-                  />
+                  
+              sizes="128px"/>
                   <Button
                     type="button"
                     variant="destructive"

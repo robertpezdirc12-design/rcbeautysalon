@@ -21,6 +21,20 @@ export const publicSl = {
   testimonialsSubtitle: "Prave izkušnje strank, ki nam zaupajo svoj videz.",
   reviewAnonym: "Stranka",
   reviewsSectionTitle: "Mnenja strank",
+  // P1 #8 (audit-2026-11): dostopna imena košarice/izdelkov + i18n
+  cart: "Košarica",
+  cartWithCount: (n: number) => `Košarica (${n} izdelkov)`,
+  addToCart: "Dodaj v košarico",
+  addToCartNamed: (name: string) => `Dodaj v košarico: ${name}`,
+  details: "Podrobnosti",
+  noImage: "Brez slike",
+  allServices: "Vse storitve",
+  allProducts: "Vsi izdelki",
+  allTeam: "Vsa ekipa",
+  uncategorized: "Izdelki",
+  // P2 #15 (audit-2026-11): pravne strani brez trdo kodiranih nizov
+  backToHome: "← Nazaj na domačo stran",
+  lastUpdated: "Zadnja posodobitev:",
 }
 
 export type PublicDict = typeof publicSl
@@ -45,4 +59,16 @@ export const publicEn: PublicDict = {
   testimonialsSubtitle: "Real experiences from clients who trust us with their look.",
   reviewAnonym: "Client",
   reviewsSectionTitle: "Customer Reviews",
+  cart: "Cart",
+  cartWithCount: (n: number) => `Cart (${n} items)`,
+  addToCart: "Add to cart",
+  addToCartNamed: (name: string) => `Add to cart: ${name}`,
+  details: "Details",
+  noImage: "No image",
+  allServices: "All services",
+  allProducts: "All products",
+  allTeam: "The whole team",
+  uncategorized: "Products",
+  backToHome: "← Back to home page",
+  lastUpdated: "Last updated:",
 }

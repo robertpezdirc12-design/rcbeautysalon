@@ -26,7 +26,7 @@ export default async function CartPage() {
         {/* Back Button */}
         <Button
           variant="ghost"
-          className="hover:bg-primary/10 hover:text-primary mb-4 -ml-2"
+          className="hover:bg-primary/10 hover:text-primary-text mb-4 -ml-2"
           asChild
         >
           <Link href={orgPath(org?.slug, "/shop")}>

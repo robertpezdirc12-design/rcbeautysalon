@@ -98,10 +98,11 @@ export default async function StaffPage({ searchParams }: StaffPageProps) {
                         alt={member.name}
                         fill
                         className="object-cover"
-                      />
+                      
+              sizes="40px"/>
                     </div>
                   ) : (
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-xl font-semibold text-primary">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-xl font-semibold text-primary-text">
                       {member.name.split(" ").map(n => n[0]).join("")}
                     </div>
                   )}

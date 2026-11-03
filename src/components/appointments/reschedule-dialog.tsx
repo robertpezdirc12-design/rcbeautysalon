@@ -78,7 +78,7 @@ export function RescheduleDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <CalendarIcon size={20} className="text-primary" />
+            <CalendarIcon size={20} className="text-primary-text" />
             Prestavi termin
           </DialogTitle>
           <DialogDescription>

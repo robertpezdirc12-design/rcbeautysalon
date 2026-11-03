@@ -83,6 +83,7 @@ export function BookingForm(props: BookingFormProps) {
     setValue,
     setError,
     clearErrors,
+    trigger,
     formState: { errors },
   } = useForm<BookingFormValues>({
     mode: "onChange",
@@ -287,10 +288,10 @@ export function BookingForm(props: BookingFormProps) {
       {/* Employee Banner */}
       {isEmployee && (
         <Alert className="mb-6 border-primary/30 bg-linear-to-r from-primary/5 via-primary/10 to-accent/5 dark:border-primary/40 dark:from-primary/10 dark:via-primary/15 dark:to-accent/10">
-          <SparkleIcon size={18} className="text-primary dark:text-primary" />
+          <SparkleIcon size={18} className="text-primary-text dark:text-primary-text" />
           <AlertDescription className="text-foreground/80 dark:text-foreground/90">
             {t.booking.employeeBanner}{" "}
-            <strong className="text-primary">{t.booking.employeeBannerDiscount}</strong>.
+            <strong className="text-primary-text">{t.booking.employeeBannerDiscount}</strong>.
           </AlertDescription>
         </Alert>
       )}
@@ -374,6 +375,9 @@ export function BookingForm(props: BookingFormProps) {
             onChange={setCustomerField}
             errors={errors}
             isAuthenticated={isAuthenticated}
+            // P1 #9 (audit-2026-11): inline validation on blur, same zod
+            // schema as the server action.
+            onBlurField={(field) => trigger(field)}
           />
         </div>
 

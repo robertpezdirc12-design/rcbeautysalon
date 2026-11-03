@@ -202,7 +202,7 @@ export function SetupChecklistCard({
       <Card>
         <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
-            <span className="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-lg">
+            <span className="bg-primary/10 text-primary-text flex h-10 w-10 shrink-0 items-center justify-center rounded-lg">
               <Icon size={20} aria-hidden="true" />
             </span>
             <div>
@@ -234,7 +234,7 @@ export function SetupChecklistCard({
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="bg-primary/10 text-primary flex h-8 w-8 shrink-0 items-center justify-center rounded-lg">
+              <span className="bg-primary/10 text-primary-text flex h-8 w-8 shrink-0 items-center justify-center rounded-lg">
                 <Icon size={18} aria-hidden="true" />
               </span>
               <h2 className="text-base font-semibold sm:text-lg">
@@ -334,7 +334,7 @@ export function SetupChecklistCard({
               <ol className="space-y-2">
                 <li className="rounded-xl border p-3 transition-colors hover:border-primary/30 sm:p-3.5">
                   <div className="flex items-center gap-3">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary-text">
                       <ExternalLink size={16} aria-hidden="true" />
                     </span>
                     <div className="min-w-0 flex-1">
@@ -363,7 +363,7 @@ export function SetupChecklistCard({
 
                 <li className="rounded-xl border p-3 transition-colors hover:border-primary/30 sm:p-3.5">
                   <div className="flex items-center gap-3">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary-text">
                       <AtSign size={16} aria-hidden="true" />
                     </span>
                     <div className="min-w-0 flex-1">
@@ -394,7 +394,7 @@ export function SetupChecklistCard({
 
                 <li className="rounded-xl border p-3 transition-colors hover:border-primary/30 sm:p-3.5">
                   <div className="flex items-center gap-3">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary-text">
                       <MapPin size={16} aria-hidden="true" />
                     </span>
                     <div className="min-w-0 flex-1">
@@ -486,7 +486,7 @@ export function SetupChecklistCard({
                           <p className="text-muted-foreground mt-1.5 flex items-start gap-1.5 text-xs">
                             <Info
                               size={13}
-                              className="text-primary/70 mt-0.5 shrink-0"
+                              className="text-primary-text/70 mt-0.5 shrink-0"
                               aria-hidden="true"
                             />
                             <span>{stepHint(step.key)}</span>

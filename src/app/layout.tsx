@@ -11,7 +11,7 @@ import { headers } from "next/headers"
 import { auth } from "@/lib/auth/auth"
 import { getOrgBySlug, getOrgById } from "@/lib/tenant"
 import { prisma } from "@/lib/prisma"
-import { paletteCssVars, PALETTES, type Palette } from "@/lib/verticals"
+import { paletteCssVars, paletteDarkTextVars, PALETTES, type Palette } from "@/lib/verticals"
 import { mergeSiteContent } from "@/lib/site-content"
 import { CurrencyProvider } from "@/lib/currency"
 import { resolvePublishGate } from "@/lib/publish-gate"
@@ -34,19 +34,24 @@ const rougeScript = Great_Vibes({
   display: "swap",
 })
 
+// P1 #10 (audit-2026-11): samo privzeti par (Poppins + Great Vibes) se
+// prednaloži. Ostale družine so na voljo najemnikom, a brez <link rel=preload>
+// — brskalnik jih prenese šele, ko jih CSS dejansko uporabi (25 prednalaganj
+// / 562 KB na stran → ≤ 6). Poppins: obteženi so samo dejansko rabljeni
+// weight-i (font-light/extrabold se ne pojavljata v src/).
 const poppins = Poppins({
   variable: "--font-poppins",
   subsets: ["latin", "latin-ext"],
-  weight: ["300", "400", "500", "600", "700", "800"],
+  weight: ["400", "500", "600", "700"],
   display: "swap",
 })
 
-const playfair = Playfair_Display({ variable: "--font-playfair", subsets: ["latin", "latin-ext"], display: "swap" })
-const cormorant = Cormorant_Garamond({ variable: "--font-cormorant", subsets: ["latin", "latin-ext"], weight: ["400", "500", "600"], display: "swap" })
-const oswald = Oswald({ variable: "--font-oswald", subsets: ["latin", "latin-ext"], display: "swap" })
-const montserrat = Montserrat({ variable: "--font-montserrat", subsets: ["latin", "latin-ext"], display: "swap" })
-const inter = Inter({ variable: "--font-inter", subsets: ["latin", "latin-ext"], display: "swap" })
-const lora = Lora({ variable: "--font-lora", subsets: ["latin", "latin-ext"], display: "swap" })
+const playfair = Playfair_Display({ variable: "--font-playfair", subsets: ["latin", "latin-ext"], display: "swap", preload: false })
+const cormorant = Cormorant_Garamond({ variable: "--font-cormorant", subsets: ["latin", "latin-ext"], weight: ["400", "500", "600"], display: "swap", preload: false })
+const oswald = Oswald({ variable: "--font-oswald", subsets: ["latin", "latin-ext"], display: "swap", preload: false })
+const montserrat = Montserrat({ variable: "--font-montserrat", subsets: ["latin", "latin-ext"], display: "swap", preload: false })
+const inter = Inter({ variable: "--font-inter", subsets: ["latin", "latin-ext"], display: "swap", preload: false })
+const lora = Lora({ variable: "--font-lora", subsets: ["latin", "latin-ext"], display: "swap", preload: false })
 
 /** Resolve which organization brands the current request:
  *  1. tenant from /s/[slug] (header set by proxy) — publish-gated: a draft
@@ -130,7 +135,12 @@ export default async function RootLayout({
     const paletteId = org.palette && PALETTES[org.palette] ? org.palette : "rose"
     const palette: Palette = PALETTES[paletteId]
     const vars = paletteCssVars(palette)
+    // P1 #7 (audit-2026-11): temni temi lastni besedilni odtenki
+    // (svetlejši kot svetli način, AA varni na temnem ozadju).
+    const darkVars = paletteDarkTextVars(palette)
     themeCss = `:root{${Object.entries(vars)
+      .map(([k, v]) => `${k}:${v}`)
+      .join(";")}}.dark{${Object.entries(darkVars)
       .map(([k, v]) => `${k}:${v}`)
       .join(";")}}`
     const config = await prisma.salonConfig.findUnique({

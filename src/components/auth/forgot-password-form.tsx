@@ -78,7 +78,7 @@ export function ForgotPasswordForm() {
               <AlertDescription>
                 <Link
                   href={fallbackResetUrl}
-                  className="text-primary font-medium underline underline-offset-4"
+                  className="text-primary-text font-medium underline underline-offset-4"
                 >
                   {t.auth.forgot.fallbackLink}
                 </Link>
@@ -157,7 +157,7 @@ export function ForgotPasswordForm() {
             <div className="text-muted-foreground text-center text-sm">
               <Link
                 href="/login"
-                className="text-primary font-medium hover:underline"
+                className="text-primary-text font-medium hover:underline"
               >
                 {t.auth.forgot.backToLogin}
               </Link>
@@ -166,7 +166,7 @@ export function ForgotPasswordForm() {
             <div className="text-center">
               <Link
                 href="/"
-                className="text-muted-foreground hover:text-primary text-sm"
+                className="text-muted-foreground hover:text-primary-text text-sm"
               >
                 {t.auth.forgot.backToHome}
               </Link>

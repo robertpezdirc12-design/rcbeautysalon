@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 export function ThemeToggle() {
@@ -22,21 +24,11 @@ export function ThemeToggle() {
   )
   const { setTheme, theme, resolvedTheme } = useTheme()
 
-  const items = [
-    { key: "light", label: "Svetlo", icon: SunIcon },
-    { key: "dark", label: "Temno", icon: MoonIcon },
-    { key: "system", label: "Sistemsko", icon: DesktopIcon },
-  ]
-
-  const handleThemeChange = (newTheme: string) => {
-    setTheme(newTheme)
-  }
-
   // Render placeholder button during SSR to avoid hydration mismatch
   if (!mounted) {
     return (
       <Button variant="ghost" size="icon" className="group hover:bg-primary/10">
-        <MoonIcon size={20} weight="fill" className="text-primary" />
+        <MoonIcon size={20} weight="fill" className="text-primary-text" />
         <span className="sr-only">{t.common.theme.toggle}</span>
       </Button>
     )
@@ -59,57 +51,50 @@ export function ThemeToggle() {
             <SunIcon
               size={20}
               weight="fill"
-              className="text-accent transition-transform group-hover:scale-110"
+              className="text-accent-text transition-transform group-hover:scale-110"
             />
           ) : (
             <MoonIcon
               size={20}
               weight="fill"
-              className="text-primary transition-transform group-hover:scale-110"
+              className="text-primary-text transition-transform group-hover:scale-110"
             />
           )}
           <span className="sr-only">{t.common.theme.toggle}</span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="mt-2 min-w-[140px] space-y-1 bg-card border-border">
-        {items.map(({ key, label, icon: Icon }) => {
-          const isActive = theme === key
-
-          // Light = gold/accent, Dark = rose/primary, System = neutral
-          const getStyles = () => {
-            if (key === "light") {
-              return isActive
-                ? "bg-accent/20 text-accent font-semibold shadow-sm"
-                : "text-accent/80 hover:text-accent hover:bg-accent/15 hover:shadow-sm"
-            }
-            if (key === "dark") {
-              return isActive
-                ? "bg-primary/20 text-primary font-semibold shadow-sm"
-                : "text-primary/80 hover:text-primary hover:bg-primary/15 hover:shadow-sm"
-            }
-            // system
-            return isActive
-              ? "bg-muted text-foreground font-semibold"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted/80"
-          }
-
-          const getIconColor = () => {
-            if (key === "light") return isActive ? "text-accent" : "text-accent/70"
-            if (key === "dark") return isActive ? "text-primary" : "text-primary/70"
-            return isActive ? "text-foreground" : "text-muted-foreground"
-          }
-
-          return (
-            <button
-              key={key}
-              onClick={() => handleThemeChange(key)}
-              className={`flex w-full cursor-pointer items-center gap-2 rounded-md px-3 py-2.5 text-sm transition-all duration-300 outline-none ${getStyles()}`}
-            >
-              <Icon size={16} weight="fill" className={`transition-transform duration-300 ${getIconColor()} ${!isActive ? "group-hover:scale-110" : ""}`} />
-              {label}
-            </button>
-          )
-        })}
+      {/* P2 #13 (audit-2026-11): proper Radix radio menu — closes on
+          selection, keyboard-navigable (arrows + Enter/Esc), localized
+          labels. Neutral text colors for AA contrast (the old gold
+          text-accent-text/80 failed 4.5:1). RadioItem already reserves pl-8
+          for the built-in indicator, so text never overlaps it. */}
+      <DropdownMenuContent align="end" className="mt-2 min-w-[160px] bg-card border-border">
+        <DropdownMenuRadioGroup
+          value={theme ?? "system"}
+          onValueChange={(v) => setTheme(v)}
+        >
+          <DropdownMenuRadioItem
+            value="light"
+            className="gap-2 text-foreground"
+          >
+            <SunIcon size={16} weight="fill" aria-hidden />
+            {t.common.theme.light}
+          </DropdownMenuRadioItem>
+          <DropdownMenuRadioItem
+            value="dark"
+            className="gap-2 text-foreground"
+          >
+            <MoonIcon size={16} weight="fill" aria-hidden />
+            {t.common.theme.dark}
+          </DropdownMenuRadioItem>
+          <DropdownMenuRadioItem
+            value="system"
+            className="gap-2 text-foreground"
+          >
+            <DesktopIcon size={16} weight="fill" aria-hidden />
+            {t.common.theme.system}
+          </DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   )

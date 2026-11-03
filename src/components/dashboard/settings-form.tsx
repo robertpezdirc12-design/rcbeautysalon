@@ -306,7 +306,8 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
                     alt={t.settings.form.logoAlt}
                     fill
                     className="object-cover"
-                  />
+                  
+              sizes="128px"/>
                   <Button
                     type="button"
                     variant="destructive"

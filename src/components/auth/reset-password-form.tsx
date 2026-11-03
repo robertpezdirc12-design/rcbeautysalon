@@ -144,7 +144,7 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
             <div className="text-muted-foreground text-center text-sm">
               <Link
                 href="/login"
-                className="text-primary font-medium hover:underline"
+                className="text-primary-text font-medium hover:underline"
               >
                 {t.auth.reset.backToLogin}
               </Link>
@@ -153,7 +153,7 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
             <div className="text-center">
               <Link
                 href="/"
-                className="text-muted-foreground hover:text-primary text-sm"
+                className="text-muted-foreground hover:text-primary-text text-sm"
               >
                 {t.auth.forgot.backToHome}
               </Link>

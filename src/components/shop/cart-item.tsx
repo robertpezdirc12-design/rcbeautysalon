@@ -47,7 +47,8 @@ export function CartItem({ item }: CartItemProps) {
             alt={item.name}
             fill
             className="object-cover transition-transform duration-300 group-hover:scale-105"
-          />
+          
+              sizes="96px"/>
         ) : (
           <div className="from-muted to-muted/50 flex h-full w-full items-center justify-center bg-linear-to-br">
             <PackageIcon
@@ -62,7 +63,7 @@ export function CartItem({ item }: CartItemProps) {
       {/* Product Info */}
       <div className="flex flex-1 flex-col justify-between py-1">
         <div>
-          <h3 className="text-foreground group-hover:text-primary font-semibold transition-colors">
+          <h3 className="text-foreground group-hover:text-primary-text font-semibold transition-colors">
             {item.name}
           </h3>
           <p className="text-muted-foreground mt-1 text-sm">
@@ -76,7 +77,7 @@ export function CartItem({ item }: CartItemProps) {
             onClick={handleDecrease}
             variant="outline"
             size="icon"
-            className="border-border/50 hover:bg-primary/10 hover:text-primary hover:border-primary/30 h-9 w-9 rounded-lg"
+            className="border-border/50 hover:bg-primary/10 hover:text-primary-text hover:border-primary/30 h-9 w-9 rounded-lg"
           >
             <MinusIcon size={16} weight="bold" />
           </Button>
@@ -87,7 +88,7 @@ export function CartItem({ item }: CartItemProps) {
             onClick={handleIncrease}
             variant="outline"
             size="icon"
-            className="border-border/50 hover:bg-primary/10 hover:text-primary hover:border-primary/30 h-9 w-9 rounded-lg"
+            className="border-border/50 hover:bg-primary/10 hover:text-primary-text hover:border-primary/30 h-9 w-9 rounded-lg"
           >
             <PlusIcon size={16} weight="bold" />
           </Button>

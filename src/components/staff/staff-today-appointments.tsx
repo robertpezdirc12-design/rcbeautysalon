@@ -71,7 +71,7 @@ export function StaffTodayAppointments({
 
                   {/* Customer Avatar */}
                   <Avatar className="h-10 w-10">
-                    <AvatarFallback className="bg-primary/10 text-primary">
+                    <AvatarFallback className="bg-primary/10 text-primary-text">
                       {appointment.customerName
                         .split(" ")
                         .map((n) => n[0])

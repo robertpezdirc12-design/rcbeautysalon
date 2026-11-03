@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma"
 import { defaultSiteContent, type SiteContent } from "@/lib/site-content"
+// P1 #18 (audit-2026-11): default media URLs live in ONE module
+import { DEFAULT_CATALOG_IMAGES, DEFAULT_HERO } from "@/lib/default-assets"
 
 // ============================================================
 // VERTICALS — salon industry presets. Each vertical ships with
@@ -64,21 +66,133 @@ export const PALETTES: Record<string, Palette> = {
   coral: { id: "coral", label: "Koralna", primaryHue: 12, primarySat: 65, primaryL: 55, accentHue: 35, accentSat: 65, accentL: 55, radius: "0.75rem", fontHeading: "poppins", fontBody: "inter" },
 }
 
-// Lightness ladder for 50–900 scale
-const LADDER = [97, 93, 86, 76, 64] // 50..400
-const LADDER_DOWN = [46, 38, 31, 24] // 600..900
+// Lightness ladder for 50–400 scale (fixed — always lighter than 500)
+const LADDER = [97, 93, 86, 76, 64]
+
+// ---------------------------------------------------------------------------
+// WCAG 2.x contrast helpers (P1 #7, audit-2026-11).
+// Palettes are generated centrally, so AA compliance is enforced HERE:
+//  - the effective -500 lightness walks down until white text reaches 4.5:1
+//    (coral #D75F42 3.75:1 → ≈#B84A30 5.2:1; palettes that already pass keep
+//    their exact brand colour),
+//  - 600–900 are derived RELATIVE to that base (the old fixed LADDER_DOWN
+//    produced non-monotonic scales for dark palettes like burgundy/charcoal,
+//    where "600" was lighter than "500"),
+//  - text-safe tokens (--primary-text / --accent-text) pick the first shade
+//    with ≥ 4.5:1 against the light page background, so `text-primary-text` never
+//    ships a failing colour.
+// ---------------------------------------------------------------------------
+
+interface Hsl {
+  h: number
+  s: number
+  l: number
+}
+
+/** HSL (h 0–360, s/l 0–100) → relative luminance (WCAG 2.x). */
+export function hslLuminance({ h, s, l }: Hsl): number {
+  const hn = ((h % 360) + 360) % 360
+  const sn = s / 100
+  const ln = l / 100
+  const c = (1 - Math.abs(2 * ln - 1)) * sn
+  const hp = hn / 60
+  const x = c * (1 - Math.abs((hp % 2) - 1))
+  let r = 0
+  let g = 0
+  let b = 0
+  if (hp < 1) [r, g, b] = [c, x, 0]
+  else if (hp < 2) [r, g, b] = [x, c, 0]
+  else if (hp < 3) [r, g, b] = [0, c, x]
+  else if (hp < 4) [r, g, b] = [0, x, c]
+  else if (hp < 5) [r, g, b] = [x, 0, c]
+  else [r, g, b] = [c, 0, x]
+  const m = ln - c / 2
+  const lin = (v: number) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4))
+  return 0.2126 * lin(r + m) + 0.7152 * lin(g + m) + 0.0722 * lin(b + m)
+}
+
+/** WCAG contrast ratio between two HSL colours. */
+export function wcagContrast(a: Hsl, b: Hsl): number {
+  const la = hslLuminance(a)
+  const lb = hslLuminance(b)
+  const [hi, lo] = la >= lb ? [la, lb] : [lb, la]
+  return (hi + 0.05) / (lo + 0.05)
+}
+
+const WHITE: Hsl = { h: 0, s: 0, l: 100 }
+/** Reference page background (cream ≈ #FBF9F9) used by tenant sites. */
+const LIGHT_BG: Hsl = { h: 0, s: 0, l: 98 }
+/** Dark theme background (rose-black ≈ #161114). */
+const DARK_BG: Hsl = { h: 340, s: 10, l: 8 }
+const NEAR_BLACK: Hsl = { h: 24, s: 15, l: 10 }
+
+/** Effective -500 lightness: walk DOWN until ≥ 4.5:1 against the page bg.
+    Cream (LIGHT_BG) is the stricter reference — anything passing on cream
+    also passes on pure white. */
+export function aaSafeLightness(h: number, s: number, l: number, ref: Hsl = LIGHT_BG): number {
+  let eff = l
+  while (eff > 8 && wcagContrast(ref, { h, s, l: eff }) < 4.5) eff -= 1
+  return eff
+}
+
+/** Monotonic down-ladder relative to a base lightness: 600..900. */
+export function derivedLadderDown(base: number): number[] {
+  return [1, 2, 3, 4].map((i) => Math.max(8, Math.round((base - 8 * i) * 10) / 10))
+}
+
+/** First shade (walking down from `start`) with ≥ 4.5:1 on the light bg. */
+function textSafeShade(h: number, s: number, start: number): number {
+  let l = start
+  while (l > 8 && wcagContrast({ h, s, l }, LIGHT_BG) < 4.5) l -= 1
+  return l
+}
+
+/** First shade (walking UP) with ≥ 4.5:1 on the dark theme background. */
+function textSafeShadeDark(h: number, s: number, start: number): number {
+  let l = Math.min(92, start + 16)
+  while (l < 96 && wcagContrast({ h, s, l }, DARK_BG) < 4.5) l += 1
+  return l
+}
+
+const fmtTriplet = (h: number, s: number, l: number) =>
+  `${Math.round(h)} ${Math.round(s)}% ${Math.round(l * 10) / 10}%`
+
+/** Dark-theme overrides for the text-safe tokens (injected as `.dark{…}`). */
+export function paletteDarkTextVars(p: Palette): Record<string, string> {
+  const primaryL = aaSafeLightness(p.primaryHue, p.primarySat, p.primaryL)
+  const accentL = aaSafeLightness(p.accentHue, p.accentSat, p.accentL)
+  return {
+    "--primary-text": fmtTriplet(
+      p.primaryHue,
+      p.primarySat,
+      textSafeShadeDark(p.primaryHue, p.primarySat, primaryL)
+    ),
+    "--accent-text": fmtTriplet(
+      p.accentHue,
+      p.accentSat,
+      textSafeShadeDark(p.accentHue, p.accentSat, accentL)
+    ),
+  }
+}
 
 /** CSS custom properties (HSL triplets) overriding the shadcn theme. */
 export function paletteCssVars(p: Palette): Record<string, string> {
+  // AA-safe effective base for the primary scale.
+  const effPrimaryL = aaSafeLightness(p.primaryHue, p.primarySat, p.primaryL)
+  const primaryDown = derivedLadderDown(effPrimaryL)
+
   const primaryScale: string[] = []
   for (let i = 0; i < 5; i++) primaryScale.push(`${p.primaryHue} ${p.primarySat}% ${LADDER[i]}%`)
-  primaryScale.push(`${p.primaryHue} ${p.primarySat}% ${p.primaryL}%`)
-  for (let i = 0; i < 4; i++) primaryScale.push(`${p.primaryHue} ${p.primarySat}% ${LADDER_DOWN[i]}%`)
+  primaryScale.push(`${p.primaryHue} ${p.primarySat}% ${effPrimaryL}%`)
+  for (const l of primaryDown) primaryScale.push(`${p.primaryHue} ${p.primarySat}% ${l}%`)
 
+  // Accent keeps its brand lightness for fills (dark text on it passes AA);
+  // the ladder is derived to stay monotonic.
+  const accentDown = derivedLadderDown(p.accentL)
   const accentScale: string[] = []
   for (let i = 0; i < 5; i++) accentScale.push(`${p.accentHue} ${p.accentSat}% ${LADDER[i]}%`)
   accentScale.push(`${p.accentHue} ${p.accentSat}% ${p.accentL}%`)
-  for (let i = 0; i < 4; i++) accentScale.push(`${p.accentHue} ${p.accentSat}% ${LADDER_DOWN[i]}%`)
+  for (const l of accentDown) accentScale.push(`${p.accentHue} ${p.accentSat}% ${l}%`)
 
   const vars: Record<string, string> = {}
   const scaleNames = ["50", "100", "200", "300", "400", "500", "600", "700", "800", "900"]
@@ -86,35 +200,37 @@ export function paletteCssVars(p: Palette): Record<string, string> {
   accentScale.forEach((v, i) => (vars[`--accent-${scaleNames[i]}`] = v))
 
   vars["--primary"] = vars["--primary-500"]
-  vars["--primary-foreground"] = "0 0% 100%"
+  // Foreground for fills: whichever of white / near-black reads ≥ 4.5:1.
+  const onPrimary = { h: p.primaryHue, s: p.primarySat, l: effPrimaryL }
+  vars["--primary-foreground"] =
+    wcagContrast(WHITE, onPrimary) >= wcagContrast(NEAR_BLACK, onPrimary)
+      ? "0 0% 100%"
+      : fmtTriplet(NEAR_BLACK.h, NEAR_BLACK.s, NEAR_BLACK.l)
   vars["--accent"] = vars["--accent-500"]
   vars["--accent-foreground"] = "0 0% 12%"
   vars["--ring"] = vars["--primary-500"]
+  // Text-safe brand tokens (consumed by `text-primary-*text` utilities).
+  vars["--primary-text"] = fmtTriplet(
+    p.primaryHue,
+    p.primarySat,
+    textSafeShade(p.primaryHue, p.primarySat, effPrimaryL)
+  )
+  vars["--accent-text"] = fmtTriplet(
+    p.accentHue,
+    p.accentSat,
+    textSafeShade(p.accentHue, p.accentSat, p.accentL)
+  )
   vars["--radius"] = p.radius
   vars["--org-font-heading"] = FONT_CSS_VARS[p.fontHeading]
   vars["--org-font-body"] = FONT_CSS_VARS[p.fontBody]
   return vars
 }
 
-// --- Sample catalog images (public CDN, used as defaults) ---
+// --- Sample catalog images (P1 #18: centralized in lib/default-assets) ---
 const IMG = {
-  salonInterior: "https://res.cloudinary.com/caballerorandy/image/upload/v1763776103/Beauty%20Salon/services/salon-interior_uxr7ba.avif",
-  heroImage: "https://res.cloudinary.com/caballerorandy/image/upload/v1763776064/Beauty%20Salon/services/hero-bg_t2k2ca.avif",
-  heroVideo: "https://res.cloudinary.com/caballerorandy/video/upload/v1763776242/Beauty%20Salon/services/hero-bg_rn87gq.mp4",
-  heroPoster: "https://res.cloudinary.com/caballerorandy/image/upload/v1763776064/Beauty%20Salon/services/hero-bg_t2k2ca.avif",
-  transform: "https://res.cloudinary.com/caballerorandy/image/upload/v1763776103/Beauty%20Salon/services/transform_hwvixg.avif",
-  haircut: "https://res.cloudinary.com/caballerorandy/image/upload/v1763611761/Beauty%20Salon/services/classic-haircut_inzgrp.avif",
-  coloring: "https://res.cloudinary.com/caballerorandy/image/upload/v1763538513/Beauty%20Salon/services/coloring_aiw6e3.avif",
-  highlights: "https://res.cloudinary.com/caballerorandy/image/upload/v1763612088/Beauty%20Salon/services/highlights_mrhaba.avif",
-  hairTreatment: "https://res.cloudinary.com/caballerorandy/image/upload/v1763611939/Beauty%20Salon/services/hair-treatment_hs60yv.avif",
-  manicure: "https://res.cloudinary.com/caballerorandy/image/upload/v1763538512/Beauty%20Salon/services/manicure_hyudpf.avif",
-  gelManicure: "https://res.cloudinary.com/caballerorandy/image/upload/v1763613072/Beauty%20Salon/services/gel-manicure_e7k2gb.avif",
-  spaPedicure: "https://res.cloudinary.com/caballerorandy/image/upload/v1763613172/Beauty%20Salon/services/spa-pedicure_fpbjgq.avif",
-  facial: "https://res.cloudinary.com/caballerorandy/image/upload/v1763611296/Beauty%20Salon/services/hydrating-facial_sliwao.avif",
-  antiAging: "https://res.cloudinary.com/caballerorandy/image/upload/v1763611000/Beauty%20Salon/services/anti-aging-facial_qgusgu.avif",
-  deepClean: "https://res.cloudinary.com/caballerorandy/image/upload/v1763611175/Beauty%20Salon/services/deep-cleansing-facial_jzjp7l.avif",
-  massage: "https://res.cloudinary.com/caballerorandy/image/upload/v1763612585/Beauty%20Salon/services/swedish-massage_degn1f.avif",
-  hotStone: "https://res.cloudinary.com/caballerorandy/image/upload/v1763612414/Beauty%20Salon/services/hot-stone-massage_krxtkc.avif",
+  ...DEFAULT_CATALOG_IMAGES,
+  heroVideo: DEFAULT_HERO.videoMp4,
+  heroPoster: DEFAULT_HERO.poster,
 
   // ----------------------------------------------------------
   // Local preset imagery (ships with the app in /public) —

@@ -21,10 +21,25 @@ interface CustomerInfoStepProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   errors: any
   isAuthenticated: boolean
+  /** P1 #9 (audit-2026-11): validate a single field on blur (RHF trigger). */
+  onBlurField?: (field: "firstName" | "lastName" | "email" | "phone") => void
 }
 
-export function CustomerInfoStep({ values, onChange, errors, isAuthenticated }: CustomerInfoStepProps) {
+export function CustomerInfoStep({ values, onChange, errors, isAuthenticated, onBlurField }: CustomerInfoStepProps) {
   const { t } = useI18n()
+
+  // P1 #9: inline error slots get stable ids wired via aria-describedby, so
+  // screen readers announce the message next to the field.
+  const describedBy = (field: string) =>
+    errors[field] ? `${field}-error` : undefined
+
+  const errorText = (field: string) =>
+    errors[field] ? (
+      <p id={`${field}-error`} className="text-sm text-destructive">
+        {errors[field].message}
+      </p>
+    ) : null
+
   return (
     <Card className="shadow-lg">
       <CardHeader>
@@ -49,14 +64,19 @@ export function CustomerInfoStep({ values, onChange, errors, isAuthenticated }: 
             <Input
               id="firstName"
               name="firstName"
+              required
+              aria-required
+              autoComplete="given-name"
               placeholder={t.booking.firstNamePlaceholder}
+              className="placeholder:text-muted-foreground/60"
               disabled={isAuthenticated}
+              aria-invalid={!!errors.firstName || undefined}
+              aria-describedby={describedBy("firstName")}
               value={values.firstName}
               onChange={(e) => onChange("firstName", e.target.value)}
+              onBlur={() => onBlurField?.("firstName")}
             />
-            {errors.firstName && (
-              <p className="text-sm text-destructive">{errors.firstName.message}</p>
-            )}
+            {errorText("firstName")}
           </div>
           <div className="space-y-2">
             <Label htmlFor="lastName">
@@ -65,14 +85,19 @@ export function CustomerInfoStep({ values, onChange, errors, isAuthenticated }: 
             <Input
               id="lastName"
               name="lastName"
+              required
+              aria-required
+              autoComplete="family-name"
               placeholder={t.booking.lastNamePlaceholder}
+              className="placeholder:text-muted-foreground/60"
               disabled={isAuthenticated}
+              aria-invalid={!!errors.lastName || undefined}
+              aria-describedby={describedBy("lastName")}
               value={values.lastName}
               onChange={(e) => onChange("lastName", e.target.value)}
+              onBlur={() => onBlurField?.("lastName")}
             />
-            {errors.lastName && (
-              <p className="text-sm text-destructive">{errors.lastName.message}</p>
-            )}
+            {errorText("lastName")}
           </div>
         </div>
         <div className="space-y-2">
@@ -83,12 +108,20 @@ export function CustomerInfoStep({ values, onChange, errors, isAuthenticated }: 
             id="email"
             name="email"
             type="email"
+            required
+            aria-required
+            autoComplete="email"
+            inputMode="email"
             placeholder={t.booking.emailPlaceholder}
+            className="placeholder:text-muted-foreground/60"
             disabled={isAuthenticated}
+            aria-invalid={!!errors.email || undefined}
+            aria-describedby={describedBy("email")}
             value={values.email}
             onChange={(e) => onChange("email", e.target.value)}
+            onBlur={() => onBlurField?.("email")}
           />
-          {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
+          {errorText("email")}
         </div>
         <div className="space-y-2">
           <Label htmlFor="phone">
@@ -98,11 +131,19 @@ export function CustomerInfoStep({ values, onChange, errors, isAuthenticated }: 
             id="phone"
             name="phone"
             type="tel"
+            required
+            aria-required
+            autoComplete="tel"
+            inputMode="tel"
             placeholder={t.booking.phonePlaceholder}
+            className="placeholder:text-muted-foreground/60"
+            aria-invalid={!!errors.phone || undefined}
+            aria-describedby={describedBy("phone")}
             value={values.phone}
             onChange={(e) => onChange("phone", e.target.value)}
+            onBlur={() => onBlurField?.("phone")}
           />
-          {errors.phone && <p className="text-sm text-destructive">{errors.phone.message}</p>}
+          {errorText("phone")}
         </div>
         <div className="space-y-2">
           <Label htmlFor="notes">{t.booking.specialRequests}</Label>

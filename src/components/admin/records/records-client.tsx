@@ -450,7 +450,7 @@ function RecordDialog({ open, onOpenChange, entity, record, onSaved }: RecordDia
                         type="checkbox"
                         checked={values[field.key] === true}
                         onChange={(e) => setValue(field.key, e.target.checked)}
-                        className="text-primary focus:ring-primary h-4 w-4 rounded border"
+                        className="text-primary-text focus:ring-primary h-4 w-4 rounded border"
                       />
                       <span className="text-muted-foreground text-sm">
                         {field.placeholder ?? "Da"}

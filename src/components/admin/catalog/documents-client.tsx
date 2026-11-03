@@ -79,7 +79,7 @@ const emptyForm = {
 
 const quoteStatusColors: Record<string, string> = {
   DRAFT: "bg-muted text-muted-foreground",
-  SENT: "bg-primary/10 text-primary",
+  SENT: "bg-primary/10 text-primary-text",
   ACCEPTED: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400",
   REJECTED: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
 }
@@ -682,7 +682,7 @@ export function DocumentsClient({
                         <td colSpan={3} className="py-2 text-right font-semibold">
                           {labels.detail.subtotalLabel}
                         </td>
-                        <td className="py-2 text-right text-base font-bold text-primary">
+                        <td className="py-2 text-right text-base font-bold text-primary-text">
                           {money(detail.total)}
                         </td>
                       </tr>

@@ -114,7 +114,7 @@ export function EditReviewDialog({
                     weight={star <= (hoveredRating || rating) ? "fill" : "regular"}
                     className={`transition-colors ${
                       star <= (hoveredRating || rating)
-                        ? "text-accent"
+                        ? "text-accent-text"
                         : "text-muted-foreground"
                     }`}
                   />

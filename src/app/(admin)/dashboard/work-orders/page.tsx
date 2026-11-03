@@ -30,7 +30,7 @@ export default async function WorkOrdersPage() {
   const w = t.workForms.workOrders
 
   const stats = [
-    { key: "active", label: w.stats.active, value: overview.stats.active, icon: ReceiptIcon, accent: "text-primary" },
+    { key: "active", label: w.stats.active, value: overview.stats.active, icon: ReceiptIcon, accent: "text-primary-text" },
     { key: "dueSoon", label: w.stats.dueSoon, value: overview.stats.dueSoon, icon: ClockIcon, accent: "text-amber-500" },
     { key: "pendingApprovals", label: w.stats.pendingApprovals, value: overview.stats.pendingApprovals, icon: WarningCircleIcon, accent: "text-violet-500" },
     { key: "readyForDelivery", label: w.stats.readyForDelivery, value: overview.stats.readyForDelivery, icon: CheckCircleIcon, accent: "text-emerald-500" },
@@ -126,7 +126,7 @@ export default async function WorkOrdersPage() {
           ))}
           <Link
             href="/dashboard/forms"
-            className="text-primary hover:underline"
+            className="text-primary-text hover:underline"
           >
             {t.workForms.forms.title}
           </Link>

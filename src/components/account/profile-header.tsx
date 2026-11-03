@@ -99,7 +99,7 @@ export function ProfileHeader({ profile }: ProfileHeaderProps) {
                 src={displayImage || undefined}
                 alt={profile.name || "Uporabnik"}
               />
-              <AvatarFallback className="bg-primary/10 text-primary text-2xl font-semibold">
+              <AvatarFallback className="bg-primary/10 text-primary-text text-2xl font-semibold">
                 {initials}
               </AvatarFallback>
             </Avatar>

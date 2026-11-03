@@ -26,7 +26,7 @@ export function StaffStatsCards({ stats }: StaffStatsCardsProps) {
           <CardTitle className="text-muted-foreground text-sm font-medium">
             Današnji termini
           </CardTitle>
-          <CalendarCheckIcon size={20} className="text-primary" />
+          <CalendarCheckIcon size={20} className="text-primary-text" />
         </CardHeader>
         <CardContent>
           <div className="text-3xl font-bold">{stats.todaysAppointments}</div>

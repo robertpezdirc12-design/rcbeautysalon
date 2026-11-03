@@ -62,7 +62,7 @@ export function PublicInquiryForm({ form }: PublicInquiryFormProps) {
   if (submitted) {
     return (
       <div className="bg-card border-primary/20 rounded-2xl border p-10 text-center shadow-sm">
-        <CheckCircleIcon size={48} className="text-primary mx-auto mb-4" />
+        <CheckCircleIcon size={48} className="text-primary-text mx-auto mb-4" />
         <h2 className="text-xl font-semibold">Hvala za vaše povpraševanje!</h2>
         <p className="text-muted-foreground mt-2">
           Obrazec «{form.name}» je oddan. Odgovorimo vam v najkrajšem možnem
@@ -184,7 +184,7 @@ export function PublicInquiryForm({ form }: PublicInquiryFormProps) {
                     type="checkbox"
                     checked={values[field.key] === true}
                     onChange={(e) => setValue(field.key, e.target.checked)}
-                    className="text-primary focus:ring-primary h-4 w-4 rounded border"
+                    className="text-primary-text focus:ring-primary h-4 w-4 rounded border"
                   />
                   <span className="text-muted-foreground text-sm">
                     {field.placeholder ?? "Da"}

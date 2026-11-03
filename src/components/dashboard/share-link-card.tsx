@@ -50,7 +50,7 @@ export function ShareLinkCard({ publicUrl, copy }: ShareLinkCardProps) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Link2 size={18} className="text-primary" aria-hidden="true" />
+          <Link2 size={18} className="text-primary-text" aria-hidden="true" />
           {copy.title}
         </CardTitle>
         <CardDescription>{copy.description}</CardDescription>
@@ -82,7 +82,7 @@ export function ShareLinkCard({ publicUrl, copy }: ShareLinkCardProps) {
         <div className="grid gap-3 md:grid-cols-2">
           <div className="bg-muted/50 rounded-lg border p-4">
             <h3 className="flex items-center gap-2 text-sm font-semibold">
-              <AtSign size={16} className="text-primary" aria-hidden="true" />
+              <AtSign size={16} className="text-primary-text" aria-hidden="true" />
               {copy.instagramTitle}
             </h3>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
@@ -91,7 +91,7 @@ export function ShareLinkCard({ publicUrl, copy }: ShareLinkCardProps) {
           </div>
           <div className="bg-muted/50 rounded-lg border p-4">
             <h3 className="flex items-center gap-2 text-sm font-semibold">
-              <MapPin size={16} className="text-primary" aria-hidden="true" />
+              <MapPin size={16} className="text-primary-text" aria-hidden="true" />
               {copy.googleTitle}
             </h3>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
@@ -101,7 +101,7 @@ export function ShareLinkCard({ publicUrl, copy }: ShareLinkCardProps) {
               href="https://business.google.com/"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-primary hover:text-primary/80 mt-2 inline-flex items-center gap-1 text-sm font-medium transition-colors"
+              className="text-primary-text hover:text-primary-text/80 mt-2 inline-flex items-center gap-1 text-sm font-medium transition-colors"
             >
               {copy.openGoogle}
               <ExternalLink size={14} aria-hidden="true" />

@@ -108,10 +108,11 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
                                 alt={user.name || t.users.altUser}
                                 fill
                                 className="object-cover"
-                              />
+                              
+              sizes="40px"/>
                             </div>
                           ) : (
-                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 font-semibold text-primary">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 font-semibold text-primary-text">
                               {user.name?.split(" ").map(n => n[0]).join("") || "?"}
                             </div>
                           )}

@@ -54,7 +54,7 @@ export function StaffStep({
                   <CheckCircleIcon
                     size={32}
                     weight="fill"
-                    className="absolute right-4 top-4 text-primary"
+                    className="absolute right-4 top-4 text-primary-text"
                   />
                 )}
                 <div className="flex items-center gap-5">
@@ -68,7 +68,7 @@ export function StaffStep({
                         sizes="96px"
                       />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-primary/10 text-3xl font-bold text-primary">
+                      <div className="flex h-full w-full items-center justify-center bg-primary/10 text-3xl font-bold text-primary-text">
                         {staff.name.charAt(0)}
                       </div>
                     )}

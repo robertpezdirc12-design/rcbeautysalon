@@ -40,10 +40,11 @@ export default async function EditUserPage({ params }: EditUserPageProps) {
                 alt={user.name || t.users.altUser}
                 fill
                 className="object-cover"
-              />
+              
+              sizes="80px"/>
             </div>
           ) : (
-            <div className="bg-primary/10 text-primary flex h-12 w-12 items-center justify-center rounded-full text-lg font-semibold">
+            <div className="bg-primary/10 text-primary-text flex h-12 w-12 items-center justify-center rounded-full text-lg font-semibold">
               {user.name
                 ?.split(" ")
                 .map((n) => n[0])

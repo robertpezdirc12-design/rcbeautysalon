@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import { LegalPage } from "@/components/legal/legal-page"
+import { getServerI18n } from "@/lib/i18n/server"
 
 export const metadata: Metadata = {
   title: "Pogoji uporabe",
@@ -7,11 +8,14 @@ export const metadata: Metadata = {
     "Pogoji rezervacije terminov, plačila pologa, odpovedi in odgovornosti salona ter platforme.",
 }
 
-export default function TermsPage() {
+export default async function TermsPage() {
+  const { t } = await getServerI18n()
   return (
     <LegalPage
       title="Pogoji uporabe"
       updated="2. november 2026"
+      backLabel={t.public.backToHome}
+      updatedLabel={t.public.lastUpdated}
       sections={[
         {
           heading: "Rezervacije terminov",

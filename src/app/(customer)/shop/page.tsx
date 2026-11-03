@@ -108,7 +108,8 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
                         alt={product.name}
                         fill
                         className="object-cover transition-transform duration-500 group-hover:scale-110"
-                      />
+                      
+              sizes="(min-width: 1280px) 25vw, (min-width: 640px) 50vw, 100vw"/>
                     ) : (
                       <div className="from-muted to-muted/50 flex h-full w-full items-center justify-center bg-linear-to-br">
                         <PackageIcon
@@ -141,7 +142,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
                   </div>
                 </CardHeader>
                 <CardContent className="p-4">
-                  <CardTitle className="group-hover:text-accent mb-2 text-lg transition-colors">
+                  <CardTitle className="group-hover:text-accent-text mb-2 text-lg transition-colors">
                     {product.name}
                   </CardTitle>
                   {product.description && (

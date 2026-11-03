@@ -64,7 +64,7 @@ const ProductDetails = async ({ params }: ProductDetailsProps) => {
         {/* Back Button */}
         <Button
           variant="ghost"
-          className="mb-6 -ml-2 hover:bg-primary/10 hover:text-primary"
+          className="mb-6 -ml-2 hover:bg-primary/10 hover:text-primary-text"
           asChild
         >
           <Link href={orgPath(orgSlug, "/shop")}>
@@ -86,7 +86,8 @@ const ProductDetails = async ({ params }: ProductDetailsProps) => {
                   fill
                   className="object-cover"
                   priority
-                />
+                
+              sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"/>
               ) : (
                 <div className="flex h-full w-full items-center justify-center bg-linear-to-br from-muted to-muted/50">
                   <Package
@@ -130,7 +131,8 @@ const ProductDetails = async ({ params }: ProductDetailsProps) => {
                       alt={`${product.name} - slika ${index + 1}`}
                       fill
                       className="object-cover"
-                    />
+                    
+              sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"/>
                   </div>
                 ))}
               </div>
@@ -141,7 +143,7 @@ const ProductDetails = async ({ params }: ProductDetailsProps) => {
           <div className="flex flex-col">
             {/* Category */}
             {product.category && (
-              <p className="mb-2 text-sm font-medium text-primary">
+              <p className="mb-2 text-sm font-medium text-primary-text">
                 {product.category.name}
               </p>
             )}
@@ -159,7 +161,7 @@ const ProductDetails = async ({ params }: ProductDetailsProps) => {
                     key={star}
                     size={18}
                     weight="fill"
-                    className="text-accent"
+                    className="text-accent-text"
                   />
                 ))}
               </div>
@@ -170,7 +172,7 @@ const ProductDetails = async ({ params }: ProductDetailsProps) => {
 
             {/* Price */}
             <div className="mb-6 flex items-baseline gap-3">
-              <span className="text-4xl font-bold text-primary">
+              <span className="text-4xl font-bold text-primary-text">
                 {formatCurrency(product.price)}
               </span>
               {product.compareAtPrice && (
@@ -234,7 +236,7 @@ const ProductDetails = async ({ params }: ProductDetailsProps) => {
               <CardContent className="grid gap-4 p-4 sm:grid-cols-2">
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                    <Truck size={20} className="text-primary" />
+                    <Truck size={20} className="text-primary-text" />
                   </div>
                   <div>
                     <p className="text-sm font-medium">Brezplačna dostava</p>
@@ -245,7 +247,7 @@ const ProductDetails = async ({ params }: ProductDetailsProps) => {
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                    <ShieldCheck size={20} className="text-primary" />
+                    <ShieldCheck size={20} className="text-primary-text" />
                   </div>
                   <div>
                     <p className="text-sm font-medium">Varen nakup</p>

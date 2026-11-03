@@ -28,7 +28,7 @@ export function OrdersSummary({ stats }: OrdersSummaryProps) {
     <Card>
       <CardHeader>
         <div className="flex items-center gap-2">
-          <ReceiptIcon size={20} className="text-primary" />
+          <ReceiptIcon size={20} className="text-primary-text" />
           <CardTitle className="text-lg">Naročila</CardTitle>
         </div>
         <CardDescription>Zgodovina vaših nakupov</CardDescription>
@@ -36,7 +36,7 @@ export function OrdersSummary({ stats }: OrdersSummaryProps) {
       <CardContent>
         <div className="grid grid-cols-2 gap-4 text-center">
           <div className="bg-muted/50 rounded-lg p-3">
-            <p className="text-primary text-2xl font-bold">
+            <p className="text-primary-text text-2xl font-bold">
               {stats?.pendingOrders || 0}
             </p>
             <p className="text-muted-foreground text-xs">V obdelavi</p>
@@ -52,7 +52,7 @@ export function OrdersSummary({ stats }: OrdersSummaryProps) {
         {/* Total Spent */}
         <div className="bg-muted/50 mt-4 rounded-lg p-3 text-center">
           <p className="text-muted-foreground text-xs">Skupaj porabljeno</p>
-          <p className="text-primary text-xl font-bold">
+          <p className="text-primary-text text-xl font-bold">
             {fmt(stats?.totalSpent || 0)}
           </p>
         </div>

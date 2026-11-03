@@ -175,9 +175,9 @@ const Footer = async () => {
                 <li key={link.href}>
                   <Link
                     href={orgPath(slug, link.href)}
-                    className="group text-muted-foreground hover:text-primary inline-flex items-center transition-colors"
+                    className="group text-muted-foreground hover:text-primary-text inline-flex min-h-11 items-center py-2 transition-colors"
                   >
-                    <span className="text-accent mr-2 transition-transform group-hover:translate-x-1">
+                    <span className="text-accent-text mr-2 transition-transform group-hover:translate-x-1">
                       →
                     </span>
                     {link.label}
@@ -196,7 +196,7 @@ const Footer = async () => {
               {(config?.address || config?.city) && (
                 <li className="text-muted-foreground flex items-start gap-3">
                   <svg
-                    className="text-primary mt-0.5 h-5 w-5 shrink-0"
+                    className="text-primary-text mt-0.5 h-5 w-5 shrink-0"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -222,9 +222,9 @@ const Footer = async () => {
                 </li>
               )}
               {config?.email && (
-                <li className="text-muted-foreground hover:text-accent flex items-center gap-3 transition-colors">
+                <li className="text-muted-foreground hover:text-accent-text flex items-center gap-3 transition-colors">
                   <svg
-                    className="text-primary h-5 w-5 shrink-0"
+                    className="text-primary-text h-5 w-5 shrink-0"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -240,9 +240,9 @@ const Footer = async () => {
                 </li>
               )}
               {config?.phone && (
-                <li className="text-muted-foreground hover:text-accent flex items-center gap-3 transition-colors">
+                <li className="text-muted-foreground hover:text-accent-text flex items-center gap-3 transition-colors">
                   <svg
-                    className="text-primary h-5 w-5 shrink-0"
+                    className="text-primary-text h-5 w-5 shrink-0"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -278,7 +278,7 @@ const Footer = async () => {
                   <span>{item.day}</span>
                   <span
                     className={`font-medium ${
-                      item.value === "Zaprto" ? "text-accent" : "text-foreground"
+                      item.value === "Zaprto" ? "text-accent-text" : "text-foreground"
                     }`}
                   >
                     {item.value}
@@ -288,11 +288,11 @@ const Footer = async () => {
             </ul>
             <div className="border-primary/20 bg-primary/5 rounded-lg border p-4">
               {profile.website.ctaMode === "booking" ? (
-                <p className="text-primary text-xs font-medium">
+                <p className="text-primary-text text-xs font-medium">
                   ✨ Rezervirajte online za zagotovljen termin.
                 </p>
               ) : (
-                <p className="text-primary text-xs font-medium">
+                <p className="text-primary-text text-xs font-medium">
                   ✨ {profileTerm(profile, "bookingCta", "sl")} — odgovorimo v najkrajšem možnem času.
                 </p>
               )}
@@ -309,7 +309,7 @@ const Footer = async () => {
             </span>{" "}
             — Oblikovano s ❤ na Poslovni platformi
           </p>
-          <div className="flex gap-6 text-sm">
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
             {(session
               ? legalLinks
               : [...legalLinks, staffLoginLink]
@@ -317,7 +317,7 @@ const Footer = async () => {
               <Link
                 key={link.label}
                 href={link.href}
-                className="text-muted-foreground hover:text-primary transition-colors"
+                className="text-muted-foreground hover:text-primary-text inline-flex min-h-11 items-center px-1 py-2 transition-colors"
               >
                 {link.label}
               </Link>

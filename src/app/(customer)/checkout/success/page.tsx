@@ -58,7 +58,7 @@ export default function CheckoutSuccessPage() {
         <Card className="w-full max-w-md text-center">
           <CardHeader>
             <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
-              <SpinnerIcon size={40} className="text-primary animate-spin" />
+              <SpinnerIcon size={40} className="text-primary-text animate-spin" />
             </div>
             <CardTitle className="text-2xl">Preverjamo vaše naročilo</CardTitle>
           </CardHeader>

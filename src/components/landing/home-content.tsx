@@ -18,14 +18,14 @@ import { HowItWorksSection } from "@/components/landing/how-it-works-section"
 import { TestimonialsSection, type LandingTestimonial } from "@/components/landing/testimonials-section"
 import { SectionWrapper } from "@/components/layouts/section-wrapper"
 import { AccentSpan, splitLastWord, splitOnComma } from "./section-title"
+import { useI18n } from "@/lib/i18n/provider"
 import { useNavigationStore } from "@/store/navigation-store"
 import { formatCurrency } from "@/lib/utils/format"
+import { DEFAULT_CATALOG_IMAGES } from "@/lib/default-assets"
 
-// Fallback visuals for organizations without content imagery
-const DEFAULT_ABOUT_IMAGE =
-  "https://res.cloudinary.com/caballerorandy/image/upload/v1763776103/Beauty%20Salon/services/salon-interior_uxr7ba.avif"
-const DEFAULT_CTA_IMAGE =
-  "https://res.cloudinary.com/caballerorandy/image/upload/v1763844271/Beauty%20Salon/services/transform_hwvixg.avif"
+// P1 #18 (audit-2026-11): centralized default assets (single source of truth)
+const DEFAULT_ABOUT_IMAGE = DEFAULT_CATALOG_IMAGES.salonInterior
+const DEFAULT_CTA_IMAGE = DEFAULT_CATALOG_IMAGES.transform
 
 interface Service {
   id: string
@@ -95,6 +95,8 @@ export function HomeContent({
   const primaryCta = ctaLinks?.primaryCta ?? content.hero.primaryCta
   const secondaryCta = ctaLinks ? ctaLinks.secondaryCta : content.hero.secondaryCta
   const { setActiveSection } = useNavigationStore()
+  // P1 #8/#15 (audit-2026-11): i18n for CTA labels and placeholders
+  const { t } = useI18n()
 
   const prefix = org.slug ? `/s/${org.slug}` : ""
   const toHref = (href: string) =>
@@ -193,31 +195,32 @@ export function HomeContent({
                           src={service.imageUrl.startsWith('http') ? service.imageUrl : cloudinaryPresets.serviceCard(service.imageUrl)}
                           alt={service.name}
                           fill
+                          sizes="(min-width: 1280px) 20vw, (min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
                           className="object-cover transition-transform duration-700 group-hover:scale-110"
                         />
                       ) : (
                         <div className="bg-muted flex h-full w-full items-center justify-center">
-                          <span className="text-muted-foreground">Brez slike</span>
+                          <span className="text-muted-foreground">{t.public.noImage}</span>
                         </div>
                       )}
                       <div className="absolute inset-0 bg-linear-to-t from-black/95 via-black/60 to-black/20 opacity-90 transition-opacity duration-500 group-hover:opacity-95" />
                       <div className="absolute inset-0 flex flex-col justify-end p-5">
                         <div className="transform transition-transform duration-500 group-hover:-translate-y-1">
-                          <h3 className="font-heading group-hover:text-accent mb-2 text-xl font-semibold tracking-tight text-white transition-colors duration-300">
+                          <h3 className="font-heading group-hover:text-accent-text mb-2 text-xl font-semibold tracking-tight text-white transition-colors duration-300">
                             {service.name}
                           </h3>
                           <div className="flex items-center justify-between text-sm text-white/90 transition-colors duration-300">
-                            <span className="group-hover:text-accent/90 font-medium">
+                            <span className="group-hover:text-accent-text/90 font-medium">
                               {formatCurrency(Number(service.price))}
                             </span>
                             {service.duration && (
-                              <span className="text-white/70 group-hover:text-accent/70 transition-colors">
+                              <span className="text-white/70 group-hover:text-accent-text/70 transition-colors">
                                 {service.duration} min
                               </span>
                             )}
                           </div>
                           <div className="mt-4 translate-y-2 transform opacity-0 transition-all duration-500 group-hover:translate-y-0 group-hover:opacity-100">
-                            <div className="text-accent border-accent/50 hover:border-accent inline-flex items-center border-b-2 pb-1 text-sm font-medium">
+                            <div className="text-accent-text border-accent/50 hover:border-accent inline-flex items-center border-b-2 pb-1 text-sm font-medium">
                               {serviceCtaLabel}
                               <svg className="ml-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -232,11 +235,9 @@ export function HomeContent({
               </div>
             </div>
             <div className="mt-12 text-center">
-              <Link href={toHref("/services")}>
-                <Button size="lg" variant="outline" className="border-primary/50 hover:bg-primary hover:text-white">
-                  Vse storitve
-                </Button>
-              </Link>
+              <Button asChild size="lg" variant="outline" className="border-primary/50 hover:bg-primary hover:text-white">
+                <Link href={toHref("/services")}>{t.public.allServices}</Link>
+              </Button>
             </div>
           </div>
         </SectionWrapper>
@@ -252,6 +253,7 @@ export function HomeContent({
                   src={content.about.imageUrl || DEFAULT_ABOUT_IMAGE}
                   alt={content.about.title}
                   fill
+                  sizes="(min-width: 1024px) 50vw, 100vw"
                   className="object-cover"
                   quality={90}
                 />
@@ -284,7 +286,7 @@ export function HomeContent({
                       key={`${stat.label}-${index}`}
                       className="bg-primary/5 border-primary/20 rounded-lg border p-4 text-center"
                     >
-                      <div className="text-primary mb-1 text-3xl font-bold">{stat.value}</div>
+                      <div className="text-primary-text mb-1 text-3xl font-bold">{stat.value}</div>
                       <div className="text-muted-foreground text-sm">{stat.label}</div>
                     </div>
                   ))}
@@ -329,7 +331,7 @@ export function HomeContent({
                         <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
                       </div>
                       <div className="p-4 text-center">
-                        <h3 className="font-semibold group-hover:text-accent transition-colors">{staff.name}</h3>
+                        <h3 className="font-semibold group-hover:text-accent-text transition-colors">{staff.name}</h3>
                         {staff.bio && (
                           <p className="text-muted-foreground mt-1 text-sm line-clamp-2">{staff.bio}</p>
                         )}
@@ -340,11 +342,9 @@ export function HomeContent({
               </div>
             </div>
             <div className="mt-12 text-center">
-              <Link href={toHref("/staff")}>
-                <Button size="lg" variant="outline" className="border-primary/50 hover:bg-primary hover:text-white">
-                  Vsa ekipa
-                </Button>
-              </Link>
+              <Button asChild size="lg" variant="outline" className="border-primary/50 hover:bg-primary hover:text-white">
+                <Link href={toHref("/staff")}>{t.public.allTeam}</Link>
+              </Button>
             </div>
           </div>
         </SectionWrapper>
@@ -368,7 +368,7 @@ export function HomeContent({
                       id={product.id}
                       name={product.name}
                       price={product.price}
-                      category={product.category?.name || "Izdelki"}
+                      category={product.category?.name || t.public.uncategorized}
                       image={product.images?.[0] || null}
                       hrefPrefix={prefix}
                     />
@@ -377,11 +377,9 @@ export function HomeContent({
               </div>
             </div>
             <div className="mt-12 text-center">
-              <Link href={toHref("/shop")}>
-                <Button size="lg" variant="outline" className="border-primary/50 hover:bg-primary hover:text-white">
-                  Vsi izdelki
-                </Button>
-              </Link>
+              <Button asChild size="lg" variant="outline" className="border-primary/50 hover:bg-primary hover:text-white">
+                <Link href={toHref("/shop")}>{t.public.allProducts}</Link>
+              </Button>
             </div>
           </div>
         </SectionWrapper>
@@ -395,6 +393,7 @@ export function HomeContent({
               src={content.cta.imageUrl || DEFAULT_CTA_IMAGE}
               alt={content.cta.title}
               fill
+              sizes="100vw"
               className="object-cover"
               quality={90}
             />

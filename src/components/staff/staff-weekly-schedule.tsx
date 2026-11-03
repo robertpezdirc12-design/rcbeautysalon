@@ -68,7 +68,7 @@ export function StaffWeeklySchedule({ workingHours }: StaffWeeklyScheduleProps) 
     <Card>
       <CardHeader>
         <div className="flex items-center gap-2">
-          <ClockIcon size={20} className="text-primary" />
+          <ClockIcon size={20} className="text-primary-text" />
           <CardTitle>Tedenski urnik</CardTitle>
         </div>
         <CardDescription>Vaš običajni delovni čas</CardDescription>

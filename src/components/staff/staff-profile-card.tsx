@@ -44,7 +44,7 @@ export function StaffProfileCard({ profile }: StaffProfileCardProps) {
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <UserIcon size={20} className="text-primary" />
+            <UserIcon size={20} className="text-primary-text" />
             <CardTitle className="text-lg">Moj profil</CardTitle>
           </div>
           <Badge variant={profile.isActive ? "default" : "secondary"}>

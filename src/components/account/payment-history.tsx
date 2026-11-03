@@ -54,7 +54,7 @@ export function PaymentHistory({ payments, showAll = false }: PaymentHistoryProp
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <CreditCardIcon size={20} className="text-primary" />
+            <CreditCardIcon size={20} className="text-primary-text" />
             Zgodovina plačil
           </CardTitle>
           <CardDescription>Pregled vaših preteklih transakcij</CardDescription>
@@ -85,14 +85,14 @@ export function PaymentHistory({ payments, showAll = false }: PaymentHistoryProp
         <div className="flex items-start justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <CreditCardIcon size={20} className="text-primary" />
+              <CreditCardIcon size={20} className="text-primary-text" />
               Zgodovina plačil
             </CardTitle>
             <CardDescription>Pregled vaših preteklih transakcij</CardDescription>
           </div>
           <div className="text-right">
             <p className="text-sm text-muted-foreground">Skupaj porabljeno</p>
-            <p className="text-xl font-bold text-primary">{fmt(totalSpent)}</p>
+            <p className="text-xl font-bold text-primary-text">{fmt(totalSpent)}</p>
           </div>
         </div>
       </CardHeader>
@@ -112,9 +112,9 @@ export function PaymentHistory({ payments, showAll = false }: PaymentHistoryProp
                   {/* Icon */}
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
                     {payment.type === "APPOINTMENT_DEPOSIT" ? (
-                      <CalendarIcon size={20} className="text-primary" />
+                      <CalendarIcon size={20} className="text-primary-text" />
                     ) : (
-                      <ReceiptIcon size={20} className="text-primary" />
+                      <ReceiptIcon size={20} className="text-primary-text" />
                     )}
                   </div>
 

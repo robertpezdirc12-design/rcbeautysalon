@@ -90,7 +90,7 @@ export function HowItWorksSection({
                     <Icon size={20} className="text-white" aria-hidden="true" />
                   </span>
                 </div>
-                <h3 className="group-hover:text-primary mb-2 font-semibold transition-colors">
+                <h3 className="group-hover:text-primary-text mb-2 font-semibold transition-colors">
                   {step.title}
                 </h3>
                 <p className="text-muted-foreground text-sm leading-relaxed">

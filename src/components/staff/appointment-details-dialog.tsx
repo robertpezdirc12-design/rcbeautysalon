@@ -141,13 +141,13 @@ export function AppointmentDetailsDialog({
             <div className="space-y-3">
               <h4 className="text-muted-foreground flex items-center gap-2 text-xs font-semibold uppercase tracking-wider sm:text-sm">
                 <span className="bg-primary/10 rounded-full p-1">
-                  <ScissorsIcon size={12} className="text-primary" />
+                  <ScissorsIcon size={12} className="text-primary-text" />
                 </span>
                 Stranka
               </h4>
               <div className="bg-card border-border/50 flex items-start gap-3 rounded-xl border p-3 shadow-sm transition-shadow hover:shadow-md sm:gap-4 sm:p-4">
                 <Avatar className="ring-primary/20 h-12 w-12 ring-2 sm:h-14 sm:w-14">
-                  <AvatarFallback className="bg-primary/10 text-primary text-sm font-semibold sm:text-base">
+                  <AvatarFallback className="bg-primary/10 text-primary-text text-sm font-semibold sm:text-base">
                     {appointment.customerName
                       .split(" ")
                       .map((n) => n[0])
@@ -176,7 +176,7 @@ export function AppointmentDetailsDialog({
             <div className="space-y-3">
               <h4 className="text-muted-foreground flex items-center gap-2 text-xs font-semibold uppercase tracking-wider sm:text-sm">
                 <span className="bg-primary/10 rounded-full p-1">
-                  <CalendarIcon size={12} className="text-primary" />
+                  <CalendarIcon size={12} className="text-primary-text" />
                 </span>
                 Datum in ura
               </h4>
@@ -184,7 +184,7 @@ export function AppointmentDetailsDialog({
                 <div className="bg-muted/30 border-border/30 rounded-xl border p-3 text-center transition-colors hover:bg-muted/50 sm:p-4">
                   <CalendarIcon
                     size={20}
-                    className="text-primary mx-auto mb-2"
+                    className="text-primary-text mx-auto mb-2"
                   />
                   <p className="text-muted-foreground text-[10px] uppercase tracking-wide sm:text-xs">
                     Datum
@@ -196,7 +196,7 @@ export function AppointmentDetailsDialog({
                   </p>
                 </div>
                 <div className="bg-muted/30 border-border/30 rounded-xl border p-3 text-center transition-colors hover:bg-muted/50 sm:p-4">
-                  <ClockIcon size={20} className="text-primary mx-auto mb-2" />
+                  <ClockIcon size={20} className="text-primary-text mx-auto mb-2" />
                   <p className="text-muted-foreground text-[10px] uppercase tracking-wide sm:text-xs">
                     Čas
                   </p>
@@ -214,7 +214,7 @@ export function AppointmentDetailsDialog({
               <h4 className="text-muted-foreground flex items-center justify-between text-xs font-semibold uppercase tracking-wider sm:text-sm">
                 <span className="flex items-center gap-2">
                   <span className="bg-primary/10 rounded-full p-1">
-                    <ScissorsIcon size={12} className="text-primary" />
+                    <ScissorsIcon size={12} className="text-primary-text" />
                   </span>
                   Storitve
                 </span>
@@ -237,7 +237,7 @@ export function AppointmentDetailsDialog({
                         <span>{item.service.duration} min</span>
                       </div>
                     </div>
-                    <p className="text-primary ml-3 text-sm font-bold sm:text-base">
+                    <p className="text-primary-text ml-3 text-sm font-bold sm:text-base">
                       {fmt(item.service.price)}
                     </p>
                   </div>
@@ -258,7 +258,7 @@ export function AppointmentDetailsDialog({
                 <span className="text-muted-foreground text-sm sm:text-base">
                   Skupna cena
                 </span>
-                <span className="text-primary text-xl font-bold sm:text-2xl">
+                <span className="text-primary-text text-xl font-bold sm:text-2xl">
                   {fmt(appointment.totalPrice)}
                 </span>
               </div>
