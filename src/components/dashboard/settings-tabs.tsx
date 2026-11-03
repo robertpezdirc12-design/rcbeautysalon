@@ -14,13 +14,22 @@ interface SettingsTabsProps {
   branding: ReactNode
   payments?: ReactNode
   domains?: ReactNode
+  /** P2 #43: globinska povezava (npr. /dashboard/settings?tab=branding)
+   * iz vodenega vstopa — privzeti zavihek. Neznana vrednost pade na osnovni. */
+  defaultTab?: string
 }
 
-export function SettingsTabs({ basic, modules, branding, payments, domains }: SettingsTabsProps) {
+const TAB_IDS = ["basic", "modules", "branding", "payments", "domains"] as const
+
+export function SettingsTabs({ basic, modules, branding, payments, domains, defaultTab }: SettingsTabsProps) {
   const { t } = useI18n()
 
+  const initial = TAB_IDS.includes((defaultTab ?? "") as (typeof TAB_IDS)[number])
+    ? (defaultTab as string)
+    : "basic"
+
   return (
-    <Tabs defaultValue="basic">
+    <Tabs defaultValue={initial}>
       <TabsList>
         <TabsTrigger value="basic">{t.settings.tabs.basic}</TabsTrigger>
         {modules && <TabsTrigger value="modules">{t.settings.tabs.modules}</TabsTrigger>}

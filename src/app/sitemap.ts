@@ -16,7 +16,16 @@ import { isInternalTenantSlug } from "@/lib/tenant-flags"
  *  - /shop se izpiše samo, ko profil sploh omogoča trgovino,
  *  - lastModified je posodobljen na org.updatedAt (koristen za recrawl).
  * Osnutki (draft) ostajajo izključeni (niso indeksirani).
+ *
+ * P0 #24 (reopen): revalidate 900 s — sitemap je brez tega statično
+ * pečen ob buildu; sprememba vertikale/objave (npr. /booking izstop)
+ * se v sitemap odrazi šele ob NASLEDNJEM deployu. Z revalidate se
+ * osveži iz baze vsaj vsakih 15 min.
  */
+
+// #24: glej komentar zgoraj — sitemap ni več statičen za večnost.
+export const revalidate = 900
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const appUrl = (
     process.env.NEXT_PUBLIC_APP_URL ||

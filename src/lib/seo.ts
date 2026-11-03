@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import type { SiteContent } from "@/lib/site-content"
+import { getProfile } from "@/lib/profiles/registry"
 import { isInternalTenantSlug } from "@/lib/tenant-flags"
 
 /**
@@ -99,31 +100,21 @@ export interface JsonLdOpeningHour {
 }
 
 /**
- * P1 #36 (re-audit 2026-11): preslikava vertikale → schema.org tip.
- * Prej je bila zadnja možnost "BeautySalon", zato je splošni/neznan
- * profil opisoval napačen posel; "seamstress" je (pravilno) dajal
- * ClothingStore — kar je razkrilo, da rc-beauty nosi napačno vertikalo
- * (glej #24 — podatkovni popravek). Neznana vertikala → nevtralni
- * LocalBusiness, nikoli več trdovratno napačen tip.
+ * P2 #36 (audit-2026-11, reopen): schema.org @type se IZPELJE iz
+ * profila v registru (schemaType polje na vsaki dejavnosti) — en vir
+ * resnice, nov profil ne more pozabiti preslikave. Prej je bila tu
+ * ločena mapa (in pred tem trdovratna konstanta ClothingStore).
+ *
+ * Preslikava (v registry.ts):
+ *   beauty/cosmetica/epilation → BeautySalon · frizer/barber → HairSalon
+ *   nails → NailSalon · massage → DaySpa · tire-service → AutoRepair
+ *   seamstress → ProfessionalService (storitveni posel, NE ClothingStore
+ *   — ta pomeni malico) · beekeeping → Store · neznana → LocalBusiness.
  */
-const SCHEMA_TYPE_BY_VERTICAL: Record<string, string> = {
-  beauty: "BeautySalon",
-  frizer: "HairSalon",
-  barber: "HairSalon",
-  nails: "NailSalon",
-  cosmetica: "BeautySalon",
-  massage: "DaySpa",
-  epilation: "BeautySalon",
-  "tire-service": "AutoRepair",
-  seamstress: "ClothingStore",
-  beekeeping: "Store",
-  generic: "LocalBusiness",
-}
-
 export function schemaTypeForVertical(
   vertical: string | null | undefined
 ): string {
-  return (vertical && SCHEMA_TYPE_BY_VERTICAL[vertical]) || "LocalBusiness"
+  return getProfile(vertical).schemaType || "LocalBusiness"
 }
 
 /**

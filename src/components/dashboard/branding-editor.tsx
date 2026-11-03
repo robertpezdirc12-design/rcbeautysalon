@@ -1430,7 +1430,14 @@ export function BrandingEditor() {
               )}
               aria-hidden
             />
-            {dirty ? b.unsavedChanges : b.allSaved}
+            {/* P2 #43: po shranjevanju, dokler spremembe NISO objavljene,
+                status pove osnutek — prejšnje "Vse spremembe so shranjene"
+                je protislovno pravilu "javno šele po objavi". */}
+            {dirty
+              ? b.unsavedChanges
+              : publication?.hasUnpublishedChanges
+                ? b.savedDraft
+                : b.allSaved}
           </p>
           <div className="flex flex-wrap items-center gap-2">
             {publication?.hasPublishedSnapshot && publication.hasUnpublishedChanges && (

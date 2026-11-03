@@ -24,7 +24,11 @@ declare module "next-auth" {
   }
 }
 
-export const { handlers, signIn, signOut, auth } = NextAuth({
+// `unstable_update` omogoča server actionom osvežitev JWT seje (nova
+// vloga/povezana organizacija) brez ponovne prijave — uporablja onboarding
+// #40: obstoječ račun, ki ustvari podjetje, dobi organizationId + role ADMIN
+// v ISTI seji (dashboard takoj dostopen).
+export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
   session: {
     strategy: "jwt",
   },
@@ -80,11 +84,24 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id
         token.role = user.role
         token.organizationId = user.organizationId ?? null
+      }
+      // #40: server action (unstable_update) pošlje sveže vrednosti kot
+      // user patch — prepiši token polja, da seja odraža novo stanje računa.
+      if (trigger === "update" && session) {
+        const patch = session.user as
+          | { role?: UserRole; organizationId?: string | null }
+          | undefined
+        if (patch) {
+          if (typeof patch.role !== "undefined") token.role = patch.role
+          if (typeof patch.organizationId !== "undefined") {
+            token.organizationId = patch.organizationId
+          }
+        }
       }
       return token
     },

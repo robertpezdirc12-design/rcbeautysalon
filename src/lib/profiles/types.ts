@@ -131,6 +131,9 @@ export interface ActivityProfile {
   description: string
   /** Default palette id (appearance layer, see src/lib/verticals.ts). */
   palette: string
+  /** schema.org @type za JSON-LD LocalBusiness (#36) — iz registrja, ne
+   * iz ločene preslikave, da ne moreta raziti. */
+  schemaType: string
   capabilities: CapabilityMatrix
   terminology: TerminologySet
   forms: ProfileFormTemplate[]

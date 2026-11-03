@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import { auth } from "@/lib/auth/auth"
+import { prisma } from "@/lib/prisma"
 
 export const metadata: Metadata = {
   title: "Moj račun | Poslovna platforma",
@@ -20,12 +21,23 @@ import { SecuritySection } from "@/components/account/security-section"
 import { OrdersSummary } from "@/components/account/orders-summary"
 import { NotificationPreferences } from "@/components/account/notification-preferences"
 import { PaymentHistory } from "@/components/account/payment-history"
+import { OwnerAccountCard } from "@/components/account/owner-account-card"
 
 export default async function MyAccountPage() {
   const session = await auth()
   if (!session?.user) {
     redirect("/login?callbackUrl=/my-account")
   }
+
+  // P1 #41 (onboarding audit 2026-11): območje stranke mora imeti vidno
+  // pot do ustvarjanja podjetja (in obratno — lastnik do nadzorne plošče).
+  // Preverimo v DB (avtoritativno), ne v JWT žetonu, ki je lahko zastarel.
+  const membership = await prisma.user
+    .findUnique({
+      where: { id: session.user.id },
+      select: { organizationId: true, organization: { select: { slug: true } } },
+    })
+    .catch(() => null)
 
   const [profile, stats, orderStats, notificationPrefs, payments] = await Promise.all([
     getUserProfile(),
@@ -54,6 +66,11 @@ export default async function MyAccountPage() {
 
         {/* Profile Header Card */}
         <ProfileHeader profile={profile} />
+
+        {/* P1 #41: lastniška pot — ustvarjanje podjetja ali nadzorna plošča */}
+        <OwnerAccountCard
+          organizationSlug={membership?.organization?.slug ?? null}
+        />
 
         {/* Main Content Grid */}
         <div className="mt-6 grid gap-6 md:grid-cols-2">

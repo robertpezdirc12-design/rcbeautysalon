@@ -71,8 +71,21 @@ const STEPS = [
   { id: 3, label: "Lastnik" },
 ] as const
 
-export function StartWizard() {
+// P1 #40 (onboarding audit 2026-11): ko je uporabnik že prijavljen,
+// korak 3 NE ustvarja novega računa — e-pošta iz seje je odčitavana,
+// gesla se ne sprašuje, podjetje se pripne obstoječemu računu (strežnik
+// sam poveže organizacijo in osveži vlogo v seji).
+export function StartWizard({
+  authedEmail,
+  authedName,
+}: {
+  authedEmail?: string | null
+  authedName?: string | null
+}) {
   const router = useRouter()
+  const authed = Boolean(authedEmail)
+  const authedDisplayName =
+    authedName && authedName.trim().length >= 2 ? authedName.trim() : null
 
   const [step, setStep] = useState(1)
   const [creating, setCreating] = useState(false)
@@ -89,8 +102,10 @@ export function StartWizard() {
   const [slugStatus, setSlugStatus] = useState<SlugStatus>("idle")
 
   // Step 3 — owner
-  const [ownerName, setOwnerName] = useState("")
-  const [email, setEmail] = useState("")
+  // #40: prijavljen uporabnik — e-pošta je iz seje (nespremenljiva), ime
+  // se predizpolni iz računa.
+  const [ownerName, setOwnerName] = useState(authedDisplayName ?? "")
+  const [email, setEmail] = useState(authedEmail ?? "")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
 
@@ -216,7 +231,9 @@ export function StartWizard() {
     setSlugTouched(d.slugTouched)
     setSlugStatus(d.slug.trim().length >= 2 ? "checking" : "idle")
     setOwnerName(d.ownerName)
-    setEmail(d.email)
+    // #40: e-pošta prijavljenega uporabnika je avtoritativna — osnutek je
+    // ne more preglasiti.
+    setEmail(authedEmail ?? d.email)
     setResumeOffer(null)
   }
 
@@ -290,17 +307,20 @@ export function StartWizard() {
       toast.error("Vnesite ime in priimek.")
       return false
     }
-    if (!EMAIL_REGEX.test(email.trim())) {
-      toast.error("Vnesite veljaven e-poštni naslov.")
-      return false
-    }
-    if (password.length < 8) {
-      toast.error("Geslo mora imeti vsaj 8 znakov.")
-      return false
-    }
-    if (password !== confirmPassword) {
-      toast.error("Gesli se ne ujemata.")
-      return false
+    // #40: prijavljen uporabnik — e-pošta je fiksna iz seje, gesla ni.
+    if (!authed) {
+      if (!EMAIL_REGEX.test(email.trim())) {
+        toast.error("Vnesite veljaven e-poštni naslov.")
+        return false
+      }
+      if (password.length < 8) {
+        toast.error("Geslo mora imeti vsaj 8 znakov.")
+        return false
+      }
+      if (password !== confirmPassword) {
+        toast.error("Gesli se ne ujemata.")
+        return false
+      }
     }
     return true
   }
@@ -337,8 +357,10 @@ export function StartWizard() {
         secondaryVertical: secondary,
         palette: palette!,
         ownerName: ownerName.trim(),
-        email: email.trim(),
-        password,
+        // #40: prijavljen uporabnik — e-pošta iz seje, gesla ni (strežnik
+        // poveže obstoječi račun in ne ustvari novega).
+        email: (authed ? authedEmail! : email).trim(),
+        password: authed ? "" : password,
       })
 
       if (!res.success) {
@@ -351,19 +373,23 @@ export function StartWizard() {
       // outlive the account (the next person on this browser starts clean).
       clearDraftRaw(window.localStorage, WIZARD_DRAFT_KEY)
 
-      const login = await signIn("credentials", {
-        email: email.trim(),
-        password,
-        redirect: false,
-      })
-
-      if (login?.error) {
-        toast.error("Podjetje je ustvarjeno, avtomatska prijava pa ni uspela.", {
-          description: "Prijavite se ročno z vašo e-pošto in geslom.",
-          duration: 8000,
+      // #40: prijavljen uporabnik je ŽE prijavljen (strežnik je osvežil
+      // sejo z novo vlogo/organizacijo) — prijava se ne ponavlja.
+      if (!authed) {
+        const login = await signIn("credentials", {
+          email: email.trim(),
+          password,
+          redirect: false,
         })
-        router.push("/login")
-        return
+
+        if (login?.error) {
+          toast.error("Podjetje je ustvarjeno, avtomatska prijava pa ni uspela.", {
+            description: "Prijavite se ročno z vašo e-pošto in geslom.",
+            duration: 8000,
+          })
+          router.push("/login")
+          return
+        }
       }
 
       toast.success("Podjetje je ustvarjeno!", {
@@ -648,7 +674,9 @@ export function StartWizard() {
               Vaš račun
             </h1>
             <p className="mt-2 text-muted-foreground">
-              S tem računom upravljate salon, rezervacije in trgovino.
+              {authed
+                ? "Podjetje povežemo z vašim obstoječim računom — brez nove prijave."
+                : "S tem računom upravljate salon, rezervacije in trgovino."}
             </p>
 
             <div className="mt-6 space-y-4">
@@ -666,42 +694,64 @@ export function StartWizard() {
 
               <div className="space-y-2">
                 <Label htmlFor="owner-email">E-pošta</Label>
-                <Input
-                  id="owner-email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="npr. nika@studionika.si"
-                  autoComplete="email"
-                  disabled={creating}
-                />
+                {authed ? (
+                  <>
+                    <Input
+                      id="owner-email"
+                      type="email"
+                      value={email}
+                      readOnly
+                      aria-readonly="true"
+                      autoComplete="email"
+                      disabled={creating}
+                      className="bg-muted/60"
+                    />
+                    <p className="text-muted-foreground text-xs">
+                      Prijavljeni ste s tem računom — podjetje se poveže nanj.
+                    </p>
+                  </>
+                ) : (
+                  <Input
+                    id="owner-email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="npr. nika@studionika.si"
+                    autoComplete="email"
+                    disabled={creating}
+                  />
+                )}
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="owner-password">Geslo</Label>
-                <Input
-                  id="owner-password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Najmanj 8 znakov"
-                  autoComplete="new-password"
-                  disabled={creating}
-                />
-              </div>
+              {!authed && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="owner-password">Geslo</Label>
+                    <Input
+                      id="owner-password"
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Najmanj 8 znakov"
+                      autoComplete="new-password"
+                      disabled={creating}
+                    />
+                  </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="owner-password-confirm">Potrditev gesla</Label>
-                <Input
-                  id="owner-password-confirm"
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Ponovite geslo"
-                  autoComplete="new-password"
-                  disabled={creating}
-                />
-              </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="owner-password-confirm">Potrditev gesla</Label>
+                    <Input
+                      id="owner-password-confirm"
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Ponovite geslo"
+                      autoComplete="new-password"
+                      disabled={creating}
+                    />
+                  </div>
+                </>
+              )}
 
               <div className="rounded-lg border border-border bg-muted/50 p-4">
                 <p className="flex items-start gap-2.5 text-sm text-muted-foreground">

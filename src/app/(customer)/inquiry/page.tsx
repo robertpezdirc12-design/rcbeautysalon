@@ -44,8 +44,12 @@ export default async function InquiryPage() {
           <h1 className="from-primary to-accent mb-2 bg-linear-to-r bg-clip-text text-4xl font-bold text-transparent">
             {ctaLabel}
           </h1>
+          {/* #24 (fold-in): brez aktivnih obrazcev glava ne obljublja
+              "Izpolnite obrazec" — pove, kje so kontaktni podatki. */}
           <p className="text-muted-foreground text-lg">
-            Izpolnite obrazec in odgovorimo v najkrajšem možnem času.
+            {forms.length === 0
+              ? "Za povpraševanje nam pišite ali pokličite — kontakti so v nogi strani."
+              : "Izpolnite obrazec in odgovorimo v najkrajšem možnem času."}
           </p>
         </div>
 

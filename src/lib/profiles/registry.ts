@@ -84,6 +84,9 @@ const profileSchema = z.object({
   label: z.string().min(1),
   description: z.string().min(1),
   palette: z.string().min(1),
+  // P2 #36: schema.org tip je del definicije profila — nov profil MORA
+  // izbrati pravi @type (test to zaklene po vseh vertikalah).
+  schemaType: z.string().min(1),
   capabilities: capabilitySchema,
   terminology: z.object({
     appointmentSingular: termSchema,
@@ -189,6 +192,8 @@ const PROFILE_LIST: ActivityProfile[] = [
     label: "Lepotni salon",
     description: "Kombinacija frizerije, nohtov in kozmetike",
     palette: "rose",
+    // P2 #36: schema.org @type — del definicije profila (en vir resnice).
+    schemaType: "BeautySalon",
     capabilities: salonCapabilities(),
     terminology: terms({
       orderSingular: "Spletno naročilo",
@@ -210,6 +215,8 @@ const PROFILE_LIST: ActivityProfile[] = [
     label: "Frizerski salon",
     description: "Striženje, barvanje in oblikovanje las",
     palette: "amber",
+    // P2 #36: schema.org @type — del definicije profila (en vir resnice).
+    schemaType: "HairSalon",
     capabilities: salonCapabilities(),
     terminology: terms({
       orderSingular: "Spletno naročilo",
@@ -231,6 +238,8 @@ const PROFILE_LIST: ActivityProfile[] = [
     label: "Barber shop",
     description: "Moško striženje, brada, vroča brisača",
     palette: "charcoal",
+    // P2 #36: schema.org @type — del definicije profila (en vir resnice).
+    schemaType: "HairSalon",
     capabilities: salonCapabilities(),
     terminology: terms({
       orderSingular: "Naročilo",
@@ -252,6 +261,8 @@ const PROFILE_LIST: ActivityProfile[] = [
     label: "Nail studio",
     description: "Manikira, pedikura in nail art",
     palette: "violet",
+    // P2 #36: schema.org @type — del definicije profila (en vir resnice).
+    schemaType: "NailSalon",
     capabilities: salonCapabilities(),
     terminology: terms({
       orderSingular: "Spletno naročilo",
@@ -273,6 +284,8 @@ const PROFILE_LIST: ActivityProfile[] = [
     label: "Kozmetični salon",
     description: "Tretmaji obraza, nega kože, make-up",
     palette: "burgundy",
+    // P2 #36: schema.org @type — del definicije profila (en vir resnice).
+    schemaType: "BeautySalon",
     capabilities: salonCapabilities(),
     terminology: terms({
       orderSingular: "Spletno naročilo",
@@ -305,6 +318,8 @@ const PROFILE_LIST: ActivityProfile[] = [
     label: "Masaža & wellness",
     description: "Relax, športne in terapevtske masaže",
     palette: "emerald",
+    // P2 #36: schema.org @type — del definicije profila (en vir resnice).
+    schemaType: "DaySpa",
     capabilities: salonCapabilities(),
     terminology: terms({
       orderSingular: "Spletno naročilo",
@@ -337,6 +352,8 @@ const PROFILE_LIST: ActivityProfile[] = [
     label: "Epilacija & laser",
     description: "Laser epilacija, voščanje",
     palette: "teal",
+    // P2 #36: schema.org @type — del definicije profila (en vir resnice).
+    schemaType: "BeautySalon",
     capabilities: salonCapabilities(),
     terminology: terms({
       orderSingular: "Spletno naročilo",
@@ -358,6 +375,8 @@ const PROFILE_LIST: ActivityProfile[] = [
     label: "Univerzalno",
     description: "Za podjetja z lastnim katalogom — vse zmogljivosti so izbirne",
     palette: "coral",
+    // P2 #36: schema.org @type — del definicije profila (en vir resnice).
+    schemaType: "LocalBusiness",
     capabilities: {
       appointments: "optional",
       workOrders: "optional",
@@ -400,6 +419,8 @@ const PROFILE_LIST: ActivityProfile[] = [
     label: "Šiviljstvo",
     description: "Spremembe, popravila in šivanje po meri z merilnimi listi",
     palette: "teal",
+    // P2 #36: schema.org @type — del definicije profila (en vir resnice).
+    schemaType: "ProfessionalService",
     capabilities: {
       appointments: "disabled",
       workOrders: "required",
@@ -482,6 +503,8 @@ const PROFILE_LIST: ActivityProfile[] = [
     label: "Vulkanizer & avtoservis",
     description: "Menjava guma, servis vozil, deli in delovni nalogi",
     palette: "charcoal",
+    // P2 #36: schema.org @type — del definicije profila (en vir resnice).
+    schemaType: "AutoRepair",
     capabilities: {
       appointments: "optional", // e.g. seasonal tire-change bookings
       workOrders: "required",
@@ -550,6 +573,8 @@ const PROFILE_LIST: ActivityProfile[] = [
     label: "Čebelarstvo",
     description: "Med in čebelji izdelki: žetev, serije, zaloge in prodaja",
     palette: "amber",
+    // P2 #36: schema.org @type — del definicije profila (en vir resnice).
+    schemaType: "Store",
     capabilities: {
       appointments: "disabled",
       workOrders: "disabled",

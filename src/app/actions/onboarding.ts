@@ -2,6 +2,7 @@
 
 import { Prisma } from "@prisma/client"
 import bcrypt from "bcryptjs"
+import { auth, unstable_update } from "@/lib/auth/auth"
 import { prisma } from "@/lib/prisma"
 import { isReservedSlug, isSlugAvailable, slugify } from "@/lib/tenant"
 import { PALETTES, seedOrganizationCatalog, verticalSiteContent, getVertical, presetStaffImage } from "@/lib/verticals"
@@ -43,6 +44,12 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
  * Organization -> User (ADMIN) + Staff + WorkingHours -> catalog seed ->
  * profile asset materialization (forms + workflows) -> staff services ->
  * SalonConfig (site content, locale, booking policy).
+ *
+ * P1 #40 (onboarding audit 2026-11): prijavljen uporabnik ne ustvari
+ * novega računa — podjetje se pripne njegovi OBSTOJEČI seji (e-pošta
+ * iz seje je avtoritativna, gesla se ne sprašuje, vloga se povzdigne
+ * na ADMIN, seja se osveži prek unstable_update). Anonimni obiskovalci
+ * ustvarijo nov račun kot prej.
  */
 export async function createSalonOrganization(input: CreateSalonInput): Promise<CreateSalonResult> {
   try {
@@ -95,27 +102,73 @@ export async function createSalonOrganization(input: CreateSalonInput): Promise<
       return { success: false, error: "Vnesite ime in priimek lastnika." }
     }
 
-    const email = (input.email ?? "").trim().toLowerCase()
-    if (!EMAIL_REGEX.test(email)) {
-      return { success: false, error: "Vnesite veljaven e-poštni naslov." }
+    // --- #40: kdor je prijavljen, NE ustvarja novega računa. ---
+    // E-pošta iz seje je avtoritativna (vnos iz obrazca se ignorira),
+    // gesla ne zahtevamo, organizacija se pripne obstoječemu uporabniku.
+    const session = await auth()
+    const sessionEmail = session?.user?.email?.trim().toLowerCase() ?? null
+    const sessionUserId = session?.user?.id ?? null
+    const authed = Boolean(sessionEmail && sessionUserId)
+
+    let email: string
+    let passwordHash: string | null = null
+    let linkUserId: string | null = null // obstoječ uporabnik, ki dobi organizacijo
+    let createdUserId: string | null = null // NOV uporabnik (počisti se ob napaki)
+
+    if (authed) {
+      email = sessionEmail!
+      const me = await prisma.user.findUnique({
+        where: { email },
+        select: { id: true, organizationId: true },
+      })
+      if (!me) {
+        return {
+          success: false,
+          error: "Seja ni več veljavna. Prijavite se znova in poskusite še enkrat.",
+        }
+      }
+      // Model je ena organizacija na račun — druga podjetja zahtevajo
+      // drug račun (jasno povedano, brez molka prepisa povezave).
+      if (me.organizationId) {
+        return {
+          success: false,
+          error:
+            "Vaš račun že upravlja drugo podjetje. Za dodatno podjetje uporabite ločen račun.",
+        }
+      }
+      linkUserId = me.id
+    } else {
+      const rawEmail = (input.email ?? "").trim().toLowerCase()
+      if (!EMAIL_REGEX.test(rawEmail)) {
+        return { success: false, error: "Vnesite veljaven e-poštni naslov." }
+      }
+      email = rawEmail
+
+      const password = input.password ?? ""
+      if (password.length < 8) {
+        return { success: false, error: "Geslo mora imeti vsaj 8 znakov." }
+      }
+
+      const existingUser = await prisma.user.findUnique({ where: { email }, select: { id: true } })
+      if (existingUser) {
+        // #40: jasna pot naprej namesto slepe ulice.
+        return {
+          success: false,
+          error:
+            "Ta e-pošta je že registrirana. Prijavite se in ustvarite podjetje iz svojega računa, ali uporabite drug e-poštni naslov.",
+        }
+      }
+      passwordHash = await bcrypt.hash(password, 12)
     }
 
-    const password = input.password ?? ""
-    if (password.length < 8) {
-      return { success: false, error: "Geslo mora imeti vsaj 8 znakov." }
-    }
-
-    const existingUser = await prisma.user.findUnique({ where: { email }, select: { id: true } })
-    if (existingUser) {
-      return { success: false, error: "Ta e-pošta je že registrirana." }
-    }
-
-    const passwordHash = await bcrypt.hash(password, 12)
     const paletteOption = PALETTE_OPTIONS.find((p) => p.id === palette)
 
     // --- Tenant creation ---
     // New tenants start UNPUBLISHED (EPIC #3 E3-1): the site is a private
     // owner preview until they publish it from Settings.
+    // P2 #42: verticalChosenAt se zapiše TU — dejavnost je bila izbrana v
+    // čarovniku /start, dashboard je zato NE vpraša ponovno (vrata
+    // "Kaj počnete?" visijo natanko na tem polju).
     const org = await prisma.organization.create({
       data: {
         slug,
@@ -124,49 +177,85 @@ export async function createSalonOrganization(input: CreateSalonInput): Promise<
         secondaryVertical,
         palette,
         publishState: "DRAFT",
+        verticalChosenAt: new Date(),
       },
     })
 
-    let userId: string | null = null
+    let staffId: string | null = null
     try {
-      // Owner user with nested Staff profile + default working hours
-      const user = await prisma.user.create({
-        data: {
-          name: ownerName,
-          email,
-          password: passwordHash,
-          role: "ADMIN",
-          emailVerified: new Date(),
-          organizationId: org.id,
-          staff: {
-            create: {
-              name: ownerName,
-              email,
-              isActive: true,
-              organizationId: org.id,
-              // Preset portrait for the activity (test/demo realism, EPIC #4
-              // visual pass). undefined -> Prisma leaves image null and the
-              // public staff card renders the initials fallback.
-              ...(presetStaffImage(profile.id)
-                ? { image: presetStaffImage(profile.id) }
-                : {}),
-              workingHours: {
-                create: [
-                  { dayOfWeek: 1, startTime: "09:00", endTime: "18:00", isActive: true },
-                  { dayOfWeek: 2, startTime: "09:00", endTime: "18:00", isActive: true },
-                  { dayOfWeek: 3, startTime: "09:00", endTime: "18:00", isActive: true },
-                  { dayOfWeek: 4, startTime: "09:00", endTime: "18:00", isActive: true },
-                  { dayOfWeek: 5, startTime: "09:00", endTime: "18:00", isActive: true },
-                  { dayOfWeek: 6, startTime: "09:00", endTime: "13:00", isActive: true },
-                ],
+      if (linkUserId) {
+        // #40 — obstoječ račun: povzdigni v lastnika + ustvari Staff profil.
+        // Račun NIKOLI ne pobrišemo v čiščenju (je lastnost uporabnika).
+        const staffImage = presetStaffImage(profile.id)
+        const staff = await prisma.staff.create({
+          data: {
+            userId: linkUserId,
+            organizationId: org.id,
+            name: ownerName,
+            email,
+            isActive: true,
+            ...(staffImage ? { image: staffImage } : {}),
+            workingHours: {
+              create: [
+                { dayOfWeek: 1, startTime: "09:00", endTime: "18:00", isActive: true },
+                { dayOfWeek: 2, startTime: "09:00", endTime: "18:00", isActive: true },
+                { dayOfWeek: 3, startTime: "09:00", endTime: "18:00", isActive: true },
+                { dayOfWeek: 4, startTime: "09:00", endTime: "18:00", isActive: true },
+                { dayOfWeek: 5, startTime: "09:00", endTime: "18:00", isActive: true },
+                { dayOfWeek: 6, startTime: "09:00", endTime: "13:00", isActive: true },
+              ],
+            },
+          },
+        })
+        await prisma.user.update({
+          where: { id: linkUserId },
+          data: { organizationId: org.id, role: "ADMIN" },
+        })
+        staffId = staff.id
+        // Seja dobi novo vlogo + organizacijo TAKOJ (brez ponovne prijave).
+        // #40: payload gre kot user patch — jwt callback (trigger update) ga
+        // prepiše v token.
+        await unstable_update({ user: { role: "ADMIN", organizationId: org.id } })
+      } else {
+        // Anonimen obiskovalec — nov lastniški račun s Staff profilom.
+        const user = await prisma.user.create({
+          data: {
+            name: ownerName,
+            email,
+            password: passwordHash!,
+            role: "ADMIN",
+            emailVerified: new Date(),
+            organizationId: org.id,
+            staff: {
+              create: {
+                name: ownerName,
+                email,
+                isActive: true,
+                organizationId: org.id,
+                // Preset portrait for the activity (test/demo realism, EPIC #4
+                // visual pass). undefined -> Prisma leaves image null and the
+                // public staff card renders the initials fallback.
+                ...(presetStaffImage(profile.id)
+                  ? { image: presetStaffImage(profile.id) }
+                  : {}),
+                workingHours: {
+                  create: [
+                    { dayOfWeek: 1, startTime: "09:00", endTime: "18:00", isActive: true },
+                    { dayOfWeek: 2, startTime: "09:00", endTime: "18:00", isActive: true },
+                    { dayOfWeek: 3, startTime: "09:00", endTime: "18:00", isActive: true },
+                    { dayOfWeek: 4, startTime: "09:00", endTime: "18:00", isActive: true },
+                    { dayOfWeek: 5, startTime: "09:00", endTime: "18:00", isActive: true },
+                    { dayOfWeek: 6, startTime: "09:00", endTime: "13:00", isActive: true },
+                  ],
+                },
               },
             },
           },
-        },
-        include: { staff: { select: { id: true } } },
-      })
-      userId = user.id
-      const staffId = user.staff?.id
+          include: { staff: { select: { id: true } } },
+        })
+        createdUserId = user.id
+        staffId = user.staff?.id ?? null
+      }
 
       // Sample categories + services + products for the chosen activity.
       // NOTE (E2-4): catalog seeds, forms/workflows materialization and the
@@ -186,8 +275,10 @@ export async function createSalonOrganization(input: CreateSalonInput): Promise<
         select: { id: true },
       })
       if (staffId && services.length > 0) {
+        // (lokalna const: TS ne oži `let` znotraj zaprtja map callbacka)
+        const sid = staffId
         await prisma.staffService.createMany({
-          data: services.map((s) => ({ staffId, serviceId: s.id })),
+          data: services.map((s) => ({ staffId: sid, serviceId: s.id })),
           skipDuplicates: true,
         })
       }
@@ -213,9 +304,10 @@ export async function createSalonOrganization(input: CreateSalonInput): Promise<
         },
       })
     } catch (innerError) {
-      // Best-effort cleanup so a failed signup never leaves a half-created tenant
-      if (userId) {
-        await prisma.user.delete({ where: { id: userId } }).catch(() => undefined)
+      // Best-effort cleanup so a failed signup never leaves a half-created
+      // tenant. #40: LASTNIŠKEGA računa ne pobrišemo — samo nov ustvarjenega.
+      if (createdUserId) {
+        await prisma.user.delete({ where: { id: createdUserId } }).catch(() => undefined)
       }
       await prisma.organization.delete({ where: { id: org.id } }).catch(() => undefined)
       throw innerError
@@ -228,7 +320,11 @@ export async function createSalonOrganization(input: CreateSalonInput): Promise<
         ? (error.meta?.target as string[]).join(",")
         : String(error.meta?.target ?? "")
       if (target.includes("email")) {
-        return { success: false, error: "Ta e-pošta je že registrirana." }
+        return {
+          success: false,
+          error:
+            "Ta e-pošta je že registrirana. Prijavite se in ustvarite podjetje iz svojega računa, ali uporabite drug e-poštni naslov.",
+        }
       }
       if (target.includes("slug")) {
         return { success: false, error: "Ta URL naslov je že zaseden. Izberite drugega." }

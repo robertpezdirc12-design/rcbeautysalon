@@ -40,7 +40,8 @@ export const settingsSl = {
     reopenDescription: "Zamenjajte dejavnost — moduli, oznake in obrazci se preklopijo.",
     reopenButton: "Zaženi vodeni vstop",
     contentsNote:
-      "Besedila in slike vaše spletne strani ostanejo — urejate jih v Izgled in vsebina.",
+      "Besedila in slike vaše spletne strani ostanejo — urejate jih v Nastavitve → Izgled in vsebina.",
+    contentsNoteLink: "Odpri Izgled in vsebino",
     aboutYouTitle: "Nekaj o vašem podjetju",
     aboutYouNote:
       "Dve hitri vprašanji — odgovora prilagodita kontrolni seznam namestitve. Preskok je v redu.",
@@ -541,6 +542,10 @@ export const settingsSl = {
     saveFailed: "Shranjevanje ni uspelo. Poskusite znova.",
     unsavedChanges: "Neshranjene spremembe",
     allSaved: "Vse spremembe so shranjene",
+    // P2 #43: po shranjevanju (še neobjavljeno) je jasno, da so spremembe
+    // osnutek — "Vse spremembe so shranjene" je nasprotovalo pravilu,
+    // da so spremembe javne šele po objavi.
+    savedDraft: "Shranjeno kot osnutek — objavite za javno stran",
     saveContent: "Shrani vsebino",
   },
 }
@@ -587,7 +592,8 @@ export const settingsEn: SettingsDict = {
     reopenDescription: "Change the activity — modules, labels and forms switch with it.",
     reopenButton: "Run guided entry",
     contentsNote:
-      "Your website texts and images are untouched — edit them in Look & content.",
+      "Your website texts and images are untouched — edit them in Settings → Look & content.",
+    contentsNoteLink: "Open Look & content",
     aboutYouTitle: "A little about your business",
     aboutYouNote:
       "Two quick questions — the answers shape your setup checklist. Skipping is fine too.",
@@ -1086,6 +1092,8 @@ export const settingsEn: SettingsDict = {
     saveFailed: "Saving failed. Please try again.",
     unsavedChanges: "Unsaved changes",
     allSaved: "All changes saved",
+    // P2 #43: see the Slovenian note above.
+    savedDraft: "Saved as draft — publish to make it public",
     saveContent: "Save content",
   },
 }

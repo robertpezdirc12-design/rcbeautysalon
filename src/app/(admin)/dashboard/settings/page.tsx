@@ -23,7 +23,7 @@ import { requirePagePermission } from "@/lib/auth/guards"
 export default async function SettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ billing?: string }>
+  searchParams: Promise<{ billing?: string; tab?: string }>
 }) {
   // Custom roles (G8): server-side page guard
   await requirePagePermission("settings.manage")
@@ -53,8 +53,10 @@ export default async function SettingsPage({
     )
   }
 
+  // P2 #43: globinska povezava iz vodenega vstopa — odpre zavihek
+  // "Izgled in vsebina" neposredno (/dashboard/settings?tab=branding).
   return (
-    <SettingsTabs
+    <SettingsTabs defaultTab={params.tab}
       basic={
         <div className="space-y-6">
           <PlanUsageCard

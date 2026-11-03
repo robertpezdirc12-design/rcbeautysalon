@@ -12,7 +12,11 @@ import { isBookingEnabled } from "@/lib/public-cta"
 // endpoint: obstoj najemnika + booking zmogljivost v enem klicu.
 //
 // Odgovor je javen (samo obstoj/slug/vertikala — brez občutljivih
-// podatkov) in krašo cacheiran (60 s, stale-while-revalidate).
+// podatkov) in kratek čas cacheiran. P0 #24 (reopen): dolgo cache okno
+// (prej max-age=60 + swr=300) pomeni do ~6 min zastarelih odgovorov po
+// spremembi podatkov — preverjanje popravka je lahko zavajajoče in
+// proxy preusmeritve zaostajajo. Zdaj 15 s + swr 60 s (~1,25 min zgornja
+// meja); proxy in-memory cache je usklajen (15 s).
 // ============================================================
 
 export const dynamic = "force-dynamic"
@@ -41,7 +45,7 @@ export async function GET(request: Request) {
     if (!org || org.status !== "ACTIVE") {
       return NextResponse.json(
         { exists: false },
-        { headers: { "Cache-Control": "public, max-age=30, stale-while-revalidate=120" } }
+        { headers: { "Cache-Control": "public, max-age=15, stale-while-revalidate=60" } }
       )
     }
 
@@ -52,7 +56,7 @@ export async function GET(request: Request) {
         publishState: org.publishState,
         bookingEnabled: isBookingEnabled(org.vertical, org.profileOverrides),
       },
-      { headers: { "Cache-Control": "public, max-age=60, stale-while-revalidate=300" } }
+      { headers: { "Cache-Control": "public, max-age=15, stale-while-revalidate=60" } }
     )
   } catch {
     // Fail-open: proxy pri napaki NE ugasne najemniških strani;

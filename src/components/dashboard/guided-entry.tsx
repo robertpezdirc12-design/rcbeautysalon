@@ -20,6 +20,7 @@
 // ============================================================
 
 import { useEffect, useMemo, useState, useTransition } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { Check, LayoutGrid, Loader2 } from "lucide-react"
@@ -189,7 +190,17 @@ export function GuidedEntryBody({
               </li>
             ))}
           </ul>
-          <p className="text-muted-foreground mt-3 text-xs">{dict.contentsNote}</p>
+          {/* P2 #43: kopija poimenuje DEJANSKO lokacijo + je en klik stran
+              (prej "pogled Vsebina", ki v stranski vrstici ne obstaja). */}
+          <p className="text-muted-foreground mt-3 text-xs">
+            {dict.contentsNote}{" "}
+            <Link
+              href="/dashboard/settings?tab=branding"
+              className="text-primary-text font-medium underline underline-offset-2 hover:underline"
+            >
+              {dict.contentsNoteLink}
+            </Link>
+          </p>
         </div>
       )}
 

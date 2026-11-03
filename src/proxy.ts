@@ -21,6 +21,8 @@ const BARE_PUBLIC_PATH = /^\/$|^\/(services|staff|shop|booking|cart|inquiry)(\/|
 //  - neznan/suspendiran tenant pod /s/{slug} → prepis na rezervirano
 //    404 pot → pravi HTTP 404 z blagovno stranjo (app/not-found.tsx),
 //  - manjkajoča storitev/član/izdelek → isto (pravi 404),
+//  - neobjavljen tenant (#44) → pravi 404 za vse, razen lastniškega
+//    predogleda (session.organizationId == tenant.orgId),
 //  - /booking za ne-booking profile → pravi 307 na /inquiry,
 //  - /inquiry za booking profile → pravi 307 na domačo stran.
 // Fail-open: ob napaki API-ja se strani NE ugasanje — page-level
@@ -28,7 +30,13 @@ const BARE_PUBLIC_PATH = /^\/$|^\/(services|staff|shop|booking|cart|inquiry)(\/|
 // ------------------------------------------------------------
 const RESERVED_404_PATH = "/__not_found__"
 
-type TenantInfo = { exists: boolean; orgId?: string; bookingEnabled?: boolean }
+type TenantInfo = {
+  exists: boolean
+  orgId?: string
+  bookingEnabled?: boolean
+  /** P2 #44: "PUBLISHED" | "DRAFT" | … — neobjavljen najemnik je privaten. */
+  publishState?: string
+}
 const tenantCache = new Map<string, { info: TenantInfo; exp: number }>()
 const entityCache = new Map<string, { exists: boolean; exp: number }>()
 
@@ -44,7 +52,9 @@ async function resolveTenant(
     })
     if (!res.ok) return null
     const info = (await res.json()) as TenantInfo
-    tenantCache.set(slug, { info, exp: Date.now() + 60_000 })
+    // P0 #24 (reopen): 15 s — usklajeno z Cache-Control resolverja;
+    // spremembe vertikale/objave so vidne najkasneje ~1,25 min.
+    tenantCache.set(slug, { info, exp: Date.now() + 15_000 })
     return info
   } catch {
     return null
@@ -68,7 +78,9 @@ async function entityExists(
     if (!res.ok) return true // fail-open
     const data = (await res.json()) as { exists: boolean; unknown?: boolean }
     if (data.unknown) return true
-    entityCache.set(key, { exists: data.exists, exp: Date.now() + 60_000 })
+    // 30 s: dovolj čvrsto za zaščito pred 404 stormi, dovolj kratko,
+    // da nov ustvarjen/izbrisan entiteta hitro postane (ne)obstojeca.
+    entityCache.set(key, { exists: data.exists, exp: Date.now() + 30_000 })
     return data.exists
   } catch {
     return true // fail-open
@@ -115,6 +127,21 @@ export default auth(async (req) => {
       const tenant = await resolveTenant(req.nextUrl.origin, slug)
       if (tenant && !tenant.exists) {
         // Neznan ali suspendiran najemnik → pravi HTTP 404 (blagovna stran).
+        return rewriteTo404(req)
+      }
+
+      // P2 #44 (audit-2026-11): neobjavljen najemnik (DRAFT/…) je privaten
+      // — prej je layout vrnil vzdrževalni zaslon kot HTTP 200 (soft 404,
+      // indeksirajo ga iskalniki; naslov je padel na generični "Salon
+      // Platform"). Statusne kode zmore SAMO proxy (Next 16 streaming),
+      // zato 404 tukaj. Lastnik/staff TEGA najemnika (pregled pred objavo)
+      // gre naprej — layout servira predogled z rumeno vrstico.
+      if (
+        tenant?.exists &&
+        tenant.publishState &&
+        tenant.publishState !== "PUBLISHED" &&
+        req.auth?.user?.organizationId !== tenant.orgId
+      ) {
         return rewriteTo404(req)
       }
 
