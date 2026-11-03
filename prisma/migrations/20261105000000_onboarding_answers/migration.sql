@@ -2,4 +2,10 @@
 -- people work here?" and "do you want 24/7 online bookings?" and the
 -- answers VISIBLY change the product (solo → staff step removed from
 -- the activation checklist; no-booking → publish step reworded).
-ALTER TABLE "Organization" ADD COLUMN "onboardingAnswers" JSONB;
+--
+-- Idempotent (P3009 recovery): this migration failed on production on
+-- 2026-11-02 because the column already existed (schema drift). It is
+-- retried after `prisma migrate resolve --rolled-back` (see
+-- scripts/resolve-failed-migrations.mjs), so the statement must not
+-- fail when the column is already present.
+ALTER TABLE "Organization" ADD COLUMN IF NOT EXISTS "onboardingAnswers" JSONB;
