@@ -219,11 +219,11 @@ export async function filterServices(filters: ServiceFilters) {
     minDuration,
     maxDuration,
     staffId,
-    sortBy = "name_asc",
+    sortBy,
   } = filters
 
   const org = await getPublicOrg()
-  if (!org) return {}
+  if (!org) return []
 
   // Build where clause
   const where: Prisma.ServiceWhereInput = {
@@ -268,29 +268,38 @@ export async function filterServices(filters: ServiceFilters) {
     }
   }
 
-  // Build orderBy clause
-  let orderBy: Prisma.ServiceOrderByWithRelationInput = { name: "asc" }
+  // Build orderBy clause.
+  // P1 #29 (re-audit 2026-11): vrstni red je GLOBALEN (flat seznam) —
+  // Prej je primerjavec deloval znotraj kategorij (glej klicevalca),
+  // tako da je "Cena naraščajoče" pomenila 35, 50, 55, 75, 150, 180,
+  // 250, 90, 130 … po skupinah, ne eno monotono zaporedje.
+  // Brez sortBy ("Priporočeno") ohranimo privzeti katalog vrstni red
+  // (kategorija naraščajoče + ime), ki se ujema z začetnim stanjem strani.
+  let orderBy: Prisma.ServiceOrderByWithRelationInput[] = [
+    { category: { name: "asc" } },
+    { name: "asc" },
+  ]
 
   switch (sortBy) {
     case "price_asc":
-      orderBy = { price: "asc" }
+      orderBy = [{ price: "asc" }]
       break
     case "price_desc":
-      orderBy = { price: "desc" }
+      orderBy = [{ price: "desc" }]
       break
     case "duration_asc":
-      orderBy = { duration: "asc" }
+      orderBy = [{ duration: "asc" }]
       break
     case "duration_desc":
-      orderBy = { duration: "desc" }
+      orderBy = [{ duration: "desc" }]
       break
     case "name_asc":
-      orderBy = { name: "asc" }
+      orderBy = [{ name: "asc" }]
       break
     case "rating_desc":
     case "popularity_desc":
       // Will handle sorting after fetching
-      orderBy = { name: "asc" }
+      orderBy = [{ name: "asc" }]
       break
   }
 
@@ -335,44 +344,19 @@ export async function filterServices(filters: ServiceFilters) {
     servicesWithStats.sort((a, b) => b.appointmentCount - a.appointmentCount)
   }
 
-  // Group by category and convert Decimal to number for client
-  const grouped = servicesWithStats.reduce<
-    Record<
-      string,
-      Array<{
-        id: string
-        name: string
-        slug: string
-        description: string | null
-        duration: number
-        price: number
-        imageUrl: string | null
-        category: {
-          id: string
-          name: string
-          slug: string
-        } | null
-      }>
-    >
-  >((acc, service) => {
-    const categoryName = service.category?.name || "Uncategorized"
-    if (!acc[categoryName]) acc[categoryName] = []
-
-    // Convert Decimal to number for client components
-    acc[categoryName].push({
-      id: service.id,
-      name: service.name,
-      slug: service.slug,
-      description: service.description,
-      duration: service.duration,
-      price: service.price.toNumber(),
-      imageUrl: service.imageUrl,
-      category: service.category,
-    })
-    return acc
-  }, {})
-
-  return grouped
+  // P1 #29: FLAT, globalno sortiran seznam (brez združevanja). Klient
+  // (ServicesList) si kategorije razporedi sam — zato "Vse" tab vedno
+  // prikaže ENO monotono zaporedje za vsako izbrano sortiranje.
+  return servicesWithStats.map((service) => ({
+    id: service.id,
+    name: service.name,
+    slug: service.slug,
+    description: service.description,
+    duration: service.duration,
+    price: service.price.toNumber(),
+    imageUrl: service.imageUrl,
+    category: service.category,
+  }))
 }
 
 // Get all active staff for filter dropdown (public + admin)

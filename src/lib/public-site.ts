@@ -2,6 +2,7 @@ import "server-only"
 
 import { cache } from "react"
 import { headers } from "next/headers"
+import { permanentRedirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import { ORG_HEADER, getOrgBySlug, getSessionOrg } from "@/lib/tenant"
 import { mergeSiteContent, type SiteContent } from "@/lib/site-content"
@@ -68,6 +69,35 @@ export const getPublicSiteData = cache(
     return { org, config, content }
   }
 )
+
+/**
+ * P1 #39-5 (re-audit 2026-11): GOLI javni dostop ("/", "/services", …)
+ * vsebuje ISEO vsebino kot /s/{slug}/… (isti prevzeti najemnik) — dva
+ * URL-ja z identično vsebino. Klic na vrhu vsake javne strani preusmeri
+ * golo pot na kanonično najemniško pot (permanentRedirect → 308; SEO
+ * enakovredno 301). Ko zahtevek PRIHAJ pod najemnikom (x-org-slug) ali
+ * ko ni objavljenega najemnika (prazna platforma / custom domena),
+ * se nič ne zgodi.
+ */
+export async function redirectBareToTenant(path: string): Promise<void> {
+  const h = await headers()
+  // Pod najemnikom (/s/{slug}) ali na custom domeni: nič.
+  if (h.get(ORG_HEADER)) return
+
+  const sessionOrg = await getSessionOrg()
+  // Prijavljen lastnik na goli poti vidi svoj org — tudi ta dobi
+  // kanonični URL (isti nadzorni potek kot anonimni obiskovalec).
+  const org =
+    sessionOrg ??
+    (await prisma.organization.findFirst({
+      where: { status: "ACTIVE", publishState: "PUBLISHED" },
+      orderBy: { createdAt: "asc" },
+      select: { slug: true },
+    }))
+  if (!org) return
+
+  permanentRedirect(`/s/${org.slug}${path}`)
+}
 
 // ------------------------------------------------------------
 // Org-scoped public queries (tenant-safe replacements for the
@@ -188,9 +218,11 @@ export async function getPublicActiveStaffOptions(orgId: string) {
   })
 }
 
-/** Service detail by slug (tenant-scoped). */
-export async function getPublicServiceBySlug(orgId: string, slug: string) {
-  return prisma.service.findFirst({
+/** Service detail by slug (tenant-scoped). P1 #27: React-cached — the
+ * shell-phase 404 layout and the page share ONE query per request. */
+export const getPublicServiceBySlug = cache(
+  async (orgId: string, slug: string) => {
+    return prisma.service.findFirst({
     where: {
       organizationId: orgId,
       slug,
@@ -212,7 +244,8 @@ export async function getPublicServiceBySlug(orgId: string, slug: string) {
       faqs: { orderBy: { order: "asc" } },
     },
   })
-}
+  }
+)
 
 /** Related services in the same category (tenant-scoped). */
 export async function getPublicRelatedServices(
@@ -313,8 +346,9 @@ const staffSlug = (name: string) =>
     .replace(/\s+/g, "-")
     .replace(/[^a-z0-9-]/g, "")
 
-/** Staff member by name-slug (tenant-scoped). */
-export async function getPublicStaffBySlug(orgId: string, slug: string) {
+/** Staff member by name-slug (tenant-scoped). P1 #27: React-cached — the
+ * shell-phase 404 layout and the page share ONE query per request. */
+export const getPublicStaffBySlug = cache(async (orgId: string, slug: string) => {
   const staffMembers = await getPublicStaffMembers(orgId)
   return staffMembers.find((staff) => staffSlug(staff.name) === slug) ?? null
-}
+})

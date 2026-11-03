@@ -14,9 +14,17 @@ interface FAQ {
 
 interface FAQSectionProps {
   faqs: FAQ[]
+  /** P1 #35 (re-audit 2026-11): prevedena naslovna bloka — prej trdo
+   * kodirana angleščina ("Frequently Asked Questions") na slovenski strani. */
+  title?: string
+  subtitle?: string
 }
 
-export function FAQSection({ faqs }: FAQSectionProps) {
+export function FAQSection({
+  faqs,
+  title = "Pogosta vprašanja",
+  subtitle = "Vse, kar morate vedeti o tej storitvi",
+}: FAQSectionProps) {
   if (faqs.length === 0) {
     return null // Don't show section if no FAQs
   }
@@ -31,13 +39,10 @@ export function FAQSection({ faqs }: FAQSectionProps) {
           {/* Section Header */}
           <div className="mb-12 text-center">
             <h2 className="font-heading mb-4 text-4xl md:text-5xl">
-              Frequently Asked{" "}
-              <span className="from-primary to-accent bg-linear-to-r bg-clip-text text-transparent">
-                Questions
-              </span>
+              {title}
             </h2>
             <p className="text-muted-foreground text-lg">
-              Everything you need to know about this service
+              {subtitle}
             </p>
           </div>
 

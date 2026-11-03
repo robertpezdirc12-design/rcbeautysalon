@@ -1,14 +1,21 @@
 import type { MetadataRoute } from "next"
 import { prisma } from "@/lib/prisma"
+import { isBookingEnabled } from "@/lib/public-cta"
+import { getProfile, isCapabilityEnabled } from "@/lib/profiles/registry"
+import { isInternalTenantSlug } from "@/lib/tenant-flags"
 
 /**
  * sitemap.xml (SEO odkrivanje) — javne strani vsake OBJAVLJENE organizacije.
- * Osnutki (draft) niso vključeni (niso indeksirani). Stabilni URL-ji:
- *  - /s/{slug}            (domača stran salona)
- *  - /s/{slug}/services   (storitve)
- *  - /s/{slug}/booking    (rezervacija)
- *  - /s/{slug}/shop       (trgovina)
- *  - /                    (platforma — prva objavljena org)
+ *
+ * P1 #28 (re-audit 2026-11): sitemap je prej objavil vse najemnike,
+ * tudi demo in testne (demo-*, test-*) — 73 URL-jev, ki KonkURIRAJO z
+ * resnimi saloni in razkrivajo notranje testne podatke. Zdaj:
+ *  - demo/test najemniki so izključeni (isInternalTenantSlug),
+ *  - /booking se izpiše SAMO za najemnike z omogočenimi rezervacijami
+ *    (prej je bil URL dvojnik /inquiry za ne-booking profile),
+ *  - /shop se izpiše samo, ko profil sploh omogoča trgovino,
+ *  - lastModified je posodobljen na org.updatedAt (koristen za recrawl).
+ * Osnutki (draft) ostajajo izključeni (niso indeksirani).
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const appUrl = (
@@ -20,26 +27,47 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     .findMany({
       where: { status: "ACTIVE", publishState: "PUBLISHED" },
       orderBy: { createdAt: "asc" },
-      select: { slug: true, updatedAt: true },
+      select: {
+        slug: true,
+        updatedAt: true,
+        vertical: true,
+        profileOverrides: true,
+      },
     })
     .catch(() => [])
 
-  const publicPaths = ["", "/services", "/booking", "/shop"]
-  const lastModified = new Date()
+  const productionOrgs = orgs.filter((org) => !isInternalTenantSlug(org.slug))
 
-  const tenantEntries: MetadataRoute.Sitemap = orgs.flatMap((org) =>
-    publicPaths.map((path) => ({
-      url: `${appUrl}/s/${org.slug}${path}`,
+  const tenantEntries: MetadataRoute.Sitemap = productionOrgs.flatMap((org) => {
+    const base = `${appUrl}/s/${org.slug}`
+    const lastModified = org.updatedAt
+
+    const paths: Array<{ path: string; priority: number }> = [
+      { path: "", priority: 1 },
+      { path: "/services", priority: 0.7 },
+    ]
+
+    // #28/#24: samo profili z dejansko omogočenimi rezervacijami.
+    if (isBookingEnabled(org.vertical, org.profileOverrides)) {
+      paths.push({ path: "/booking", priority: 0.7 })
+    }
+
+    // Trgovina samo, ko je zmogljivost shop dejansko omogočena.
+    const profile = getProfile(org.vertical)
+    if (isCapabilityEnabled(profile, "shop")) {
+      paths.push({ path: "/shop", priority: 0.7 })
+    }
+
+    return paths.map(({ path, priority }) => ({
+      url: `${base}${path}`,
       lastModified,
       changeFrequency: "weekly" as const,
-      priority: path === "" ? 1 : 0.7,
+      priority,
     }))
-  )
+  })
 
-  const bareRoot: MetadataRoute.Sitemap =
-    orgs.length > 0
-      ? [{ url: appUrl, lastModified, changeFrequency: "weekly", priority: 0.9 }]
-      : []
-
-  return [...bareRoot, ...tenantEntries]
+  // P1 #39-5: goli korenski URL preusmerja na kanonično /s/{slug} pot
+  // (permanentRedirect), zato ga v sitemap ne objavljamo več — vsi URL-ji
+  // v sitemapu vračajo 200 s samo-referencirajočim canonicalom.
+  return tenantEntries
 }

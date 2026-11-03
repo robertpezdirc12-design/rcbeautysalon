@@ -226,7 +226,7 @@ describe("buildTenantJsonLd", () => {
     expect(hours[0]["@type"]).toBe("OpeningHoursSpecification")
   })
 
-  it("unknown vertical falls back to BeautySalon; empty hours/s social omitted", () => {
+  it("unknown vertical falls back to neutral LocalBusiness; empty hours/s social omitted (P1 #36)", () => {
     const bare = contentWith({
       openingHours: [],
       social: { instagram: "", facebook: undefined } as unknown as SiteContent["social"],
@@ -237,7 +237,7 @@ describe("buildTenantJsonLd", () => {
       appUrl,
       indexable: true,
     }) as Record<string, unknown>
-    expect(ld["@type"]).toBe("BeautySalon")
+    expect(ld["@type"]).toBe("LocalBusiness")
     expect(ld.openingHoursSpecification).toBeUndefined()
     expect(ld.sameAs).toBeUndefined()
   })

@@ -1,4 +1,5 @@
 import { headers } from "next/headers"
+import { notFound } from "next/navigation"
 import { PublicNavbar } from "@/components/layouts/public-navbar"
 import Footer from "@/components/layouts/footer"
 import { getPublicOrg, ORG_HEADER } from "@/lib/tenant"
@@ -16,12 +17,12 @@ export default async function CustomerLayout({
 }) {
   const org = await getPublicOrg()
 
-  // Suspension gate (EPIC #3 E3-5): same rule as the (public) layout —
-  // a requested tenant site that is unavailable (SUSPENDED) renders the
-  // neutral maintenance screen, never another tenant's content.
+  // P1 #27 (re-audit 2026-11): enako kot v (public) layoutu — neznana
+  // vertikala / suspendiran tenant pod /s/[slug] → pravi HTTP 404 (prej
+  // 200 + vzdrževalna stran). Klic v layoutu = shell faza = status 404.
   const slugHeader = (await headers()).get(ORG_HEADER)
   if (slugHeader && !org) {
-    return <MaintenanceScreen />
+    notFound()
   }
 
   // Publication gate (EPIC #3 E3-1): same rule as the (public) layout —

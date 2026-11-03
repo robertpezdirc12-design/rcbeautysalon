@@ -4,7 +4,35 @@ import { isPlatformAdminEmail, PLATFORM_ADMIN_EMAILS_ENV } from "@/lib/platform/
 
 const ORG_HEADER = "x-org-slug"
 
-export default auth((req) => {
+// ------------------------------------------------------------
+// P1 #39-5 (re-audit 2026-11): goli javni dostop ("/", "/services", …)
+// servira ISEO vsebino kot /s/{prvi-objavljeni}/… — dvojniki. Proxy
+// jih trajno preusmeri (308) na kanonično najemniško pot. Privzeti
+// slug pride iz /api/public/default-tenant-slug (proxy ne doseže baze)
+// in se krajsa drži v pomnilniku (60 s).
+// ------------------------------------------------------------
+const BARE_PUBLIC_PATH = /^\/$|^\/(services|staff|shop|booking|cart|inquiry)(\/|$)/
+
+let defaultSlugCache: { slug: string | null; expires: number } | null = null
+
+async function getDefaultTenantSlug(origin: string): Promise<string | null> {
+  if (defaultSlugCache && defaultSlugCache.expires > Date.now()) {
+    return defaultSlugCache.slug
+  }
+  try {
+    const res = await fetch(`${origin}/api/public/default-tenant-slug`, {
+      cache: "no-store",
+    })
+    if (!res.ok) return null
+    const data = (await res.json()) as { slug: string | null }
+    defaultSlugCache = { slug: data.slug, expires: Date.now() + 60_000 }
+    return data.slug
+  } catch {
+    return null
+  }
+}
+
+export default auth(async (req) => {
   const { pathname } = req.nextUrl
 
   // ---- TENANT RESOLUTION: /s/[slug]/* -> /* with x-org-slug header ----
@@ -18,6 +46,19 @@ export default auth((req) => {
       const url = req.nextUrl.clone()
       url.pathname = orgMatch[2] || "/"
       return NextResponse.rewrite(url, { request: { headers: requestHeaders } })
+    }
+  }
+
+  // ---- P1 #39-5: gola javna pot → kanonična najemniška pot (308) ----
+  // Samo za anonimne/prijavljene obiske GOLIH vsebinskih poti; /api,
+  // /dashboard, /login, /sitemap.xml, pravne strani idr. ostanejo goli.
+  if (!orgMatch && BARE_PUBLIC_PATH.test(pathname)) {
+    const slug = await getDefaultTenantSlug(req.nextUrl.origin)
+    if (slug) {
+      const url = req.nextUrl.clone()
+      url.pathname = `/s/${slug}${pathname === "/" ? "" : pathname}`
+      url.search = req.nextUrl.search
+      return NextResponse.redirect(url, 308)
     }
   }
 

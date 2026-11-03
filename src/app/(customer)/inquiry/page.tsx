@@ -1,9 +1,12 @@
 import { redirect } from "next/navigation"
+import type { Metadata } from "next"
 import { getResolvedOrg } from "@/lib/tenant"
+import { canonicalMetadata } from "@/lib/seo"
 import { orgPath } from "@/lib/org-path"
 import { term as profileTerm } from "@/lib/profiles/registry"
 import { resolveEffectiveProfile } from "@/lib/profiles/resolve"
 import { getPublicForms } from "@/app/actions/forms"
+import { redirectBareToTenant } from "@/lib/public-site"
 import { PublicInquiryForm } from "@/components/public/public-inquiry-form"
 
 // ============================================================
@@ -15,7 +18,20 @@ import { PublicInquiryForm } from "@/components/public/public-inquiry-form"
 // accepts guest submissions validated server-side.
 // ============================================================
 
+// P1 #26: samo-referencirajoč canonical (prej je /inquiry podedoval
+// canonical korena najemnika).
+export async function generateMetadata(): Promise<Metadata> {
+  const org = await getResolvedOrg()
+  return canonicalMetadata(org?.slug, "/inquiry", {
+    title: "Povpraševanje",
+    description: "Izpolnite obrazec in odgovorimo v najkrajšem možnem času.",
+  })
+}
+
 export default async function InquiryPage() {
+  // P1 #39-5: gola pot → kanonična najemniška pot.
+  await redirectBareToTenant("/inquiry")
+
   const org = await getResolvedOrg()
   const p = (path: string) => orgPath(org?.slug, path)
 

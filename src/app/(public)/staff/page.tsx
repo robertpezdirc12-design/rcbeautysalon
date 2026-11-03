@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
-import { getPublicSiteData, getPublicStaffMembers } from "@/lib/public-site"
+import { getPublicSiteData, getPublicStaffMembers, redirectBareToTenant } from "@/lib/public-site"
+import { canonicalMetadata } from "@/lib/seo"
 import { orgPath } from "@/lib/org-path"
 import { splitLastWord } from "@/components/landing/section-title"
 import Link from "next/link"
@@ -8,15 +9,19 @@ import { StaffAvatar } from "@/components/landing/staff-avatar"
 export async function generateMetadata(): Promise<Metadata> {
   const site = await getPublicSiteData()
   const orgName = site?.org.name ?? "Salon"
-  return {
+  // P1 #26: samo-referencirajoč canonical (/s/{slug}/staff).
+  return canonicalMetadata(site?.org.slug, "/staff", {
     title: `${site?.content.team.title ?? "Naša ekipa"} | ${orgName}`,
     description:
       site?.content.team.subtitle ??
       "Spoznajte našo ekipo lepotnih strokovnjakov",
-  }
+  })
 }
 
 const StaffPage = async () => {
+  // P1 #39-5: gola pot → kanonična najemniška pot.
+  await redirectBareToTenant("/staff")
+
   const site = await getPublicSiteData()
 
   if (!site) {

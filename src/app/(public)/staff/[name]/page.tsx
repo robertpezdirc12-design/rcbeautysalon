@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
-import { getPublicSiteData, getPublicStaffBySlug } from "@/lib/public-site"
+import { getPublicSiteData, getPublicStaffBySlug, redirectBareToTenant } from "@/lib/public-site"
+import { canonicalMetadata } from "@/lib/seo"
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import { orgPath } from "@/lib/org-path"
@@ -29,11 +30,12 @@ export async function generateMetadata({ params }: StaffDetailPageProps): Promis
     }
   }
 
-  return {
+  // P1 #26: samo-referencirajoč canonical (/s/{slug}/staff/{name}).
+  return canonicalMetadata(site?.org.slug, `/staff/${name}`, {
     title: `${staffMember.name} | ${orgName}`,
     description:
       staffMember.bio || `Rezervirajte termin pri ${staffMember.name} — ${orgName}.`,
-  }
+  })
 }
 
 // Day names for working hours
@@ -49,6 +51,9 @@ const dayNames = [
 
 const StaffDetailPage = async ({ params }: StaffDetailPageProps) => {
   const { name } = await params
+  // P1 #39-5: gola pot najprej na kanoničnega najemnika.
+  await redirectBareToTenant(`/staff/${name}`)
+
   const site = await getPublicSiteData()
   const staffMember = site ? await getPublicStaffBySlug(site.org.id, name) : null
 

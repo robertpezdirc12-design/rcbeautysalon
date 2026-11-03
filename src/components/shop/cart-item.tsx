@@ -4,6 +4,7 @@ import { useFormatPrice } from "@/lib/currency"
 import { useState } from "react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { MinusIcon, PlusIcon, TrashIcon, PackageIcon } from "@/components/icons"
 import type { CartItem as CartItemType } from "@/store/cart-store"
@@ -35,7 +36,38 @@ export function CartItem({ item }: CartItemProps) {
   }
 
   //Increase Quantity
-  const handleIncrease = () => updateQuantity(item.productId, item.quantity + 1)
+  const handleIncrease = () => {
+    // P1 #37: upoštevaj zalogo (če je znana) — ne ponujaj več kot je na voljo.
+    if (
+      item.stockQuantity != null &&
+      item.quantity + 1 > item.stockQuantity
+    ) {
+      toast.error(
+        `Na zalogi je le še ${item.stockQuantity} kos izdelka ${item.name}.`
+      )
+      return
+    }
+    updateQuantity(item.productId, item.quantity + 1)
+  }
+
+  // P1 #37: količino je mogoče TIPATI (tipkovnica/bralniki zaslona),
+  // ne samo klikati. Neveljavne vrednosti se pripognejo na dovoljeno.
+  const handleQuantityInput = (raw: string) => {
+    if (raw === "") {
+      // Prazni vnos: pusti uporabniku tipkati — povrnemo na 1 ob zameglitvi.
+      return
+    }
+    const parsed = Number.parseInt(raw, 10)
+    if (Number.isNaN(parsed)) return
+    const max = item.stockQuantity ?? undefined
+    const clamped = Math.min(Math.max(parsed, 1), max ?? Number.MAX_SAFE_INTEGER)
+    if (max !== undefined && parsed > max) {
+      toast.error(
+        `Na zalogi je le še ${max} kos izdelka ${item.name}.`
+      )
+    }
+    updateQuantity(item.productId, clamped)
+  }
 
   return (
     <div className="group bg-muted/30 hover:bg-muted/50 flex gap-4 rounded-xl p-4 transition-all">
@@ -71,26 +103,40 @@ export function CartItem({ item }: CartItemProps) {
           </p>
         </div>
 
-        {/* Quantity Controls */}
+        {/* Quantity Controls — P1 #37: vsak gumb ima dostopno ime (prej
+            "button, button, button" za bralnike zaslona), količina pa je
+            številski vnos (min 1, max zaloga). */}
         <div className="flex items-center gap-1">
           <Button
             onClick={handleDecrease}
             variant="outline"
             size="icon"
+            aria-label={`Zmanjšaj količino izdelka ${item.name}`}
             className="border-border/50 hover:bg-primary/10 hover:text-primary-text hover:border-primary/30 h-9 w-9 rounded-lg"
           >
-            <MinusIcon size={16} weight="bold" />
+            <MinusIcon size={16} weight="bold" aria-hidden />
           </Button>
-          <span className="w-12 text-center text-lg font-semibold">
-            {item.quantity}
-          </span>
+          <Input
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={item.stockQuantity ?? undefined}
+            value={item.quantity}
+            onChange={(e) => handleQuantityInput(e.target.value)}
+            onBlur={(e) => {
+              if (e.target.value === "") updateQuantity(item.productId, 1)
+            }}
+            aria-label={`Količina izdelka ${item.name}`}
+            className="border-border/50 h-9 w-14 rounded-lg text-center text-lg font-semibold [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          />
           <Button
             onClick={handleIncrease}
             variant="outline"
             size="icon"
+            aria-label={`Povečaj količino izdelka ${item.name}`}
             className="border-border/50 hover:bg-primary/10 hover:text-primary-text hover:border-primary/30 h-9 w-9 rounded-lg"
           >
-            <PlusIcon size={16} weight="bold" />
+            <PlusIcon size={16} weight="bold" aria-hidden />
           </Button>
         </div>
       </div>
@@ -111,9 +157,10 @@ export function CartItem({ item }: CartItemProps) {
           onClick={() => setShowRemoveDialog(true)}
           variant="ghost"
           size="icon"
+          aria-label={`Odstrani izdelek ${item.name} iz košarice`}
           className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive h-9 w-9 rounded-lg"
         >
-          <TrashIcon size={18} />
+          <TrashIcon size={18} aria-hidden />
         </Button>
       </div>
 

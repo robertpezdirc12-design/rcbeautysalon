@@ -108,7 +108,7 @@ export function LoginForm({ orgName, orgLogo, orgSlug }: LoginFormProps) {
               <Input
                 id="email"
                 type="email"
-                placeholder="admin@rcbeautysalon.org"
+                placeholder="ime@primer.si"
                 disabled={isSubmitting}
                 autoComplete="email"
                 {...register("email")}

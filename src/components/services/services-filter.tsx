@@ -20,6 +20,9 @@ export function ServicesFilter({
   onFilterChange,
 }: ServicesFilterProps) {
   const [isPending, startTransition] = useTransition()
+  // P1 #29: privzeto stanje je "Priporočeno" (katalog vrstni red) — prej
+  // je bila labela "Ime (A–Ž)", a je začetni seznam NI bil abecedno
+  // sortiran, torej labela ni opisovala stanja.
   const [filters, setFilters] = useState<ServiceFilters>({})
   const [showAdvanced, setShowAdvanced] = useState(false)
 
@@ -68,16 +71,25 @@ export function ServicesFilter({
 
         {/* Sort */}
         <Select
-          value={filters.sortBy || "name_asc"}
+          value={filters.sortBy || "featured"}
           onValueChange={(value) =>
-            handleFilterChange({ sortBy: value as ServiceFilters["sortBy"] })
+            handleFilterChange({
+              // "Priporočeno" (featured) = privzeti katalog vrstni red —
+              // pošljemo sortBy: undefined, da strežnik uporabi privzeti
+              // vrstni red, ki se ujema z začetnim stanjem strani.
+              sortBy:
+                value === "featured"
+                  ? undefined
+                  : (value as ServiceFilters["sortBy"]),
+            })
           }
           disabled={isPending}
         >
-          <SelectTrigger className="w-full sm:w-[200px]">
+          <SelectTrigger className="w-full sm:w-[200px]" aria-label="Razvrsti storitve">
             <SelectValue placeholder="Razvrsti po" />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="featured">Priporočeno</SelectItem>
             <SelectItem value="name_asc">Ime (A–Ž)</SelectItem>
             <SelectItem value="price_asc">Cena (naraščajoče)</SelectItem>
             <SelectItem value="price_desc">Cena (padajoče)</SelectItem>

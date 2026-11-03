@@ -13,7 +13,9 @@ import {
   UserIcon,
 } from "@/components/icons"
 import { cloudinaryPresets } from "@/lib/utils/cloudinary"
-import { getPublicSiteData, getPublicServiceBySlug, getPublicRelatedServices } from "@/lib/public-site"
+import { getPublicSiteData, getPublicServiceBySlug, getPublicRelatedServices, redirectBareToTenant } from "@/lib/public-site"
+import { canonicalMetadata } from "@/lib/seo"
+import { isBookingEnabled } from "@/lib/public-cta"
 import { orgPath } from "@/lib/org-path"
 import { ReviewsSection } from "@/components/reviews/reviews-section"
 import { GallerySection } from "@/components/services/gallery-section"
@@ -23,6 +25,7 @@ import { ServiceBreadcrumbs } from "@/components/services/breadcrumbs"
 import { ReviewForm } from "@/components/reviews/review-form"
 import { StaffCard } from "@/components/staff/staff-card"
 import { auth } from "@/lib/auth/auth"
+import { getServerI18n } from "@/lib/i18n/server"
 
 export async function generateMetadata({
   params,
@@ -40,11 +43,26 @@ export async function generateMetadata({
     }
   }
 
-  return {
+  // P1 #26: samo-referencirajoč canonical + P1 #39-6: OG slika storitve
+  // (fotografija, sicer dinamično generirana s strani imena prek /og).
+  return canonicalMetadata(site?.org.slug, `/services/${slug}`, {
     title: `${service.name} | ${orgName}`,
     description:
       service.description || `Rezervirajte ${service.name} pri ${orgName}.`,
-  }
+    openGraph: {
+      title: `${service.name} | ${orgName}`,
+      description:
+        service.description || `Rezervirajte ${service.name} pri ${orgName}.`,
+      images: [
+        service.imageUrl
+          ? { url: service.imageUrl, alt: service.name }
+          : {
+              url: `/og?title=${encodeURIComponent(service.name)}&subtitle=${encodeURIComponent(orgName)}`,
+              alt: service.name,
+            },
+      ],
+    },
+  })
 }
 
 export default async function ServiceDetailPage({
@@ -54,6 +72,11 @@ export default async function ServiceDetailPage({
 }) {
   // Get the service by slug from the database (tenant-scoped)
   const { slug } = await params
+  // P1 #39-5: gola pot najprej na kanonični najemnik (storitev je lahko
+  // na pravem najemniku, četudi je ne najde privzeti org).
+  await redirectBareToTenant(`/services/${slug}`)
+
+  const { t } = await getServerI18n()
   const site = await getPublicSiteData()
   const service = site ? await getPublicServiceBySlug(site.org.id, slug) : null
 
@@ -82,6 +105,11 @@ export default async function ServiceDetailPage({
     getPublicRelatedServices(site.org.id, service.categoryId, service.id),
     auth(),
   ])
+
+  // P0 #24 (re-audit 2026-11): profil poganja CTA — najemnik z izklopljenimi
+  // rezervacijami ne sme videti "Rezerviraj to storitev", ki vodi na mrtvo
+  // pot (/booking preusmeri na /inquiry in izgubi izbrano storitev).
+  const bookingEnabled = isBookingEnabled(site.org.vertical, site.org.profileOverrides)
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -206,10 +234,16 @@ export default async function ServiceDetailPage({
                 </div>
               )}
 
-              {/* Book Button */}
+              {/* Book Button — P0 #24: profilsko pogojena CTA (booking
+                  ohrani izbrano storitev prek ?service=; inquiry profile
+                  dobita pošteno povpraševanje, ne mrtve poti). */}
               <div className="flex flex-col gap-4 sm:flex-row">
                 <Link
-                  href={orgPath(orgSlug, `/booking?service=${service.slug}`)}
+                  href={
+                    bookingEnabled
+                      ? orgPath(orgSlug, `/booking?service=${service.slug}`)
+                      : orgPath(orgSlug, "/inquiry")
+                  }
                   className="flex-1"
                 >
                   <Button
@@ -217,7 +251,7 @@ export default async function ServiceDetailPage({
                     className="from-primary to-accent w-full bg-linear-to-r hover:opacity-90"
                   >
                     <CalendarIcon size={20} className="mr-2" />
-                    Rezerviraj to storitev
+                    {bookingEnabled ? "Rezerviraj to storitev" : "Oddaj povpraševanje"}
                   </Button>
                 </Link>
                 <Link href={orgPath(orgSlug, "/services")}>
@@ -329,10 +363,19 @@ export default async function ServiceDetailPage({
       </section>
 
       {/* Gallery Section */}
-      <GallerySection gallery={service.gallery} serviceName={service.name} />
+      <GallerySection
+        gallery={service.gallery}
+        serviceName={service.name}
+        title={t.public.galleryTitle}
+        subtitle={t.public.gallerySubtitle(service.name)}
+      />
 
       {/* FAQ Section */}
-      <FAQSection faqs={service.faqs} />
+      <FAQSection
+        faqs={service.faqs}
+        title={t.public.faqTitle}
+        subtitle={t.public.faqSubtitle}
+      />
 
       {/* Related Services Section */}
       <RelatedServicesSection

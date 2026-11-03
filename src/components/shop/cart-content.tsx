@@ -1,9 +1,9 @@
 "use client"
 import { useFormatPrice } from "@/lib/currency"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import {
@@ -28,10 +28,12 @@ import { CartItem } from "@/components/shop/cart-item"
 import { toast } from "sonner"
 import { createProductCheckoutSession } from "@/app/actions/product-checkout"
 import { useOrgPrefix } from "@/lib/org-path-hooks"
+import { SI_VAT_RATE, vatFromGross, vatLabel } from "@/lib/vat"
 
 export function CartContent() {
   const fmt = useFormatPrice()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { data: session, status } = useSession()
   // Tenant-aware cart path: "/s/[slug]/cart" on tenant sites, "/cart" on
   // bare routes — so the login round-trip returns to the SAME tenant cart.
@@ -43,8 +45,32 @@ export function CartContent() {
   const totalPrice = getTotalPrice()
   const totalItems = getTotalItems()
   const shipping = items.length === 0 || totalPrice >= 50 ? 0 : 5.99
-  const tax = totalPrice * 0.08
-  const grandTotal = totalPrice + shipping + tax
+  // P1 #33 (re-audit 2026-11): BRUTO cenik — cene že vsebujejo DDV (/terms),
+  // zato košarica NE prišteva davka. DDV je samo informativni razpad bruto
+  // zneska (prej magični 8 % DODAN k ceni → napačen znesek + odprava).
+  const vatIncluded = vatFromGross(totalPrice, SI_VAT_RATE)
+  const grandTotal = totalPrice + shipping
+
+  // P1 #38 (re-audit 2026-11): po prijavi uporabnik nadaljuje na checkout,
+  // ne nazaj na košarico. Prijava vodi na /cart?nadaljuj=1; ko seja pride
+  // in je zastavica prisotna, se checkout sproži samodejno (enkrat).
+  const autoContinue = searchParams.get("nadaljuj") === "1"
+  const autoContinueRef = useRef(false)
+  useEffect(() => {
+    if (
+      autoContinue &&
+      !autoContinueRef.current &&
+      status === "authenticated" &&
+      items.length > 0 &&
+      !isCheckingOut
+    ) {
+      autoContinueRef.current = true
+      // Odstrani zastavico iz URL-ja, da refresh ne ponovi nakupa.
+      router.replace(cartPath, { scroll: false })
+      void handleCheckout()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoContinue, status, items.length])
 
   const handleClearCart = () => {
     clearCart()
@@ -58,8 +84,13 @@ export function CartContent() {
     if (status === "loading") return
 
     if (!session) {
-      toast.error("Za zaključek nakupa se prijavite")
-      router.push(`/login?callbackUrl=${encodeURIComponent(cartPath)}`)
+      // P1 #38: prijava z jasnim namenom — po prijavi se checkout nadaljuje
+      // samodejno (zastavica nadaljuj=1), namesto da uporabnik trikoma nazaj
+      // na košarico in znova klikne.
+      toast.error("Za zaključek nakupa se prijavite ali ustvarite račun")
+      router.push(
+        `/login?callbackUrl=${encodeURIComponent(`${cartPath}?nadaljuj=1`)}`
+      )
       return
     }
 
@@ -89,6 +120,9 @@ export function CartContent() {
       setIsCheckingOut(false)
     }
   }
+
+  const loginUrl = `/login?callbackUrl=${encodeURIComponent(`${cartPath}?nadaljuj=1`)}`
+  const registerUrl = `/register?callbackUrl=${encodeURIComponent(`${cartPath}?nadaljuj=1`)}`
 
   return (
     <>
@@ -176,7 +210,12 @@ export function CartContent() {
             <CardHeader className="border-border/50 bg-muted/30 border-b">
               <CardTitle>Povzetek naročila</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4 p-6">
+            {/* P1 #37: spreminjanje količine se napove bralnikom zaslona. */}
+            <CardContent
+              className="space-y-4 p-6"
+              aria-live="polite"
+              aria-atomic="false"
+            >
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Vmesna vsota</span>
                 <span className="font-medium">{fmt(totalPrice)}</span>
@@ -194,9 +233,11 @@ export function CartContent() {
                   Dodajte še {fmt((50 - totalPrice))} za brezplačno dostavo!
                 </p>
               )}
+              {/* P1 #33: informativni razpad DDV iz bruto cene (22 %) —
+                  skupaj = vmesna vsota + dostava, brez prištevanja. */}
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Predvideni davek</span>
-                <span className="font-medium">{fmt(tax)}</span>
+                <span className="text-muted-foreground">{vatLabel()}</span>
+                <span className="font-medium">{fmt(vatIncluded)}</span>
               </div>
               <Separator />
               <div className="flex justify-between text-lg font-bold">
@@ -205,6 +246,27 @@ export function CartContent() {
               </div>
             </CardContent>
             <CardFooter className="flex flex-col gap-3 p-6 pt-0">
+              {/* P1 #38: anonimni obiskovalec vidi obvestilo PRED klikom —
+                  brez tihega skoka na prijavni zid. */}
+              {status === "unauthenticated" && items.length > 0 && (
+                <div className="bg-accent/10 border-accent/30 w-full rounded-lg border p-3 text-sm">
+                  <p className="text-foreground font-medium">
+                    Za zaključek nakupa se prijavite ali ustvarite račun.
+                  </p>
+                  <p className="text-muted-foreground mt-1 text-xs">
+                    Košarica ostane ohranjena — po prijavi se zaključek nakupa
+                    samodejno nadaljuje.
+                  </p>
+                  <div className="mt-2 flex gap-2">
+                    <Button size="sm" variant="outline" asChild>
+                      <Link href={loginUrl}>Prijava</Link>
+                    </Button>
+                    <Button size="sm" variant="ghost" asChild>
+                      <Link href={registerUrl}>Registracija</Link>
+                    </Button>
+                  </div>
+                </div>
+              )}
               <Button
                 className="w-full shadow-md"
                 size="lg"

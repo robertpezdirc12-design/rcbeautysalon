@@ -7,9 +7,9 @@ import { validateCartStock } from "./cart"
 import { getPublicOrg } from "@/lib/tenant"
 import { getPlan } from "@/lib/plans/registry"
 import { checkPlanLimit, monthStartUtc } from "@/lib/plans/types"
+import { SI_VAT_RATE, vatFromGross } from "@/lib/vat"
 import type { CartItem } from "@/store/cart-store"
 
-const TAX_RATE = 0.08
 const FREE_SHIPPING_THRESHOLD = 50
 const SHIPPING_COST = 5.99
 
@@ -111,14 +111,18 @@ export async function createProductCheckoutSession(
       }
     })
 
-    // Calculate totals from trusted prices
+    // Calculate totals from trusted prices.
+    // P1 #33 (re-audit 2026-11): BRUTO cenik — cene že vsebujejo DDV, zato
+    // checkout NE prišteva davka (prej magični 8 % → napačen skupni znesek
+    // na naročilu računu). DDV se izkaže iz bruto zneska kot informativni
+    // razpad (istega funkcije kot v košarici — en vir resnice, src/lib/vat).
     const subtotal = pricedItems.reduce(
       (sum, item) => sum + item.price * item.quantity,
       0
     )
     const shipping = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_COST
-    const tax = subtotal * TAX_RATE
-    const total = subtotal + shipping + tax
+    const tax = vatFromGross(subtotal + shipping, SI_VAT_RATE)
+    const total = subtotal + shipping
 
     // Get or create customer
     let customerId: string | null = null

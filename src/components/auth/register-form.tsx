@@ -2,7 +2,7 @@
 
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
@@ -27,6 +27,11 @@ import { useI18n } from "@/lib/i18n/provider"
 
 export function RegisterForm() {
   const router = useRouter()
+  // P1 #38 (re-audit 2026-11): callbackUrl (npr. košarica z zastavico
+  // nadaljuj=1) se po uspešni registraciji prenese na prijavo — uporabnik
+  // nadaljuje tam, kjer je končal.
+  const searchParams = useSearchParams()
+  const callbackUrl = searchParams.get("callbackUrl")
   const { t } = useI18n()
   const [fallbackVerificationUrl, setFallbackVerificationUrl] = useState<
     string | null
@@ -64,7 +69,15 @@ export function RegisterForm() {
       duration: 6000,
     })
 
-    router.push("/login")
+    // P1 #38: samo varne, relativne poti (odprto-preusmeritvena zaščita —
+    // enaka pravila kot proxy za callbackUrl).
+    const safeCallback =
+      callbackUrl?.startsWith("/") &&
+      !callbackUrl.startsWith("//") &&
+      !callbackUrl.includes("\\")
+        ? `?callbackUrl=${encodeURIComponent(callbackUrl)}`
+        : ""
+    router.push(`/login${safeCallback}`)
   }
 
   // Dostopen potrditveni korak, ko e-pošta ne deluje (pogojno, brez laži).

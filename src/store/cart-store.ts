@@ -8,6 +8,10 @@ export interface CartItem {
   image: string | null
   quantity: number
   price: number
+  /** P1 #37 (re-audit 2026-11): zaloga ob dodajanju v košarico — omogoča
+   * max omejitev količine v UI (vnos po tipkovnici + client-side omejitev).
+   * null/undefined = zaloga ni znana (starejši shranjeni vozički). */
+  stockQuantity?: number | null
 }
 
 /**
@@ -69,6 +73,20 @@ export const useCartStore = create<CartState>(
         const existingItem = items.find(
           (item) => item.productId === product.productId
         )
+
+        // P1 #37: spoštuj zalogo — če je izčrpana, ne povečuj količine.
+        const maxStock = product.stockQuantity ?? null
+        if (
+          existingItem &&
+          maxStock !== null &&
+          maxStock !== undefined &&
+          existingItem.quantity + 1 > maxStock
+        ) {
+          toast.error(
+            `Na zalogi je le še ${maxStock} kos izdelka ${product.name}.`
+          )
+          return
+        }
 
         const nextItems = existingItem
           ? items.map((item) =>

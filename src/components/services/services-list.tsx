@@ -1,9 +1,10 @@
 "use client"
 import { useFormatPrice } from "@/lib/currency"
 
-import { useState, useTransition } from "react"
+import { useMemo, useState, useTransition } from "react"
 import Image from "next/image"
 import Link from "next/link"
+import { useRouter, useSearchParams } from "next/navigation"
 import { CalendarIcon } from "@/components/icons"
 import { cloudinaryPresets } from "@/lib/utils/cloudinary"
 import { ServicesFilter } from "./services-filter"
@@ -13,15 +14,30 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ServicesGridSkeleton } from "./services-grid-skeleton"
 import { useOrgPrefix } from "@/lib/org-path-hooks"
 
-/** Sentinel tab value for the "Vse" (all categories) tab. */
+/**
+ * Sentinel tab value for the "Vse" (all categories) tab.
+ */
 const ALL_TAB = "__all__"
 
+/**
+ * P1 #29 (re-audit 2026-11): seznam prihaja FLAT in GLOBAlno sortiran
+ * s strežnika (filterServices). Kategorije razporedimo iz flat seznama
+ * v vrstnem redu prve pojavitve — zato:
+ *  - "Vse" tab prikaže ENO monotono zaporedje za vsako sortiranje
+ *    (prej je bil seznam sortiran samo znotraj kategorij), in
+ *  - kategorija tabi ohranijo sortiranje znotraj svoje skupine.
+ *
+ * P1 #39-1: izbrana kategorija se zrcali v URL (?kategorija=<slug>) —
+ * stanje preživi reload, deljenje povezave in gumb Nazaj.
+ */
 export function ServicesList({
   initialServices,
   categories,
   staff,
 }: ServicesListProps) {
   const fmt = useFormatPrice()
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const [services, setServices] = useState(initialServices)
   const [isPending, startTransition] = useTransition()
   const prefix = useOrgPrefix()
@@ -37,11 +53,49 @@ export function ServicesList({
     })
   }
 
-  const serviceCategories = Object.keys(services)
+  // --- Kategorije (iz flat seznama, vrstni red prve pojavitve) ---
+  const categoriesWithSlug = useMemo(() => {
+    const map = new Map<
+      string,
+      { name: string; slug: string; items: ServiceListItem[] }
+    >()
+    for (const service of services) {
+      const name = service.category?.name || "Brez kategorije"
+      const slug = service.category?.slug || name
+      if (!map.has(name)) map.set(name, { name, slug, items: [] })
+      map.get(name)!.items.push(service)
+    }
+    return Array.from(map.values())
+  }, [services])
 
-  // "Vse" tab — every service across all categories, flattened in the
-  // existing query order (category name asc, then service name asc).
-  const allServices = serviceCategories.flatMap((category) => services[category])
+  // --- URL sync (#39-1): preberi ?kategorija=<slug> in najdi tab ---
+  const urlCategory = searchParams.get("kategorija")
+  const activeCategoryName = urlCategory
+    ? categoriesWithSlug.find((c) => c.slug === urlCategory)?.name
+    : null
+  const [tabValue, setTabValue] = useState<string>(
+    activeCategoryName ?? ALL_TAB
+  )
+
+  const handleTabChange = (value: string) => {
+    setTabValue(value)
+    // #39-1: URL odraža stanje (replace — brez dodanega zgodovinskega vknosa
+    // za vsak klik; gumb Nazaj se vede naravno med preusmeritvami).
+    const slug =
+      value === ALL_TAB
+        ? null
+        : categoriesWithSlug.find((c) => c.name === value)?.slug ?? null
+    const params = new URLSearchParams(searchParams.toString())
+    if (slug) {
+      params.set("kategorija", slug)
+    } else {
+      params.delete("kategorija")
+    }
+    const qs = params.toString()
+    router.replace(`${prefix}/services${qs ? `?${qs}` : ""}`, {
+      scroll: false,
+    })
+  }
 
   const renderServiceCard = (service: ServiceListItem) => (
     <Link
@@ -134,6 +188,14 @@ export function ServicesList({
     </Link>
   )
 
+  const renderGrid = (items: ServiceListItem[]) => (
+    <div className="mx-auto max-w-7xl">
+      <div className="flex flex-wrap justify-center gap-6">
+        {items.map(renderServiceCard)}
+      </div>
+    </div>
+  )
+
   return (
     <>
       {/* Filters */}
@@ -141,50 +203,41 @@ export function ServicesList({
         categories={categories}
         staff={staff}
         onFilterChange={handleFilterChange}
-
       />
 
       {/* Services Grid */}
-      {serviceCategories.length > 0 ? (
-        <Tabs defaultValue={ALL_TAB} className="w-full">
-          {/* Category Tabs - Centered */}
-          <div className="mb-12 flex justify-center">
+      {categoriesWithSlug.length > 0 ? (
+        <Tabs value={tabValue} onValueChange={handleTabChange} className="w-full">
+          {/* Category Tabs — P1 #30: strip se pomika V SVOJEM vsebniku
+              (overflow-x-auto), ne vleče celotnega dokumenta v vodoravni
+              pomik (prej +125 px prekoračitev na 375 px). */}
+          <div className="mb-12 flex justify-start overflow-x-auto px-4 py-1 sm:justify-center sm:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <TabsList className="bg-muted text-muted-foreground inline-flex h-12 items-center justify-center rounded-lg p-1">
               <TabsTrigger
                 value={ALL_TAB}
-                className="ring-offset-background focus-visible:ring-ring hover:text-accent-text data-[state=active]:bg-background data-[state=active]:text-accent-text inline-flex items-center justify-center rounded-md px-6 py-2 text-sm font-medium whitespace-nowrap transition-all focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 data-[state=active]:shadow-sm"
+                className="ring-offset-background focus-visible:ring-ring hover:text-accent-text data-[state=active]:bg-background data-[state=active]:text-accent-text inline-flex shrink-0 items-center justify-center rounded-md px-6 py-2 text-sm font-medium whitespace-nowrap transition-all focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 data-[state=active]:shadow-sm"
               >
                 Vse
               </TabsTrigger>
-              {serviceCategories.map((category) => (
+              {categoriesWithSlug.map((category) => (
                 <TabsTrigger
-                  key={category}
-                  value={category}
-                  className="ring-offset-background focus-visible:ring-ring hover:text-accent-text data-[state=active]:bg-background data-[state=active]:text-accent-text inline-flex items-center justify-center rounded-md px-6 py-2 text-sm font-medium whitespace-nowrap transition-all focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 data-[state=active]:shadow-sm"
+                  key={category.name}
+                  value={category.name}
+                  className="ring-offset-background focus-visible:ring-ring hover:text-accent-text data-[state=active]:bg-background data-[state=active]:text-accent-text inline-flex shrink-0 items-center justify-center rounded-md px-6 py-2 text-sm font-medium whitespace-nowrap transition-all focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 data-[state=active]:shadow-sm"
                 >
-                  {category}
+                  {category.name}
                 </TabsTrigger>
               ))}
             </TabsList>
           </div>
 
-          {/* All Services (default tab) */}
-          <TabsContent value={ALL_TAB}>
-            <div className="mx-auto max-w-7xl">
-              <div className="flex flex-wrap justify-center gap-6">
-                {allServices.map(renderServiceCard)}
-              </div>
-            </div>
-          </TabsContent>
+          {/* All Services (default tab) — flat, globalno sortirano (#29) */}
+          <TabsContent value={ALL_TAB}>{renderGrid(services)}</TabsContent>
 
           {/* Services Grid for Each Category */}
-          {serviceCategories.map((category) => (
-            <TabsContent key={category} value={category}>
-              <div className="mx-auto max-w-7xl">
-                <div className="flex flex-wrap justify-center gap-6">
-                  {services[category].map(renderServiceCard)}
-                </div>
-              </div>
+          {categoriesWithSlug.map((category) => (
+            <TabsContent key={category.name} value={category.name}>
+              {renderGrid(category.items)}
             </TabsContent>
           ))}
         </Tabs>

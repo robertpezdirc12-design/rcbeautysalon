@@ -1,11 +1,13 @@
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
+import type { Metadata } from "next"
 import { auth } from "@/lib/auth/auth"
 import { getResolvedOrg } from "@/lib/tenant"
+import { canonicalMetadata } from "@/lib/seo"
 import { orgPath } from "@/lib/org-path"
 import { isBookingEnabled } from "@/lib/public-cta"
-import { getPublicServicesGrouped } from "@/lib/public-site"
+import { getPublicServicesGrouped, redirectBareToTenant } from "@/lib/public-site"
 import {
   getServiceForBooking,
   getAvailableStaff,
@@ -21,7 +23,20 @@ interface BookingPageProps {
   searchParams: Promise<{ service?: string; staff?: string }>
 }
 
+// P1 #26: samo-referencirajoč canonical (prej je /booking podedoval
+// canonical korena najemnika — dvojni vsebinski URL v sitemapu).
+export async function generateMetadata(): Promise<Metadata> {
+  const org = await getResolvedOrg()
+  return canonicalMetadata(org?.slug, "/booking", {
+    title: "Rezervacija termina",
+    robots: { index: false, follow: true },
+  })
+}
+
 export default async function BookingPage(props: BookingPageProps) {
+  // P1 #39-5: gola pot → kanonična najemniška pot (pod najemnikom nič).
+  await redirectBareToTenant("/booking")
+
   const { t } = await getServerI18n()
   const searchParams = await props.searchParams
   const serviceSlug = searchParams.service

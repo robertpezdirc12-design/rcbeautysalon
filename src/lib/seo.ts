@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import type { SiteContent } from "@/lib/site-content"
+import { isInternalTenantSlug } from "@/lib/tenant-flags"
 
 /**
  * Per-tenant SEO (P1) — čiste funkcije, testabilne brez DB.
@@ -98,9 +99,37 @@ export interface JsonLdOpeningHour {
 }
 
 /**
- * JSON-LD LocalBusiness (HairSalon/BeautySalon po vertikali) — Google
- * bogati rezultati (delovni čas, povezave, opis) brez ročnega vnosa.
- * Vključuje samo podatke, ki jih lastnik dejansko je nastavil (brez izmišljenih naslovov).
+ * P1 #36 (re-audit 2026-11): preslikava vertikale → schema.org tip.
+ * Prej je bila zadnja možnost "BeautySalon", zato je splošni/neznan
+ * profil opisoval napačen posel; "seamstress" je (pravilno) dajal
+ * ClothingStore — kar je razkrilo, da rc-beauty nosi napačno vertikalo
+ * (glej #24 — podatkovni popravek). Neznana vertikala → nevtralni
+ * LocalBusiness, nikoli več trdovratno napačen tip.
+ */
+const SCHEMA_TYPE_BY_VERTICAL: Record<string, string> = {
+  beauty: "BeautySalon",
+  frizer: "HairSalon",
+  barber: "HairSalon",
+  nails: "NailSalon",
+  cosmetica: "BeautySalon",
+  massage: "DaySpa",
+  epilation: "BeautySalon",
+  "tire-service": "AutoRepair",
+  seamstress: "ClothingStore",
+  beekeeping: "Store",
+  generic: "LocalBusiness",
+}
+
+export function schemaTypeForVertical(
+  vertical: string | null | undefined
+): string {
+  return (vertical && SCHEMA_TYPE_BY_VERTICAL[vertical]) || "LocalBusiness"
+}
+
+/**
+ * JSON-LD LocalBusiness (tip po vertikali) — Google bogati rezultati
+ * (delovni čas, povezave, opis) brez ročnega vnosa. Vključuje samo
+ * podatke, ki jih lastnik dejansko je nastavil (brez izmišljenih naslovov).
  */
 export function buildTenantJsonLd({
   org,
@@ -114,16 +143,6 @@ export function buildTenantJsonLd({
   indexable: boolean
 }): Record<string, unknown> | null {
   if (!indexable) return null
-
-  const typeByVertical: Record<string, string> = {
-    beauty: "BeautySalon",
-    frizer: "HairSalon",
-    nails: "NailSalon",
-    cosmetica: "BeautySalon",
-    seamstress: "ClothingStore",
-  }
-  const jsonLdType =
-    (org.vertical && typeByVertical[org.vertical]) || "BeautySalon"
 
   const days = [
     "Sunday",
@@ -149,7 +168,7 @@ export function buildTenantJsonLd({
 
   return {
     "@context": "https://schema.org",
-    "@type": jsonLdType,
+    "@type": schemaTypeForVertical(org.vertical),
     name: org.name,
     description: tenantDescription(content, org.name),
     url: `${appUrl}/s/${org.slug}`,
@@ -165,16 +184,31 @@ export function buildTenantMetadata({
   appUrl,
   context,
   indexable,
-}: TenantSeoInput): Metadata {
+  path,
+}: TenantSeoInput & {
+  /** P1 #26: pot trenutne strani (npr. "/services") — canonical na VSAKO
+   * stran kaže nase, ne na koren najemnika. Prazen/neznan → koren. */
+  path?: string
+}): Metadata {
   const title = tenantTitle(content, org.name)
   const description = tenantDescription(content, org.name)
+
+  // P1 #28 (re-audit 2026-11): demo/test najemniki so noindex, tudi če
+  // so tehnično objavljeni — sitemap jih že izključuje, to je obramba
+  // v globino proti indeksiranju notranjih testnih podatkov.
+  const indexAllowed = indexable && !isInternalTenantSlug(org.slug)
+
+  // P1 #26 (re-audit 2026-11): canonical je VEDNO samo-referencirajoč
+  // URL trenutne strani (prej je vsaka podstran kazala na koren
+  // najemnika — 25+ strani "dvojniki" domače strani).
+  const canonicalPath = path && path !== "/" ? `/s/${org.slug}${path}` : `/s/${org.slug}`
 
   const base: Metadata = {
     title,
     description,
     icons: { icon: org.logo || "/favicon.svg" },
     manifest: "/manifest.json",
-    robots: indexable
+    robots: indexAllowed
       ? { index: true, follow: true }
       : { index: false, follow: false },
   }
@@ -190,12 +224,12 @@ export function buildTenantMetadata({
     ...base,
     metadataBase: new URL(appUrl),
     alternates: {
-      canonical: `${appUrl}/s/${org.slug}`,
+      canonical: `${appUrl}${canonicalPath}`,
     },
     openGraph: {
       title,
       description,
-      url: `${appUrl}/s/${org.slug}`,
+      url: `${appUrl}${canonicalPath}`,
       siteName: org.name,
       type: "website",
       locale: "sl_SI",
@@ -207,5 +241,33 @@ export function buildTenantMetadata({
       description,
       images: ogImage ? [ogImage] : undefined,
     },
+  }
+}
+
+/**
+ * P1 #26: pomožnik za PODSTRANI, ki gradijo svoj Metadata (title/description)
+ * in morajo samo dodati samo-referencirajoč canonical + dedično robots pravilo.
+ * metadataBase podedujejo od root layouta, zato je relativna pot dovolj.
+ */
+export function canonicalMetadata(
+  slug: string | null | undefined,
+  path: string,
+  extra?: Metadata
+): Metadata {
+  if (!slug) return extra ?? {}
+  return {
+    ...extra,
+    alternates: {
+      ...(extra?.alternates ?? {}),
+      canonical: `/s/${slug}${path}`,
+    },
+  }
+}
+
+/** P1 #26: noindex za ne-indeksirane poteh (košarica, checkout, prijava). */
+export function noIndexMetadata(extra?: Metadata): Metadata {
+  return {
+    ...extra,
+    robots: { index: false, follow: true },
   }
 }

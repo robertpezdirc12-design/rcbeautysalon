@@ -7,6 +7,7 @@ import { SectionWrapper } from "@/components/layouts/section-wrapper"
 import { AccentSpan, splitLastWord } from "@/components/landing/section-title"
 import { useI18n } from "@/lib/i18n/provider"
 import { cloudinaryPresets } from "@/lib/utils/cloudinary"
+import { displayAuthor } from "@/lib/utils/author"
 
 export interface LandingTestimonial {
   id: string
@@ -16,13 +17,7 @@ export interface LandingTestimonial {
   service: { name: string } | null
 }
 
-/** "Maja Novak" → "Maja N." — privacy-friendly public attribution. */
-function displayAuthor(name: string | null, fallback: string): string {
-  if (!name?.trim()) return fallback
-  const parts = name.trim().split(/\s+/)
-  if (parts.length === 1) return parts[0]
-  return `${parts[0]} ${parts[parts.length - 1].charAt(0).toUpperCase()}.`
-}
+/** P1 #39-4: enoten format avtorja — skupni util (src/lib/utils/author). */
 
 function Stars({ rating }: { rating: number }) {
   return (

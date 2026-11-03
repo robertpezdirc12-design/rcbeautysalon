@@ -93,8 +93,11 @@ export function PublicNavbar({ org, cta, availableSections }: PublicNavbarProps)
           <Logo variant="navbar" src={org.logo} alt={org.name} />
         </Link>
 
-        {/* Desktop Navigation - Shows at md (768px+) */}
-        <nav className="hidden items-center gap-0.5 md:flex md:gap-1 lg:gap-2 xl:gap-3 2xl:gap-4">
+        {/* Desktop Navigation — P1 #30: preklopi na lg (1024px). Pri md
+            (768px) se logo + 5 povezav + jezik + tema + košarica + CTA
+            ne ujemajo (+51 px prekoračitve in odrezan CTA). Pod lg ostane
+            hamburger, ki vedno sprejme celotno vsebino. */}
+        <nav className="hidden items-center gap-0.5 lg:flex lg:gap-1 xl:gap-2 2xl:gap-4">
           {navLinks.map((link) => (
             <Link
               key={link.href}
@@ -196,8 +199,8 @@ export function PublicNavbar({ org, cta, availableSections }: PublicNavbarProps)
           </div>
         </nav>
 
-        {/* Mobile Menu Button - Shows below md (< 768px) */}
-        <div className="flex items-center gap-2 md:hidden">
+        {/* Mobile Menu Button — P1 #30: viden DO lg (prej md) */}
+        <div className="flex items-center gap-2 lg:hidden">
           <LanguageSwitcher />
           <ThemeToggle />
           <NavCartButton />
@@ -215,9 +218,9 @@ export function PublicNavbar({ org, cta, availableSections }: PublicNavbarProps)
         </div>
       </div>
 
-      {/* Mobile Navigation Menu */}
+      {/* Mobile Navigation Menu — P1 #30: viden DO lg */}
       {mobileMenuOpen && (
-        <div className="border-t border-border/50 bg-card/95 backdrop-blur-md md:hidden">
+        <div className="border-t border-border/50 bg-card/95 backdrop-blur-md lg:hidden">
           <nav className="container mx-auto flex flex-col gap-1 px-4 py-4 sm:py-6">
             {/* Navigation Links */}
             <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-col sm:gap-1">

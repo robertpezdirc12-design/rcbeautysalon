@@ -61,6 +61,10 @@ interface HomeContentProps {
   /** Label on service cards — booking profiles say "Rezerviraj", others "Poglej". */
   serviceCtaLabel?: string
   featuredServices: Service[]
+  /** P1 #39-3: skupno število aktivnih storitev — oznaka "Izbranih 5 od 12
+   * storitev" pod naslovom, da grid ne prikazuje lažnega vtisa celotne
+   * ponudbe. */
+  servicesTotal?: number
   featuredProducts: Product[]
   featuredStaff: Staff[]
   /** Real moderated reviews for the tenant — section renders only when non-empty. */
@@ -85,6 +89,7 @@ export function HomeContent({
   ctaSectionHref,
   serviceCtaLabel = "Rezerviraj",
   featuredServices,
+  servicesTotal = 0,
   featuredProducts,
   featuredStaff,
   testimonials = [],
@@ -180,6 +185,17 @@ export function HomeContent({
               <p className="text-muted-foreground md:text-lg">
                 {content.services.subtitle}
               </p>
+              {/* P1 #39-3: vidna oznaka "izbranih N od M" — grid vsebuje samo
+                  izpostavljene storitve, ne celotnega kataloga. */}
+              {servicesTotal > featuredServices.length &&
+                featuredServices.length > 0 && (
+                  <p className="text-muted-foreground/80 mt-2 text-sm">
+                    {t.public.featuredServicesCount(
+                      featuredServices.length,
+                      servicesTotal
+                    )}
+                  </p>
+                )}
             </div>
             <div className="mx-auto max-w-7xl">
               <div className="flex flex-wrap justify-center gap-4">

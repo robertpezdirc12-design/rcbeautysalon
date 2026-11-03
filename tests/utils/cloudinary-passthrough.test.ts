@@ -34,7 +34,7 @@ describe("getCloudinaryUrl pass-through (local & external imagery)", () => {
     // account to resolve public IDs against, so instead of building a URL
     // against a third-party account we serve the local placeholder.
     const out = getCloudinaryUrl("services_haircut_ksqpaa", { width: 400 })
-    expect(out).toBe("/images/placeholders/placeholder.svg")
+    expect(out).toBe("/images/placeholders/service-placeholder.svg")
   })
 
   it("presets preserve pass-through semantics", () => {
@@ -44,6 +44,6 @@ describe("getCloudinaryUrl pass-through (local & external imagery)", () => {
   })
 
   it("empty value still falls back to placeholder", () => {
-    expect(getCloudinaryUrl("")).toBe("/images/placeholders/placeholder.svg")
+    expect(getCloudinaryUrl("")).toBe("/images/placeholders/service-placeholder.svg")
   })
 })

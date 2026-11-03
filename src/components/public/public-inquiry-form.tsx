@@ -32,10 +32,26 @@ export function PublicInquiryForm({ form }: PublicInquiryFormProps) {
   // F1 (E3-8 follow-up): submission runs through the React 19 `action={}`
   // pathway instead of a manual onSubmit handler. All fields are controlled,
   // so the framework's automatic post-action form reset cannot lose input.
+  //
+  // P0 #25 (re-audit 2026-11): a REJECTED server action (omrežna napaka,
+  // timeout, cold start, ad-blocker) je prej propadla kot neobravnavana
+  // izjema → React je odmontiral celo drevo ("Application error") in
+  // obiskovalec je izgubil vnesene podatke. try/catch ohrani stanje
+  // obrazca in pokaže lokalizirano sporočilo z možnostjo ponovnega
+  // poskusa.
   const [, formAction, pending] = useActionState(async () => {
     setFormError(null)
     setFieldErrors({})
-    const result = await submitPublicForm(form.key, values, contact)
+    let result: Awaited<ReturnType<typeof submitPublicForm>>
+    try {
+      result = await submitPublicForm(form.key, values, contact)
+    } catch (error) {
+      console.error("[inquiry-form] Pošiljanje ni uspelo:", error)
+      setFormError(
+        "Pošiljanje ni uspelo. Preverite povezavo in poskusite znova — podatki so ohranjeni."
+      )
+      return null
+    }
     if (result.ok) {
       setSubmitted(true)
       return null

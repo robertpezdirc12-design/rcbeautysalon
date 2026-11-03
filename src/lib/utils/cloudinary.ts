@@ -6,6 +6,13 @@
  * - NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
  */
 
+// P1 #31 (re-audit 2026-11): the generic fallback previously pointed to
+// "/images/placeholders/placeholder.svg", which does NOT exist in
+// /public (the real assets are the per-type files below) → broken image
+// + console 404 on every service page. All fallbacks now use existing
+// per-type placeholders.
+const GENERIC_IMAGE_PLACEHOLDER = "/images/placeholders/service-placeholder.svg"
+
 // Cloudinary configuration (P1 #18: no third-party fallback — when the
 // cloud name is not configured, bare public IDs render the local
 // placeholder instead of building a URL against an account we don't own).
@@ -35,7 +42,7 @@ export function getCloudinaryUrl(
   }
 ): string {
   if (!imageUrl) {
-    return '/images/placeholders/placeholder.svg'
+    return GENERIC_IMAGE_PLACEHOLDER
   }
 
   const transformations: string[] = []
@@ -73,7 +80,7 @@ export function getCloudinaryUrl(
   // It's a publicId - construct the URL (requires a configured cloud;
   // without one we can't resolve it, so serve the local placeholder).
   if (!CLOUD_NAME) {
-    return '/images/placeholders/placeholder.svg'
+    return GENERIC_IMAGE_PLACEHOLDER
   }
   return `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/${transformString}${imageUrl}`
 }
@@ -193,5 +200,7 @@ export function getPlaceholder(type: 'service' | 'product' | 'avatar' | 'gallery
     gallery: '/images/placeholders/gallery-placeholder.svg',
   }
 
-  return placeholders[type] || '/images/placeholders/placeholder.svg'
+  // P1 #31: the fallback must reference a file that actually exists in
+  // /public/images/placeholders (placeholder.svg never did).
+  return placeholders[type] || GENERIC_IMAGE_PLACEHOLDER
 }

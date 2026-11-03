@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { StarIcon, StarHalfIcon } from "@/components/icons"
 import { cloudinaryPresets } from "@/lib/utils/cloudinary"
+import { displayAuthor } from "@/lib/utils/author"
 import { useI18n } from "@/lib/i18n/provider"
 import { splitLastWord } from "@/components/landing/section-title"
 
@@ -116,7 +117,12 @@ export function ReviewsSection({ reviews }: ReviewsSectionProps) {
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="font-semibold">{review.user.name || "Anonimno"}</p>
+                        {/* P1 #39-4: enoten format avtorja ("Ime P.") kot na
+                            domači strani — prej polno ime na tej strani in
+                            kratica na domači. */}
+                        <p className="font-semibold">
+                          {displayAuthor(review.user.name, "Anonimno")}
+                        </p>
                         <p className="text-xs text-muted-foreground">
                           {new Date(review.createdAt).toLocaleDateString("sl-SI", {
                             year: "numeric",

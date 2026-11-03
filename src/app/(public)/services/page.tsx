@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import Image from "next/image"
-import { cloudinaryPresets } from "@/lib/utils/cloudinary"
-import { getPublicSiteData, getPublicServicesGrouped, getPublicCategories, getPublicActiveStaffOptions } from "@/lib/public-site"
+import { getPublicSiteData, getPublicServicesGrouped, getPublicCategories, getPublicActiveStaffOptions, redirectBareToTenant } from "@/lib/public-site"
+import { canonicalMetadata } from "@/lib/seo"
 import { orgPath } from "@/lib/org-path"
 import { HeroVideo } from "@/components/services/hero-video"
 import { ServicesList } from "@/components/services/services-list"
@@ -9,19 +9,24 @@ import { Suspense } from "react"
 import { ServicesListSkeleton } from "@/components/services/services-list-skeleton"
 import { BookingButton } from "@/components/services/booking-button"
 import { AccentSpan, splitLastWord } from "@/components/landing/section-title"
+import { DEFAULT_CATALOG_IMAGES } from "@/lib/default-assets"
 
 export async function generateMetadata(): Promise<Metadata> {
   const site = await getPublicSiteData()
   const orgName = site?.org.name ?? "Salon"
-  return {
+  // P1 #26: samo-referencirajoč canonical (/s/{slug}/services).
+  return canonicalMetadata(site?.org.slug, "/services", {
     title: `${site?.content.services.title ?? "Storitve"} | ${orgName}`,
     description:
       site?.content.services.subtitle ??
       "Celoten pregled profesionalnih storitev našega salona",
-  }
+  })
 }
 
 export default async function ServicesPage() {
+  // P1 #39-5: gola pot → kanonična najemniška pot.
+  await redirectBareToTenant("/services")
+
   const site = await getPublicSiteData()
 
   if (!site) {
@@ -42,9 +47,11 @@ export default async function ServicesPage() {
     getPublicActiveStaffOptions(org.id),
   ])
 
-  // Convert Decimal to number for client components
-  const servicesForClient = Object.entries(servicesByCategory).reduce<
-    Record<string, Array<{
+  // Convert Decimal to number for client components.
+  // P1 #29: FLAT seznam (globalni vrstni red = kategorija ↑ + ime ↑,
+  // enako kot pri "Priporočeno" sortiranju na strežniku).
+  const servicesForClient = Object.values(servicesByCategory).reduce<
+    Array<{
       id: string
       name: string
       slug: string
@@ -57,26 +64,28 @@ export default async function ServicesPage() {
         name: string
         slug: string
       } | null
-    }>>
-  >((acc, [categoryName, services]) => {
-    acc[categoryName] = services.map(service => ({
-      id: service.id,
-      name: service.name,
-      slug: service.slug,
-      description: service.description,
-      duration: service.duration,
-      price: service.price.toNumber(),
-      imageUrl: service.imageUrl,
-      category: service.category
-        ? {
-            id: service.category.id,
-            name: service.category.name,
-            slug: service.category.slug,
-          }
-        : null,
-    }))
+    }>
+  >((acc, services) => {
+    for (const service of services) {
+      acc.push({
+        id: service.id,
+        name: service.name,
+        slug: service.slug,
+        description: service.description,
+        duration: service.duration,
+        price: service.price.toNumber(),
+        imageUrl: service.imageUrl,
+        category: service.category
+          ? {
+              id: service.category.id,
+              name: service.category.name,
+              slug: service.category.slug,
+            }
+          : null,
+      })
+    }
     return acc
-  }, {})
+  }, [])
 
   const servicesHeading = splitLastWord(content.services.title)
 
@@ -128,7 +137,10 @@ export default async function ServicesPage() {
           <Image
             src={
               content.cta.imageUrl ||
-              cloudinaryPresets.serviceHero("Beauty Salon/services/book-appoiment_vqo5wj")
+              // P1 #31/#18: prej pogojni fallback na publicId tretje-osebnega
+              // Cloudinary računa (brez oblaka → pokvarjen placeholder).
+              // Zdaj samo-losteden privzeti sredstvo.
+              DEFAULT_CATALOG_IMAGES.transform
             }
             alt={content.cta.title}
             fill

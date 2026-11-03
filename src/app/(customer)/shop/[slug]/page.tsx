@@ -2,7 +2,8 @@ import type { Metadata } from "next"
 import Image from "next/image"
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { getPublicProductById, getPublicSiteData } from "@/lib/public-site"
+import { getPublicProductById, getPublicSiteData, redirectBareToTenant } from "@/lib/public-site"
+import { canonicalMetadata } from "@/lib/seo"
 import { orgPath } from "@/lib/org-path"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -37,16 +38,33 @@ export async function generateMetadata({ params }: ProductDetailsProps): Promise
     }
   }
 
-  return {
+  return canonicalMetadata(site?.org.slug, `/shop/${slug}`, {
     title: `${product.name} | ${orgName}`,
     description:
       product.description ||
       "Profesionalni izdelki za nego lepote v vašem salonu.",
-  }
+    // P1 #39-6: OG slika izdelka (sicer dinamična s strani imena prek /og).
+    openGraph: {
+      title: `${product.name} | ${orgName}`,
+      description:
+        product.description ||
+        "Profesionalni izdelki za nego lepote v vašem salonu.",
+      images: [
+        product.images?.[0]
+          ? { url: product.images[0], alt: product.name }
+          : {
+              url: `/og?title=${encodeURIComponent(product.name)}&subtitle=${encodeURIComponent(orgName)}`,
+              alt: product.name,
+            },
+      ],
+    },
+  })
 }
 
 const ProductDetails = async ({ params }: ProductDetailsProps) => {
   const { slug } = await params
+  // P1 #39-5: gola pot → kanonična najemniška pot.
+  await redirectBareToTenant(`/shop/${slug}`)
   const site = await getPublicSiteData()
   const product = site ? await getPublicProductById(site.org.id, slug) : null
 
@@ -228,6 +246,7 @@ const ProductDetails = async ({ params }: ProductDetailsProps) => {
                   price: product.price,
                 }}
                 inStock={inStock}
+                stockQuantity={product.stockQuantity}
               />
             </div>
 

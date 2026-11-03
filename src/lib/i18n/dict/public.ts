@@ -32,6 +32,18 @@ export const publicSl = {
   allProducts: "Vsi izdelki",
   allTeam: "Vsa ekipa",
   uncategorized: "Izdelki",
+  // P1 #35 (re-audit 2026-11): galerija/PVP na straneh storitev brez
+  // trdo kodirane angleščine.
+  galleryTitle: "Galerija",
+  gallerySubtitle: (serviceName: string) =>
+    `Pred in po — ${serviceName}`,
+  faqTitle: "Pogosta vprašanja",
+  faqSubtitle: "Vse, kar morate vedeti o tej storitvi",
+  // P1 #39-3 (re-audit 2026-11): domača stran prikaže IZBRANE storitve
+  // z vidno številko — obiskovalec ne sme sklepati, da salon ponuja
+  // samo prvih 5 storitev.
+  featuredServicesCount: (shown: number, total: number) =>
+    `Izbranih ${shown} od ${total} storitev — celoten katalog na strani Storitve`,
   // P2 #15 (audit-2026-11): pravne strani brez trdo kodiranih nizov
   backToHome: "← Nazaj na domačo stran",
   lastUpdated: "Zadnja posodobitev:",
@@ -69,6 +81,12 @@ export const publicEn: PublicDict = {
   allProducts: "All products",
   allTeam: "The whole team",
   uncategorized: "Products",
+  galleryTitle: "Gallery",
+  gallerySubtitle: (serviceName: string) => `Before and after — ${serviceName}`,
+  faqTitle: "Frequently Asked Questions",
+  faqSubtitle: "Everything you need to know about this service",
+  featuredServicesCount: (shown: number, total: number) =>
+    `Showing ${shown} of ${total} services — full catalogue on the Services page`,
   backToHome: "← Back to home page",
   lastUpdated: "Last updated:",
 }

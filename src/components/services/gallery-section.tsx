@@ -11,9 +11,18 @@ interface GalleryImage {
 interface GallerySectionProps {
   gallery: GalleryImage[]
   serviceName: string
+  /** P1 #35 (re-audit 2026-11): prevedeni naslovi iz slovarja — prej sta
+   * bila naslov + podnaslov trdo kodirana v angleščini na slovenski strani. */
+  title?: string
+  subtitle?: string
 }
 
-export function GallerySection({ gallery, serviceName }: GallerySectionProps) {
+export function GallerySection({
+  gallery,
+  serviceName,
+  title = "Galerija",
+  subtitle,
+}: GallerySectionProps) {
   if (gallery.length === 0) {
     return null // Don't show section if no gallery images
   }
@@ -29,11 +38,11 @@ export function GallerySection({ gallery, serviceName }: GallerySectionProps) {
           <div className="mb-12 text-center">
             <h2 className="font-heading mb-4 text-4xl md:text-5xl">
               <span className="from-primary to-accent bg-linear-to-r bg-clip-text text-transparent">
-                Gallery
+                {title}
               </span>
             </h2>
             <p className="text-muted-foreground text-lg">
-              See our work and get inspired by {serviceName} transformations
+              {subtitle ?? `Pred in po — ${serviceName}`}
             </p>
           </div>
 
@@ -47,7 +56,7 @@ export function GallerySection({ gallery, serviceName }: GallerySectionProps) {
                 {/* Image */}
                 <Image
                   src={cloudinaryPresets.gallery(item.imageUrl)}
-                  alt={item.caption || `${serviceName} gallery image`}
+                  alt={item.caption || serviceName}
                   fill
                   className="object-cover transition-transform duration-500 group-hover:scale-110"
                 

@@ -8,8 +8,14 @@ import {
 import { HomeContent } from "@/components/landing/home-content"
 import { resolveCtaLinks, resolveCtaSectionHref } from "@/lib/public-cta"
 import { resolveEffectiveProfile } from "@/lib/profiles/resolve"
+import { prisma } from "@/lib/prisma"
+import { redirectBareToTenant } from "@/lib/public-site"
 
 export default async function HomePage() {
+  // P1 #39-5: goli "/" servira ISTO vsebino kot /s/{slug} — preusmeri na
+  // kanonično najemniško pot (pod najemnikom se ne zgodi nič).
+  await redirectBareToTenant("/")
+
   const site = await getPublicSiteData()
 
   if (!site) {
@@ -29,11 +35,17 @@ export default async function HomePage() {
   const bookingEnabled =
     profile.website.ctaMode === "booking" &&
     profile.capabilities.appointments !== "disabled"
-  const [featuredServices, featuredProducts, featuredStaff, testimonials] = await Promise.all([
+  const [featuredServices, featuredProducts, featuredStaff, testimonials, servicesTotal] = await Promise.all([
     getPublicFeaturedServices(org.id),
     getPublicFeaturedProducts(org.id),
     getPublicFeaturedStaff(org.id),
     getPublicTestimonials(org.id),
+    // P1 #39-3: skupno število aktivnih storitev — domača stran prikaže
+    // IZBRANE (5) z vidno oznako, da obiskovalec ne sklepa, da salon
+    // ponuja le teh 5.
+    prisma.service
+      .count({ where: { organizationId: org.id, isActive: true } })
+      .catch(() => 0),
   ])
 
   return (
@@ -46,6 +58,7 @@ export default async function HomePage() {
         bookingEnabled ? "Rezerviraj" : "Poglej"
       }
       featuredServices={featuredServices}
+      servicesTotal={servicesTotal}
       featuredProducts={featuredProducts}
       featuredStaff={featuredStaff}
       testimonials={testimonials}

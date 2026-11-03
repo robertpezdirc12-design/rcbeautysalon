@@ -316,7 +316,9 @@ export interface CreateServiceInput {
 }
 
 export interface ServicesListProps {
-  initialServices: Record<string, ServiceListItem[]>
+  /** P1 #29: FLAT seznam v globalnem vrstnem redu (prej Record po
+   * kategorijah — sortiranje je potem delovalo samo znotraj skupine). */
+  initialServices: ServiceListItem[]
   categories: CategoryOption[]
   staff: StaffOption[]
 }

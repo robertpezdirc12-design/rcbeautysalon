@@ -14,19 +14,21 @@ import { CartButton } from "@/components/shop/cart-button"
 import { SearchInput } from "@/components/shop/search-input"
 import { PackageIcon } from "@/components/icons"
 import { AddToCartButton } from "@/components/shop/add-to-cart-button"
-import { getPublicSiteData, getPublicShopProducts } from "@/lib/public-site"
+import { getPublicSiteData, getPublicShopProducts, redirectBareToTenant } from "@/lib/public-site"
+import { canonicalMetadata } from "@/lib/seo"
 import { orgPath } from "@/lib/org-path"
 import { formatCurrency } from "@/lib/utils/format"
 
 export async function generateMetadata(): Promise<Metadata> {
   const site = await getPublicSiteData()
   const orgName = site?.org.name ?? "Salon"
-  return {
+  // P1 #26: samo-referencirajoč canonical (/s/{slug}/shop).
+  return canonicalMetadata(site?.org.slug, "/shop", {
     title: `${site?.content.shop.title ?? "Trgovina"} | ${orgName}`,
     description:
       site?.content.shop.subtitle ??
       "Profesionalni izdelki za nego na dom — nega las, kože in nohtov.",
-  }
+  })
 }
 
 interface ShopPageProps {
@@ -35,6 +37,8 @@ interface ShopPageProps {
 
 export default async function ShopPage({ searchParams }: ShopPageProps) {
   const { search } = await searchParams
+  // P1 #39-5: gola pot → kanonična najemniška pot.
+  await redirectBareToTenant(search ? `/shop?search=${encodeURIComponent(search)}` : "/shop")
   const site = await getPublicSiteData()
 
   if (!site) {
@@ -170,6 +174,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
                       price: product.price,
                     }}
                     inStock={inStock}
+                    stockQuantity={product.stockQuantity}
                   />
                   <Button
                     variant="outline"

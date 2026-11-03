@@ -44,7 +44,16 @@ export function ReviewForm({ serviceId, serviceName }: ReviewFormProps) {
     setSuccess(false)
 
     startTransition(async () => {
-      const result = await createReview(data)
+      // P0 #25 (re-audit 2026-11): zavrnjena server akcija (omrežna napaka,
+      // timeout) ne sme sesuti strani — prikaži sporočilo, ohrani vnos.
+      let result: Awaited<ReturnType<typeof createReview>>
+      try {
+        result = await createReview(data)
+      } catch (err) {
+        console.error("[review-form] Oddaja ni uspela:", err)
+        setError("Oddaja ocene ni uspela. Preverite povezavo in poskusite znova.")
+        return
+      }
 
       if (result.success) {
         setSuccess(true)

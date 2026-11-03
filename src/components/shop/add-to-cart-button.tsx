@@ -12,10 +12,17 @@ interface AddToCartButtonProps {
     price: number
   }
   inStock?: boolean
+  /** P1 #37 (re-audit 2026-11): zaloga se shrani v košarico, da UI lahko
+   * omeji količino (max) in javi \"Na zalogi je le še X kos\". */
+  stockQuantity?: number | null
 }
-export function AddToCartButton({ product, inStock = true }: AddToCartButtonProps) {
+export function AddToCartButton({
+  product,
+  inStock = true,
+  stockQuantity = null,
+}: AddToCartButtonProps) {
   const { addItem } = useCartStore()
- 
+
 
   const handleAddToCart = () => {
     addItem({
@@ -23,6 +30,7 @@ export function AddToCartButton({ product, inStock = true }: AddToCartButtonProp
       name: product.name,
       image: product.image,
       price: product.price,
+      stockQuantity,
     })
   }
   return (

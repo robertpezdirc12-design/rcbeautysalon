@@ -1,4 +1,5 @@
 import { headers } from "next/headers"
+import { notFound } from "next/navigation"
 import Script from "next/script"
 import { prisma } from "@/lib/prisma"
 import { PublicNavbar } from "@/components/layouts/public-navbar"
@@ -39,13 +40,15 @@ export default async function PublicLayout({
 }) {
   const org = await getPublicOrg()
 
-  // Suspension gate (EPIC #3 E3-5): a SPECIFIC tenant site was requested
-  // (/s/[slug]) but its org is unavailable (SUSPENDED or otherwise
-  // inactive). Render the neutral maintenance screen — never another
-  // tenant's content under this URL, not even for the owner.
+  // P1 #27 (re-audit 2026-11): UNKNOWN slug ali SUSPENDED tenant pod
+  // /s/[slug] prej vrnila HTTP 200 ("Stran ni objavljena") — soft 404,
+  // ki ga iskalniki indeksirajo. Zdaj notFound() → pravi HTTP 404 z
+  // blagovno stranjo (app/not-found.tsx). Klic je v LAYOUTU (shell
+  // faza), tako da se 404 status pošlje, PREDEN streaming začne.
+  // Layout niha ne dostopa do podatkov drugega najemnika (E3-8 ostaja).
   const slugHeader = (await headers()).get(ORG_HEADER)
   if (slugHeader && !org) {
-    return <MaintenanceScreen />
+    notFound()
   }
 
   // Publication gate (EPIC #3 E3-1): non-published tenants are private.
