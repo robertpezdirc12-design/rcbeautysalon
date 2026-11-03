@@ -88,7 +88,7 @@ async function main() {
     where: { email: 'laura@rcbeautysalon.org' },
     update: {},
     create: {
-      name: 'Laura Thompson',
+      name: 'Maja Kovač',
       email: 'laura@rcbeautysalon.org',
       password: staffPassword,
       role: 'STAFF',
@@ -100,7 +100,7 @@ async function main() {
     where: { email: 'maria@rcbeautysalon.org' },
     update: {},
     create: {
-      name: 'Maria Rodriguez',
+      name: 'Sara Horvat',
       email: 'maria@rcbeautysalon.org',
       password: staffPassword,
       role: 'STAFF',
@@ -112,7 +112,7 @@ async function main() {
     where: { email: 'sofia@rcbeautysalon.org' },
     update: {},
     create: {
-      name: 'Sofia Martinez',
+      name: 'Nina Zupan',
       email: 'sofia@rcbeautysalon.org',
       password: staffPassword,
       role: 'STAFF',
@@ -124,7 +124,7 @@ async function main() {
     where: { email: 'ana@rcbeautysalon.org' },
     update: {},
     create: {
-      name: 'Ana Garcia',
+      name: 'Ana Novak',
       email: 'ana@rcbeautysalon.org',
       password: staffPassword,
       role: 'STAFF',
@@ -441,10 +441,11 @@ async function main() {
   const staffLaura = await prisma.staff.upsert({
     where: { userId: lauraUser.id },
     update: {
+      name: 'Maja Kovač',
       image: DEFAULT_DEMO_MEDIA.staffLaura,
     },
     create: {
-      name: 'Laura Thompson',
+      name: 'Maja Kovač',
       email: 'laura@rcbeautysalon.org',
       phone: '+386 41 100 101',
       bio: 'Višja frizerka z več kot 15 leti izkušenj, specializirana za striženje, barvanje in keratin glajenje',
@@ -457,10 +458,11 @@ async function main() {
   const staffMaria = await prisma.staff.upsert({
     where: { userId: mariaUser.id },
     update: {
+      name: 'Sara Horvat',
       image: DEFAULT_DEMO_MEDIA.staffMaria,
     },
     create: {
-      name: 'Maria Rodriguez',
+      name: 'Sara Horvat',
       email: 'maria@rcbeautysalon.org',
       phone: '+386 41 111 222',
       bio: 'Izkušena barvarka in balayage specialistka s strastjo do naravnih pramenov',
@@ -473,10 +475,11 @@ async function main() {
   const staffSofia = await prisma.staff.upsert({
     where: { userId: sofiaUser.id },
     update: {
+      name: 'Nina Zupan',
       image: DEFAULT_DEMO_MEDIA.staffSofia,
     },
     create: {
-      name: 'Sofia Martinez',
+      name: 'Nina Zupan',
       email: 'sofia@rcbeautysalon.org',
       phone: '+386 41 333 444',
       bio: 'Certificirana tehničarka za nohte, specializirana za gel manikiro, nail art in spa pedikuro',
@@ -489,10 +492,11 @@ async function main() {
   const staffAna = await prisma.staff.upsert({
     where: { userId: anaUser.id },
     update: {
+      name: 'Ana Novak',
       image: DEFAULT_DEMO_MEDIA.staffAna,
     },
     create: {
-      name: 'Ana Garcia',
+      name: 'Ana Novak',
       email: 'ana@rcbeautysalon.org',
       phone: '+386 41 555 666',
       bio: 'Licencirana kozmetičarka in masažerka, specializirana za anti-aging tretmaje in terapevtske masaže',
