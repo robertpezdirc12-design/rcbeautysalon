@@ -36,6 +36,8 @@ type TenantInfo = {
   bookingEnabled?: boolean
   /** P2 #44: "PUBLISHED" | "DRAFT" | … — neobjavljen najemnik je privaten. */
   publishState?: string
+  /** P2 #46: profil, ki izključuje storitve, ne servira /services. */
+  servicesEnabled?: boolean
 }
 const tenantCache = new Map<string, { info: TenantInfo; exp: number }>()
 const entityCache = new Map<string, { exists: boolean; exp: number }>()
@@ -167,6 +169,14 @@ export default auth(async (req) => {
         }
         if (sub === "/inquiry" && tenant.bookingEnabled === true) {
           return NextResponse.redirect(new URL(`/s/${slug}`, req.url), 307)
+        }
+
+        // P2 #46: profil brez storitev → PRAVI 404 (prej 200 s praznim
+        // seznamom — soft 404, indeksiran; notFound() v layoutu v Next 16
+        // streamingu ne more spremeniti statusa). Fail-open: ko proxy ne
+        // dobi podatka, pusti stran naprej (layout vrata ostanejo rezerva).
+        if (sub === "/services" && tenant.servicesEnabled === false) {
+          return rewriteTo404(req)
         }
       }
 

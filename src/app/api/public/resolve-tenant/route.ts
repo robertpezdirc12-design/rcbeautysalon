@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { isBookingEnabled } from "@/lib/public-cta"
+import { getProfile, isCapabilityEnabled } from "@/lib/profiles/registry"
+import { applyOverrides, parseOverrides } from "@/lib/profiles/overrides"
 
 // ============================================================
 // P0 #24 / P1 #27 (re-audit 2026-11) — REZOLUCIJA TENANTA ZA PROXY
@@ -55,6 +57,16 @@ export async function GET(request: Request) {
         orgId: org.id,
         publishState: org.publishState,
         bookingEnabled: isBookingEnabled(org.vertical, org.profileOverrides),
+        // P2 #46: profil, ki izključuje storitve (npr. čebelarstvo), ne
+        // objavlja /services — proxy lahko tedaj vrne PRAVI 404 (statusne
+        // kode zmore samo proxy, glej komentar zgoraj).
+        servicesEnabled: isCapabilityEnabled(
+          applyOverrides(
+            getProfile(org.vertical),
+            parseOverrides(org.profileOverrides)
+          ),
+          "services"
+        ),
       },
       { headers: { "Cache-Control": "public, max-age=15, stale-while-revalidate=60" } }
     )
