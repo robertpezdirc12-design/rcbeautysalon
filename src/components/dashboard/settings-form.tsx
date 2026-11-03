@@ -44,6 +44,14 @@ interface SettingsFormProps {
     maxBookingAdvance: number
     cancellationPolicy: string | null
   }
+  /**
+   * #54: the booking rules card is dead UI for tenants whose activity
+   * profile disables appointments (e.g. beekeeping) — the public site has
+   * no /booking and the sidebar has no "Termini". The server page resolves
+   * the effective profile and gates the card; values stay in the form
+   * payload so saving the remaining fields never drops stored rules.
+   */
+  appointmentsEnabled?: boolean
 }
 
 // Locale-independent option values (sent to the API); labels come from the i18n dict.
@@ -67,7 +75,7 @@ const currencies = [
   { value: "MXN", label: "MXN ($)" },
 ]
 
-export function SettingsForm({ initialSettings }: SettingsFormProps) {
+export function SettingsForm({ initialSettings, appointmentsEnabled = true }: SettingsFormProps) {
   const { t } = useI18n()
   const [logo, setLogo] = useState<string | null>(initialSettings.logo)
   const [isUploading, setIsUploading] = useState(false)
@@ -460,7 +468,10 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
             </CardContent>
           </Card>
 
-          {/* Booking Settings */}
+          {/* Booking Settings — #54: only when the profile enables
+              appointments (same capability gate as /booking on the public
+              site); otherwise the owner edits rules that can never apply. */}
+          {appointmentsEnabled && (
           <Card>
             <CardHeader>
               <CardTitle>{t.settings.form.bookingSettings}</CardTitle>
@@ -532,6 +543,7 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
               </div>
             </CardContent>
           </Card>
+          )}
 
           {/* Danger Zone */}
           <Card className="border-destructive/50">

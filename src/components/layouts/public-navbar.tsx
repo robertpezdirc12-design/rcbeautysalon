@@ -163,20 +163,22 @@ export function PublicNavbar({ org, cta, availableSections }: PublicNavbarProps)
                           {t.public.myAccount}
                         </Link>
                       </DropdownMenuItem>
+                      {/* #53: these surfaces are tenant-scoped — a bare path
+                          renders the DEFAULT tenant's chrome on reload. */}
                       <DropdownMenuItem asChild>
-                        <Link href="/my-appointments" className="flex items-center gap-2 cursor-pointer">
+                        <Link href={orgPath(org.slug, "/my-appointments")} className="flex items-center gap-2 cursor-pointer">
                           <CalendarCheckIcon size={16} />
                           {t.public.myAppointments}
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
-                        <Link href="/my-orders" className="flex items-center gap-2 cursor-pointer">
+                        <Link href={orgPath(org.slug, "/my-orders")} className="flex items-center gap-2 cursor-pointer">
                           <ReceiptIcon size={16} />
                           {t.public.myOrders}
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
-                        <Link href="/my-reviews" className="flex items-center gap-2 cursor-pointer">
+                        <Link href={orgPath(org.slug, "/my-reviews")} className="flex items-center gap-2 cursor-pointer">
                           <StarIcon size={16} />
                           {t.public.myReviews}
                         </Link>
@@ -285,19 +287,19 @@ export function PublicNavbar({ org, cta, availableSections }: PublicNavbarProps)
                         {t.public.myAccount}
                       </Button>
                     </Link>
-                    <Link href="/my-appointments" onClick={() => setMobileMenuOpen(false)}>
+                    <Link href={orgPath(org.slug, "/my-appointments")} onClick={() => setMobileMenuOpen(false)}>
                       <Button variant="ghost" className="w-full h-11 text-foreground/80 hover:bg-secondary hover:text-primary-text gap-2 justify-start">
                         <CalendarCheckIcon size={18} />
                         {t.public.myAppointments}
                       </Button>
                     </Link>
-                    <Link href="/my-orders" onClick={() => setMobileMenuOpen(false)}>
+                    <Link href={orgPath(org.slug, "/my-orders")} onClick={() => setMobileMenuOpen(false)}>
                       <Button variant="ghost" className="w-full h-11 text-foreground/80 hover:bg-secondary hover:text-primary-text gap-2 justify-start">
                         <ReceiptIcon size={18} />
                         {t.public.myOrders}
                       </Button>
                     </Link>
-                    <Link href="/my-reviews" onClick={() => setMobileMenuOpen(false)}>
+                    <Link href={orgPath(org.slug, "/my-reviews")} onClick={() => setMobileMenuOpen(false)}>
                       <Button variant="ghost" className="w-full h-11 text-foreground/80 hover:bg-secondary hover:text-primary-text gap-2 justify-start">
                         <StarIcon size={18} />
                         {t.public.myReviews}

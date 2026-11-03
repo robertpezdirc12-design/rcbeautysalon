@@ -28,6 +28,16 @@ const legalLinks = [
  */
 const staffLoginLink = { href: "/login", label: "Prijava" }
 
+/**
+ * #53: legal pages are tenant-scoped (canonical /s/{slug}/privacy|terms|cookies)
+ * — a bare path is NOT rewritten by the proxy (BARE_PUBLIC_PATH covers only
+ * content routes) and renders the DEFAULT tenant's chrome, i.e. the customer
+ * of tenant B reads tenant A's name/contact in a GDPR document. Everything
+ * except the platform-level login link goes through orgPath().
+ */
+const tenantScopedHref = (slug: string | null, href: string): string =>
+  href === staffLoginLink.href ? href : orgPath(slug, href)
+
 const Footer = async () => {
   const session = await auth()
   const site = await getPublicSiteData()
@@ -325,7 +335,7 @@ const Footer = async () => {
             ).map((link) => (
               <Link
                 key={link.label}
-                href={link.href}
+                href={tenantScopedHref(slug, link.href)}
                 className="text-muted-foreground hover:text-primary-text inline-flex min-h-11 items-center px-1 py-2 transition-colors"
               >
                 {link.label}

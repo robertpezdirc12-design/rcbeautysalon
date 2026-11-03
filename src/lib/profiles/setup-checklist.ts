@@ -190,3 +190,32 @@ export function publishCopyKey(
       return onlineBookingOptIn ? "publish" : "publishNoBooking"
   }
 }
+
+// ============================================================
+// P3 #55 — GROWTH CARD COPY BY CTA MODE
+// The first instruction the owner reads after completing setup must be
+// FOLLOWABLE on their own site: an order profile has no /booking, so
+// "Preizkusite rezervacijo" is impossible. Same shape as publishCopyKey
+// (#49) — the component picks the dict entry with this key so the copy
+// can never drift from the capability.
+// ============================================================
+
+export type GrowthTestCopyKey =
+  | "growthTest"
+  | "growthTestOrder"
+  | "growthTestInquiry"
+
+export function growthTestCopyKey(
+  ctaMode: "booking" | "order" | "inquiry" | "quote"
+): GrowthTestCopyKey {
+  switch (ctaMode) {
+    case "order":
+      return "growthTestOrder"
+    case "inquiry":
+    case "quote":
+      return "growthTestInquiry"
+    case "booking":
+    default:
+      return "growthTest"
+  }
+}

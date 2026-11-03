@@ -19,6 +19,8 @@ import { getSessionPlanContext } from "@/lib/plans/resolve"
 import { loadBillingOverview } from "@/lib/payments/billing-overview"
 import { getDomainsStatus } from "@/app/actions/domains"
 import { requirePagePermission } from "@/lib/auth/guards"
+import { isCapabilityEnabled } from "@/lib/profiles/registry"
+import { getSessionEffectiveProfile } from "@/lib/profiles/resolve"
 
 export default async function SettingsPage({
   searchParams,
@@ -40,6 +42,12 @@ export default async function SettingsPage({
   // Billing read model depends on the resolved tenant — one extra
   // sequential read after the parallel block above.
   const billing = org ? await loadBillingOverview(org.id) : null
+
+  // #54: booking rules are dead UI for profiles without appointments —
+  // the same capability gate the public site applies to /booking.
+  const appointmentsEnabled = await getSessionEffectiveProfile().then((p) =>
+    isCapabilityEnabled(p, "appointments")
+  )
 
   if (!settings) {
     return (
@@ -90,7 +98,10 @@ export default async function SettingsPage({
             siteHref={org ? `/s/${org.slug}` : null}
           />
           <ProfileOverview />
-          <SettingsForm initialSettings={settings} />
+          <SettingsForm
+            initialSettings={settings}
+            appointmentsEnabled={appointmentsEnabled}
+          />
           {/* E4-2b: owner-supplied analytics (GA4) — optional, honest default = no script. */}
           <AnalyticsIntegrationCard initialValue={settings.analyticsMeasurementId ?? null} />
         </div>

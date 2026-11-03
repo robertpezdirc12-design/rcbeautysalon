@@ -77,6 +77,14 @@ export const dashboardSl = {
     growthTestLabel: "Preizkusite rezervacijo kot stranka",
     growthTestDescription: "Odpri svojo javno stran in rezerviraj termin — tako bo videla vsaka stranka.",
     growthTestCta: "Odpri stran",
+    // #55: order/inquiry profili nimajo /booking — prvi korak mora biti
+    // izvedljiv na lastni strani.
+    growthTestOrderLabel: "Preizkusite naročilo kot stranka",
+    growthTestOrderDescription:
+      "Odpri svojo javno stran in oddajte testno naročilo v svoji trgovini — tako bo videla vsaka stranka.",
+    growthTestInquiryLabel: "Preizkusite povpraševanje kot stranka",
+    growthTestInquiryDescription:
+      "Odpri svojo javno stran in pošljite testno povpraševanje — tako bo videla vsaka stranka.",
     growthInstagramLabel: "Povezava v Instagram bio",
     growthInstagramDescription: "Prilepite javno povezavo v bio — najmočnejši brezplačni kanal za nove stranke.",
     growthCopyCta: "Kopiraj povezavo",
@@ -228,6 +236,14 @@ export const dashboardEn: DashboardDict = {
     growthTestLabel: "Try a booking as a customer",
     growthTestDescription: "Open your public page and book an appointment — this is what every customer sees.",
     growthTestCta: "Open page",
+    // #55: order/inquiry profiles have no /booking — the first growth step
+    // must be followable on the tenant's own site.
+    growthTestOrderLabel: "Try an order as a customer",
+    growthTestOrderDescription:
+      "Open your public page and place a test order in your shop — this is what every customer sees.",
+    growthTestInquiryLabel: "Try an inquiry as a customer",
+    growthTestInquiryDescription:
+      "Open your public page and send a test inquiry — this is what every customer sees.",
     growthInstagramLabel: "Link in your Instagram bio",
     growthInstagramDescription: "Paste your public link into the bio — the strongest free channel for new customers.",
     growthCopyCta: "Copy link",

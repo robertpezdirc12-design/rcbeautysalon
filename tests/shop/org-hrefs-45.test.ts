@@ -37,6 +37,11 @@ const TENANT_PUBLIC_ROUTES = [
   "my-orders",
   "my-appointments",
   "my-reviews",
+  // #53: legal pages are tenant-scoped (canonical /s/{slug}/privacy) —
+  // a bare /privacy renders the DEFAULT tenant as the data controller.
+  "privacy",
+  "terms",
+  "cookies",
 ]
 
 function walk(dir: string): string[] {
@@ -98,6 +103,9 @@ function bareTenantHrefs(source: string): string[] {
 const ROOTS = [
   join(__dirname, "../../src/components/shop"),
   join(__dirname, "../../src/components/account"),
+  // #53: shared layouts (footer/navbar) render on EVERY tenant page —
+  // a bare href there leaks the default tenant into every tenant's site.
+  join(__dirname, "../../src/components/layouts"),
 ]
 
 describe("#45 — no bare tenant-public hrefs in shop/account components", () => {
@@ -141,5 +149,28 @@ describe("#45 — no bare tenant-public hrefs in shop/account components", () =>
     )
     expect(appts).toContain("href={`${orgPrefix}/services`}")
     expect(appts).toContain("href={`${orgPrefix}/my-appointments`}")
+  })
+
+  // #53 — footer legal links + navbar account links are tenant-scoped
+  it("footer legal links go through orgPath, /login stays platform-level", () => {
+    const footer = readFileSync(
+      join(__dirname, "../../src/components/layouts/footer.tsx"),
+      "utf8"
+    )
+    // rendered href must be wrapped, never the bare constant
+    expect(footer).toContain("href={tenantScopedHref(slug, link.href)}")
+    expect(footer).not.toMatch(/href="\/(privacy|terms|cookies)"/)
+    // the only deliberately unprefixed link is the platform login
+    expect(footer).toContain('href === staffLoginLink.href ? href : orgPath(slug, href)')
+  })
+
+  it("navbar account links (my-*) are prefixed on desktop and mobile", () => {
+    const nav = readFileSync(
+      join(__dirname, "../../src/components/layouts/public-navbar.tsx"),
+      "utf8"
+    )
+    expect(nav).not.toMatch(/href="\/my-(appointments|orders|reviews)"/)
+    // 3 desktop dropdown items + 3 mobile rows = 6 prefixed occurrences
+    expect(nav.match(/orgPath\(org\.slug, "\/my-/g)?.length).toBe(6)
   })
 })

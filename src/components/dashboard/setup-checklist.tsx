@@ -41,7 +41,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { GuidedEntryDialog } from "@/components/dashboard/guided-entry"
 import { PROFILE_ICONS } from "@/lib/profiles/profile-icons"
 import type { SetupStep, SetupStepKey } from "@/lib/profiles/setup-checklist"
-import { publishCopyKey } from "@/lib/profiles/setup-checklist"
+import { publishCopyKey, growthTestCopyKey } from "@/lib/profiles/setup-checklist"
 import type { DashboardDict } from "@/lib/i18n/dict/dashboard"
 import type { SettingsDict } from "@/lib/i18n/dict/settings"
 import {
@@ -169,6 +169,22 @@ export function SetupChecklistCard({
       toast.info(publicUrl)
     }
   }
+
+  // P3 #55: the first growth step must be FOLLOWABLE on the tenant's own
+  // site — an order profile has no /booking, so it never reads "rezervacijo".
+  const growthKey = growthTestCopyKey(ctaMode)
+  const growthTestLabel =
+    growthKey === "growthTestOrder"
+      ? dict.growthTestOrderLabel
+      : growthKey === "growthTestInquiry"
+        ? dict.growthTestInquiryLabel
+        : dict.growthTestLabel
+  const growthTestDescription =
+    growthKey === "growthTestOrder"
+      ? dict.growthTestOrderDescription
+      : growthKey === "growthTestInquiry"
+        ? dict.growthTestInquiryDescription
+        : dict.growthTestDescription
 
   const stepLabel = (key: SetupStepKey) => {
     if (key === "firstJob" && !appointmentsCapable) return dict.steps.firstJobOrder.label
@@ -352,10 +368,10 @@ export function SetupChecklistCard({
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium leading-tight">
-                        {dict.growthTestLabel}
+                        {growthTestLabel}
                       </p>
                       <p className="text-muted-foreground mt-0.5 text-xs">
-                        {dict.growthTestDescription}
+                        {growthTestDescription}
                       </p>
                     </div>
                     {publicUrl && (

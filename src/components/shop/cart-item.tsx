@@ -95,9 +95,12 @@ export function CartItem({ item }: CartItemProps) {
       {/* Product Info */}
       <div className="flex flex-1 flex-col justify-between py-1">
         <div>
-          <h3 className="text-foreground group-hover:text-primary-text font-semibold transition-colors">
+          {/* #56: h2 (was h3) — the item name is the only heading in the cart
+              body; h1 → h3 skipped a level (axe heading-order). Visual size
+              kept via text-base. */}
+          <h2 className="text-foreground group-hover:text-primary-text text-base font-semibold transition-colors">
             {item.name}
-          </h3>
+          </h2>
           <p className="text-muted-foreground mt-1 text-sm">
             {fmt(item.price)} na kos
           </p>

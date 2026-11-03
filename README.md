@@ -101,24 +101,30 @@ React Email predloge: potrdilo rezervacije, opomnik 24 h, prestavitev, zaključe
 - **Plačila:** Stripe (ključi na nivoju organizacije)
 - **E-pošta:** React Email
 - **Obrazci:** React Hook Form + Zod
-- **Paketni upravitelj:** Bun (zgodovinsko tudi pnpm — `bun.lock` je aktualen)
+- **Paketni upravitelj:** pnpm ≥ 10 (pin v `packageManager`, edini lockfile: `pnpm-lock.yaml` — #57)
 
 ## 📦 Lokalna namestitev
 
+> #57: repozitorij ima **en sam lockfile** (`pnpm-lock.yaml`), različica pnpm pa je
+> pripeta v `package.json` → `packageManager`. Corepack zaganja točno to različico.
+
 ```bash
-# 1. Namesti odvisnosti
-bun install           # ali: pnpm install
+# 0. Node ≥ 20.9 (priporočeno 22 LTS) + pnpm prek Corepacka
+corepack enable       # uporabi pnpm iz polja packageManager
+
+# 1. Namesti odvisnosti (deterministično, enako kot Vercel/CI)
+pnpm install --frozen-lockfile
 
 # 2. Nastavi okolje
 cp .env.example .env   # izpolni spodnje spremenljivke
 
 # 3. Baza
-bun prisma generate
-bun run db:push        # ali: bun run db:migrate
-bun run db:seed        # (neobvezno) vzorčni podatki
+pnpm exec prisma generate
+pnpm run db:push       # ali: pnpm run db:migrate
+pnpm run db:seed       # (neobvezno) vzorčni podatki
 
 # 4. Zaženi
-bun run dev            # http://localhost:3000
+pnpm run dev           # http://localhost:3000
 ```
 
 ### Okoljske spremenljivke
@@ -200,15 +206,19 @@ Neon ✅ · Supabase · Railway — katerikoli PostgreSQL
 ## 🛠️ Razvoj
 
 ```bash
-bun run dev          # dev strežnik (Turbopack)
-bun run build        # produkcijski build
-bun run lint         # ESLint
-bun run test         # vitest — profilni motor, razširitve, unija dejavnosti, zgodovina konfiguracije, viri v razporejevalniku, obrazni FormData vrata, platformna + najemniška analitika, čarovniški osnutek, orgPath predpone (389 testov)
-DATABASE_URL=… bun scripts/verify-tenant-isolation.ts   # runtime preverba izolacije najemnikov
-bun run format       # Prettier
-bun run db:studio    # Prisma Studio (GUI za bazo)
-bun run db:seed      # vzorčni podatki
+pnpm run dev          # dev strežnik (Turbopack)
+pnpm run build        # produkcijski build
+pnpm run lint         # ESLint
+pnpm run test         # vitest — profilni motor, razširitve, unija dejavnosti, zgodovina konfiguracije, viri v razporejevalniku, obrazni FormData vrata, platformna + najemniška analitika, čarovniški osnutek, orgPath predpone (500+ testov)
+DATABASE_URL=… pnpm exec tsx scripts/verify-tenant-isolation.ts   # runtime preverba izolacije najemnikov
+pnpm run format       # Prettier
+pnpm run db:studio    # Prisma Studio (GUI za bazo)
+pnpm run db:seed      # vzorčni podatki
 ```
+
+> #57: po vsaki spremembi odvisnosti poženi `pnpm install` (posodobi
+> `pnpm-lock.yaml`) — Vercel build sicer pade z `ERR_PNPM_OUTDATED_LOCKFILE`.
+> Če pnpm javi napačno različico, je Corepack ni prenesel: `corepack enable`.
 
 Arhitektura in fazni načrti:
 - EPIC #1 (univerzalna platforma): [`docs/EPIC-1/ARCHITECTURE.md`](docs/EPIC-1/ARCHITECTURE.md)
