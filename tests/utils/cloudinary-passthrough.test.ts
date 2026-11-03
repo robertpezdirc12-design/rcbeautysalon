@@ -29,11 +29,12 @@ describe("getCloudinaryUrl pass-through (local & external imagery)", () => {
     expect(out).toContain("v123/services/haircut")
   })
 
-  it("still builds URLs from bare Cloudinary public IDs", () => {
+  it("bare public IDs render the local placeholder when no cloud is configured (P1 #18)", () => {
+    // P1 #18: without NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME there is no owned
+    // account to resolve public IDs against, so instead of building a URL
+    // against a third-party account we serve the local placeholder.
     const out = getCloudinaryUrl("services_haircut_ksqpaa", { width: 400 })
-    expect(out).toContain("res.cloudinary.com/")
-    expect(out).toContain("w_400")
-    expect(out.endsWith("services_haircut_ksqpaa")).toBe(true)
+    expect(out).toBe("/images/placeholders/placeholder.svg")
   })
 
   it("presets preserve pass-through semantics", () => {

@@ -6,11 +6,10 @@
  * - NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
  */
 
-import { FALLBACK_CLOUD_NAME } from '@/lib/default-assets'
-
-// Cloudinary configuration (P1 #18: the third-party fallback name lives in
-// lib/default-assets.ts — the ONLY place allowed to reference it).
-const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || FALLBACK_CLOUD_NAME
+// Cloudinary configuration (P1 #18: no third-party fallback — when the
+// cloud name is not configured, bare public IDs render the local
+// placeholder instead of building a URL against an account we don't own).
+const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || ""
 
 /**
  * Generates a Cloudinary URL with transformations
@@ -71,7 +70,11 @@ export function getCloudinaryUrl(
     return imageUrl
   }
 
-  // It's a publicId - construct the URL
+  // It's a publicId - construct the URL (requires a configured cloud;
+  // without one we can't resolve it, so serve the local placeholder).
+  if (!CLOUD_NAME) {
+    return '/images/placeholders/placeholder.svg'
+  }
   return `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/${transformString}${imageUrl}`
 }
 

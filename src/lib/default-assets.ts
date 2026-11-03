@@ -1,68 +1,72 @@
 // ============================================================
 // P1 #18 (audit-2026-11) — CENTRALIZED DEFAULT ASSETS
 //
-// Single source of truth for every default/demo media URL so the
-// third-party Cloudinary account reference lives in exactly ONE
-// file (grep guard: scripts/check-third-party-assets.mjs).
+// Single source of truth for every default/demo media URL.
 //
-// ⚠️ OWNERSHIP PENDING CONFIRMATION: these assets are currently
-// hot-linked from the `caballerorandy` Cloudinary account. If that
-// account is not project-controlled, re-upload the set to the
-// project's own cloud (NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME) or to
-// Vercel Blob / /public and update ONLY this module.
+// The set is SELF-HOSTED under /public/img/media (no third-party
+// CDN dependency): previously these files were hot-linked from a
+// third-party Cloudinary account, which posed an availability,
+// branding and billing risk. Regression guard:
+// scripts/check-third-party-assets.mjs fails the build if the
+// third-party account name ever reappears anywhere in the repo.
 // ============================================================
 
-const CLOUD = "https://res.cloudinary.com/caballerorandy"
-
 /** Upload fallback when NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME is unset (dev). */
-export const FALLBACK_CLOUD_NAME = "caballerorandy"
+export const FALLBACK_CLOUD_NAME = ""
 
 /** Default hero media (landing + services page fallbacks). */
 export const DEFAULT_HERO = {
-  videoWebm: `${CLOUD}/video/upload/v1763776212/Beauty%20Salon/services/hero-bg_yje6fb.webm`,
-  videoMp4: `${CLOUD}/video/upload/v1763776242/Beauty%20Salon/services/hero-bg_rn87gq.mp4`,
-  poster: `${CLOUD}/image/upload/v1763776064/Beauty%20Salon/services/hero-bg_t2k2ca.avif`,
-  image: `${CLOUD}/image/upload/v1763776064/Beauty%20Salon/services/hero-bg_t2k2ca.avif`,
+  videoWebm: "/img/media/hero/hero-bg.webm",
+  videoMp4: "/img/media/hero/hero-bg.mp4",
+  poster: "/img/media/hero/hero-bg.avif",
+  image: "/img/media/hero/hero-bg.avif",
 } as const
 
 /** Services page band media. */
 export const DEFAULT_SERVICES_MEDIA = {
-  videoWebm: `${CLOUD}/video/upload/v1763776430/Beauty%20Salon/services/services_ija8oq.webm`,
-  videoMp4: `${CLOUD}/video/upload/v1763776446/Beauty%20Salon/services/services_umsjwg.mp4`,
+  videoWebm: "/img/media/hero/services-band.webm",
+  videoMp4: "/img/media/hero/services-band.mp4",
 } as const
 
-/** Logo used by transactional e-mails when the tenant has none. */
-export const DEFAULT_EMAIL_LOGO = `${CLOUD}/image/upload/v1764553458/Beauty%20Salon/services/logo_yfvhhd.png`
+/**
+ * Logo used by transactional e-mails when the tenant has none.
+ *
+ * E-mail clients cannot resolve relative URLs, so the path is made
+ * absolute against NEXT_PUBLIC_APP_URL (the same base used for all
+ * action links in the templates). Falls back to localhost in dev.
+ */
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+export const DEFAULT_EMAIL_LOGO = `${APP_URL}/img/media/brand/email-logo.png`
 
 /** Sample catalog images used as vertical preset defaults. */
 export const DEFAULT_CATALOG_IMAGES = {
-  salonInterior: `${CLOUD}/image/upload/v1763776103/Beauty%20Salon/services/salon-interior_uxr7ba.avif`,
-  heroImage: `${CLOUD}/image/upload/v1763776064/Beauty%20Salon/services/hero-bg_t2k2ca.avif`,
-  transform: `${CLOUD}/image/upload/v1763776103/Beauty%20Salon/services/transform_hwvixg.avif`,
-  haircut: `${CLOUD}/image/upload/v1763611761/Beauty%20Salon/services/classic-haircut_inzgrp.avif`,
-  coloring: `${CLOUD}/image/upload/v1763538513/Beauty%20Salon/services/coloring_aiw6e3.avif`,
-  highlights: `${CLOUD}/image/upload/v1763612088/Beauty%20Salon/services/highlights_mrhaba.avif`,
-  hairTreatment: `${CLOUD}/image/upload/v1763611939/Beauty%20Salon/services/hair-treatment_hs60yv.avif`,
-  manicure: `${CLOUD}/image/upload/v1763538512/Beauty%20Salon/services/manicure_hyudpf.avif`,
-  gelManicure: `${CLOUD}/image/upload/v1763613072/Beauty%20Salon/services/gel-manicure_e7k2gb.avif`,
-  spaPedicure: `${CLOUD}/image/upload/v1763613172/Beauty%20Salon/services/spa-pedicure_fpbjgq.avif`,
-  facial: `${CLOUD}/image/upload/v1763611296/Beauty%20Salon/services/hydrating-facial_sliwao.avif`,
-  antiAging: `${CLOUD}/image/upload/v1763611000/Beauty%20Salon/services/anti-aging-facial_qgusgu.avif`,
-  deepClean: `${CLOUD}/image/upload/v1763611175/Beauty%20Salon/services/deep-cleansing-facial_jzjp7l.avif`,
-  massage: `${CLOUD}/image/upload/v1763612585/Beauty%20Salon/services/swedish-massage_degn1f.avif`,
-  hotStone: `${CLOUD}/image/upload/v1763612414/Beauty%20Salon/services/hot-stone-massage_krxtkc.avif`,
+  salonInterior: "/img/media/services/salon-interior.avif",
+  heroImage: "/img/media/hero/hero-bg.avif",
+  transform: "/img/media/services/transform.avif",
+  haircut: "/img/media/services/classic-haircut.avif",
+  coloring: "/img/media/services/coloring.avif",
+  highlights: "/img/media/services/highlights.avif",
+  hairTreatment: "/img/media/services/hair-treatment.avif",
+  manicure: "/img/media/services/manicure.avif",
+  gelManicure: "/img/media/services/gel-manicure.avif",
+  spaPedicure: "/img/media/services/spa-pedicure.avif",
+  facial: "/img/media/services/hydrating-facial.avif",
+  antiAging: "/img/media/services/anti-aging-facial.avif",
+  deepClean: "/img/media/services/deep-cleansing-facial.avif",
+  massage: "/img/media/services/swedish-massage.avif",
+  hotStone: "/img/media/services/hot-stone-massage.avif",
 } as const
 
 /** Legacy seed demo media (staff avatars + demo shop products). */
 export const DEFAULT_DEMO_MEDIA = {
-  staffLaura: `${CLOUD}/image/upload/v1764141936/Beauty%20Salon/services/laura-thompson_asbi3t.avif`,
-  staffMaria: `${CLOUD}/image/upload/v1764142469/Beauty%20Salon/services/maria-rodriguez_uzksdw.avif`,
-  staffSofia: `${CLOUD}/image/upload/v1764142586/Beauty%20Salon/services/sofia-martinez_vc28m8.avif`,
-  staffAna: `${CLOUD}/image/upload/v1764142701/Beauty%20Salon/services/ana-garcia_cl0tgj.avif`,
-  productShampoo: `${CLOUD}/image/upload/v1764652547/Beauty%20Salon/services/premium-hair-shampoo_lyekdy.avif`,
-  productConditioner: `${CLOUD}/image/upload/v1764652695/Beauty%20Salon/services/deep-conditioning-treatment_rkeqdp.avif`,
-  productFaceCream: `${CLOUD}/image/upload/v1764653082/Beauty%20Salon/services/hydrating-face-cream_hapgsz.avif`,
-  productHairSerum: `${CLOUD}/image/upload/v1764653341/Beauty%20Salon/services/hair-growth-serum_zruj5f.avif`,
-  productFacialSerum: `${CLOUD}/image/upload/v1764653498/Beauty%20Salon/services/anti-aging-facial-serum_grkuhs.avif`,
-  productNailPolish: `${CLOUD}/image/upload/v1764653996/Beauty%20Salon/services/premium-nail-polish-set_xag8xr.avif`,
+  staffLaura: "/img/media/staff/laura-thompson.avif",
+  staffMaria: "/img/media/staff/maria-rodriguez.avif",
+  staffSofia: "/img/media/staff/sofia-martinez.avif",
+  staffAna: "/img/media/staff/ana-garcia.avif",
+  productShampoo: "/img/media/products/premium-hair-shampoo.avif",
+  productConditioner: "/img/media/products/deep-conditioning-treatment.avif",
+  productFaceCream: "/img/media/products/hydrating-face-cream.avif",
+  productHairSerum: "/img/media/products/hair-growth-serum.avif",
+  productFacialSerum: "/img/media/products/anti-aging-facial-serum.avif",
+  productNailPolish: "/img/media/products/premium-nail-polish-set.avif",
 } as const

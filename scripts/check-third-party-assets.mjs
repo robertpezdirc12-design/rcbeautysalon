@@ -2,11 +2,10 @@
 /**
  * P1 #18 (audit-2026-11) regression guard.
  *
- * Fails when the third-party Cloudinary account name appears anywhere
- * outside the single centralized module (src/lib/default-assets.ts).
- * Re-uploading the default asset set to the project's own cloud then
- * requires touching exactly one file — after which the allow-list entry
- * can be deleted entirely.
+ * Fails when the third-party Cloudinary account name appears ANYWHERE
+ * in the repo. The default asset set is now self-hosted under
+ * /public/img/media (src/lib/default-assets.ts), so there is no
+ * allow-list: zero occurrences is the only passing state.
  *
  * Run: bun run check:assets
  */
@@ -15,9 +14,6 @@ import { join } from "node:path"
 
 const ROOT = process.cwd()
 const MARKER = "caballer" + "orandy" // split so this file never matches itself
-const ALLOWED = new Set([
-  "src/lib/default-assets.ts", // the single source of truth (pending re-upload)
-])
 
 const SKIP_DIRS = new Set([
   "node_modules",
@@ -46,18 +42,18 @@ function walk(dir, files = []) {
 
 const offenders = []
 for (const rel of walk(ROOT)) {
-  if (ALLOWED.has(rel)) continue
   const content = readFileSync(join(ROOT, rel), "utf8")
   if (content.includes(MARKER)) offenders.push(rel)
 }
 
 if (offenders.length > 0) {
   console.error(
-    `\n✖ Third-party Cloudinary account "${MARKER}" referenced outside src/lib/default-assets.ts:\n` +
+    `\n✖ Third-party Cloudinary account "${MARKER}" referenced in:\n` +
       offenders.map((f) => `  - ${f}`).join("\n") +
-      `\n\nCentralize the URL in src/lib/default-assets.ts (see P1 #18).\n`
+      `\n\nDefault media is self-hosted under public/img/media — replace the\n` +
+      `reference with a local path from src/lib/default-assets.ts (see P1 #18).\n`
   )
   process.exit(1)
 }
 
-console.log(`✓ No third-party Cloudinary references outside src/lib/default-assets.ts`)
+console.log(`✓ Zero references to the third-party Cloudinary account`)

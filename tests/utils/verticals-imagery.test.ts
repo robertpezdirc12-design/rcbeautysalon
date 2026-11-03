@@ -10,7 +10,12 @@ import { VERTICALS, verticalSiteContent, presetStaffImage } from "@/lib/vertical
  * a broken image on every newly onboarded tenant.
  */
 describe("vertical preset imagery completeness", () => {
+  // EPIC #4 preset photos ship in /img/presets/; the P1 #18 self-hosted
+  // default media set (previously hot-linked from a third-party Cloudinary
+  // account) ships in /img/media/.
   const isLocalPreset = (url: string) => url.startsWith("/img/presets/")
+  const isLocalMedia = (url: string) => url.startsWith("/img/media/")
+  const isLocalAsset = (url: string) => isLocalPreset(url) || isLocalMedia(url)
 
   it("every service in every vertical has an imageUrl", () => {
     for (const v of VERTICALS) {
@@ -30,38 +35,38 @@ describe("vertical preset imagery completeness", () => {
     }
   })
 
-  it("every imageUrl is an https URL or a local /img/presets/ path", () => {
+  it("every imageUrl is an https URL or a local asset path (/img/presets/ or /img/media/)", () => {
     for (const v of VERTICALS) {
       for (const cat of v.categories) {
         for (const svc of cat.services) {
           const url = svc.imageUrl!
-          const ok = url.startsWith("https://") || isLocalPreset(url)
+          const ok = url.startsWith("https://") || isLocalAsset(url)
           expect(ok, `${v.id}/${svc.name} unexpected imageUrl: ${url}`).toBe(true)
         }
       }
     }
     for (const p of VERTICALS.find((v) => v.id === "beekeeping")!.products!) {
       const url = p.imageUrl!
-      expect(url.startsWith("https://") || isLocalPreset(url)).toBe(true)
+      expect(url.startsWith("https://") || isLocalAsset(url)).toBe(true)
     }
   })
 
-  it("local preset paths point at files that exist in public/", () => {
+  it("local asset paths point at files that exist in public/", () => {
     const publicDir = join(process.cwd(), "public")
     const urls: string[] = []
     for (const v of VERTICALS) {
       for (const cat of v.categories) {
         for (const svc of cat.services) {
-          if (svc.imageUrl && isLocalPreset(svc.imageUrl)) urls.push(svc.imageUrl)
+          if (svc.imageUrl && isLocalAsset(svc.imageUrl)) urls.push(svc.imageUrl)
         }
       }
     }
     for (const p of VERTICALS.find((v) => v.id === "beekeeping")!.products!) {
-      if (p.imageUrl && isLocalPreset(p.imageUrl)) urls.push(p.imageUrl)
+      if (p.imageUrl && isLocalAsset(p.imageUrl)) urls.push(p.imageUrl)
     }
     for (const imagery of [verticalSiteContent("barber"), verticalSiteContent("seamstress"), verticalSiteContent("tire-service"), verticalSiteContent("beekeeping"), verticalSiteContent("massage"), verticalSiteContent("epilation")]) {
       for (const section of [imagery.hero, imagery.about, imagery.cta]) {
-        if (section.imageUrl && isLocalPreset(section.imageUrl)) urls.push(section.imageUrl)
+        if (section.imageUrl && isLocalAsset(section.imageUrl)) urls.push(section.imageUrl)
       }
     }
     expect(urls.length).toBeGreaterThan(10)
@@ -78,7 +83,7 @@ describe("vertical preset imagery completeness", () => {
     }
     // Beauty keeps its video hero; remaining profiles keep the salon shot.
     expect(verticalSiteContent("beauty").hero.videoUrl).toBeTruthy()
-    expect(verticalSiteContent("nails").hero.imageUrl).toContain("cloudinary")
+    expect(verticalSiteContent("nails").hero.imageUrl).toContain("/img/media/")
   })
 
   it("every vertical except generic has a preset staff portrait that exists in public/", () => {
