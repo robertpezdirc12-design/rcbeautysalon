@@ -82,3 +82,73 @@ END $$;`
   runPrisma(["migrate", "resolve", "--rolled-back", name, "--schema", "prisma/schema.prisma"])
   console.log(`resolve-guard: ${name} rolled back; migrate deploy will retry it (idempotent SQL).`)
 }
+
+// --- Migration advisory-lock janitor (P1002 recovery) ----------------------
+// `prisma migrate deploy` takes pg_advisory_lock(72707369) and gives up
+// after 10 s (P1002). Zombie sessions (e.g. a build whose TCP connection
+// died without the server noticing — common with serverless Postgres)
+// keep holding that session-level lock and block every subsequent build.
+//
+// Best-effort recovery:
+//  1. Terminate IDLE backends holding the migration advisory lock
+//     (an idle session cannot be a legitimate concurrent migration).
+//  2. Report any REMAINING holders (these are ACTIVE) via a RAISE
+//     EXCEPTION — the message lands in the build log, since `db execute`
+//     cannot return SELECT results. If one exists, migrate deploy below
+//     will fail loudly again — which is correct: a live concurrent
+//     migration must not be killed silently.
+const advisoryLockSql = `
+WITH holders AS (
+  SELECT a.pid, a.state, a.query_start, left(a.query, 60) AS query
+  FROM pg_locks l
+  JOIN pg_stat_activity a ON a.pid = l.pid
+  WHERE l.locktype = 'advisory' AND l.classid = 0 AND l.objid = 72707369
+    AND a.pid <> pg_backend_pid()
+)
+SELECT pg_terminate_backend(pid) FROM holders
+WHERE state IN ('idle', 'idle in transaction', 'idle in transaction (aborted)');`
+
+try {
+  runPrisma(["db", "execute", "--stdin", "--schema", "prisma/schema.prisma"], {
+    input: advisoryLockSql,
+  })
+} catch (err) {
+  // Fail-loud only for unexpected errors; best-effort janitor otherwise.
+  const out = `${err.stdout || ""}${err.stderr || ""}`
+  if (!/does not exist|permission denied/i.test(out)) {
+    console.error(`resolve-guard: advisory-lock janitor failed:\n${out}`)
+    process.exit(1)
+  }
+  console.log(`resolve-guard: janitor skipped (${out.slice(0, 120)})`)
+}
+
+const lockHolderSql = `DO $$ DECLARE r record;
+BEGIN
+  FOR r IN
+    SELECT a.pid, a.state, now() - a.state_change AS idle_for, left(a.query, 80) AS query
+    FROM pg_locks l
+    JOIN pg_stat_activity a ON a.pid = l.pid
+    WHERE l.locktype = 'advisory' AND l.classid = 0 AND l.objid = 72707369
+      AND a.pid <> pg_backend_pid()
+  LOOP
+    RAISE EXCEPTION 'MIGRATION_LOCK_HOLDER pid=% state=% idle_for=% query=%',
+      r.pid, r.state, r.idle_for, r.query;
+  END LOOP;
+END $$;`
+
+try {
+  runPrisma(["db", "execute", "--stdin", "--schema", "prisma/schema.prisma"], {
+    input: lockHolderSql,
+  })
+  console.log("resolve-guard: migration advisory lock is free")
+} catch (err) {
+  const out = `${err.stdout || ""}${err.stderr || ""}`
+  if (out.includes("MIGRATION_LOCK_HOLDER")) {
+    console.error(`resolve-guard: ACTIVE migration lock holder still present:\n${out}`)
+    // Don't kill active migrations; let migrate deploy fail loudly if the
+    // lock is genuinely contested.
+  } else {
+    console.error(`resolve-guard: lock-holder check failed:\n${out}`)
+    process.exit(1)
+  }
+}
