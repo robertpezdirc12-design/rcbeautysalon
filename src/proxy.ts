@@ -13,6 +13,74 @@ const ORG_HEADER = "x-org-slug"
 // ------------------------------------------------------------
 const BARE_PUBLIC_PATH = /^\/$|^\/(services|staff|shop|booking|cart|inquiry)(\/|$)/
 
+// ------------------------------------------------------------
+// P0 #24 / P1 #27 (re-audit 2026-11): Next.js 16 streaming pomeni,
+// da notFound()/redirect() v layoutih/straneh NE moreta več nastaviti
+// HTTP statusa (lupina je že odposlana s 200). Statusne kode zato
+// rešuje PROXY prek internih API klicev (krašo cacheiranih):
+//  - neznan/suspendiran tenant pod /s/{slug} → prepis na rezervirano
+//    404 pot → pravi HTTP 404 z blagovno stranjo (app/not-found.tsx),
+//  - manjkajoča storitev/član/izdelek → isto (pravi 404),
+//  - /booking za ne-booking profile → pravi 307 na /inquiry,
+//  - /inquiry za booking profile → pravi 307 na domačo stran.
+// Fail-open: ob napaki API-ja se strani NE ugasanje — page-level
+// notFound() ostane rezervna zaščita.
+// ------------------------------------------------------------
+const RESERVED_404_PATH = "/__not_found__"
+
+type TenantInfo = { exists: boolean; orgId?: string; bookingEnabled?: boolean }
+const tenantCache = new Map<string, { info: TenantInfo; exp: number }>()
+const entityCache = new Map<string, { exists: boolean; exp: number }>()
+
+async function resolveTenant(
+  origin: string,
+  slug: string
+): Promise<TenantInfo | null> {
+  const hit = tenantCache.get(slug)
+  if (hit && hit.exp > Date.now()) return hit.info
+  try {
+    const res = await fetch(`${origin}/api/public/resolve-tenant?slug=${encodeURIComponent(slug)}`, {
+      cache: "no-store",
+    })
+    if (!res.ok) return null
+    const info = (await res.json()) as TenantInfo
+    tenantCache.set(slug, { info, exp: Date.now() + 60_000 })
+    return info
+  } catch {
+    return null
+  }
+}
+
+async function entityExists(
+  origin: string,
+  orgId: string,
+  type: "service" | "staff" | "product",
+  slug: string
+): Promise<boolean> {
+  const key = `${type}:${orgId}:${slug}`
+  const hit = entityCache.get(key)
+  if (hit && hit.exp > Date.now()) return hit.exists
+  try {
+    const res = await fetch(
+      `${origin}/api/public/entity-exists?orgId=${encodeURIComponent(orgId)}&type=${type}&slug=${encodeURIComponent(slug)}`,
+      { cache: "no-store" }
+    )
+    if (!res.ok) return true // fail-open
+    const data = (await res.json()) as { exists: boolean; unknown?: boolean }
+    if (data.unknown) return true
+    entityCache.set(key, { exists: data.exists, exp: Date.now() + 60_000 })
+    return data.exists
+  } catch {
+    return true // fail-open
+  }
+}
+
+/** Rezervirana 404 pot: neujeta z nobeno smero → pravi HTTP 404 + blagovna stran. */
+function rewriteTo404(req: { nextUrl: URL }) {
+  const url = new URL(RESERVED_404_PATH, req.nextUrl.origin)
+  return NextResponse.rewrite(url)
+}
+
 let defaultSlugCache: { slug: string | null; expires: number } | null = null
 
 async function getDefaultTenantSlug(origin: string): Promise<string | null> {
@@ -41,10 +109,44 @@ export default auth(async (req) => {
   if (orgMatch) {
     const slug = orgMatch[1]
     if (req.headers.get(ORG_HEADER) !== slug) {
+      // P0 #24 / P1 #27: statusne kode rešuje proxy (glej komentar zgoraj).
+      // Samo na PRVEM prehodu (header še ni nastavljen) — po prepisu gre
+      // zahtevek skozi proxy drugič in takoj nadaljuje.
+      const tenant = await resolveTenant(req.nextUrl.origin, slug)
+      if (tenant && !tenant.exists) {
+        // Neznan ali suspendiran najemnik → pravi HTTP 404 (blagovna stran).
+        return rewriteTo404(req)
+      }
+
+      const sub = orgMatch[2] || "/"
+      if (tenant?.orgId) {
+        // Manjkajoče entitete → pravi HTTP 404.
+        let missing = false
+        const serviceMatch = sub.match(/^\/services\/([^/]+)/)
+        const staffMatch = sub.match(/^\/staff\/([^/]+)/)
+        const shopMatch = sub.match(/^\/shop\/([^/]+)/)
+        if (serviceMatch) {
+          missing = !(await entityExists(req.nextUrl.origin, tenant.orgId, "service", serviceMatch[1]))
+        } else if (staffMatch) {
+          missing = !(await entityExists(req.nextUrl.origin, tenant.orgId, "staff", staffMatch[1]))
+        } else if (shopMatch) {
+          missing = !(await entityExists(req.nextUrl.origin, tenant.orgId, "product", shopMatch[1]))
+        }
+        if (missing) return rewriteTo404(req)
+
+        // P0 #24: booking/inquiry po profilu — pravi 307 (prej 200 + client-nav).
+        if (sub === "/booking" && tenant.bookingEnabled === false) {
+          return NextResponse.redirect(new URL(`/s/${slug}/inquiry`, req.url), 307)
+        }
+        if (sub === "/inquiry" && tenant.bookingEnabled === true) {
+          return NextResponse.redirect(new URL(`/s/${slug}`, req.url), 307)
+        }
+      }
+
       const requestHeaders = new Headers(req.headers)
       requestHeaders.set(ORG_HEADER, slug)
       const url = req.nextUrl.clone()
-      url.pathname = orgMatch[2] || "/"
+      url.pathname = sub
       return NextResponse.rewrite(url, { request: { headers: requestHeaders } })
     }
   }
@@ -52,7 +154,13 @@ export default auth(async (req) => {
   // ---- P1 #39-5: gola javna pot → kanonična najemniška pot (308) ----
   // Samo za anonimne/prijavljene obiske GOLIH vsebinskih poti; /api,
   // /dashboard, /login, /sitemap.xml, pravne strani idr. ostanejo goli.
-  if (!orgMatch && BARE_PUBLIC_PATH.test(pathname)) {
+  // POMEMBNO: zahtevki, ki jih je proxy že prepisal pod najemnika (x-org-slug
+  // glava), se ne preusmerjajo — sicer bi bila preusmeritvena zanka.
+  if (
+    !orgMatch &&
+    !req.headers.get(ORG_HEADER) &&
+    BARE_PUBLIC_PATH.test(pathname)
+  ) {
     const slug = await getDefaultTenantSlug(req.nextUrl.origin)
     if (slug) {
       const url = req.nextUrl.clone()
