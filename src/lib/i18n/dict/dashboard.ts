@@ -133,6 +133,21 @@ export const dashboardSl = {
         cta: "Odpri nastavitve objave",
         hint: "Objava vzame minuto — stran lahko kasneje kadarkoli znova skrijete.",
       },
+      // P3 #49: profil z načinom "order" ne obljublja rezervacij — objava
+      // odpre TRGOVINO (prej statično "odprta za rezervacije").
+      publishOrder: {
+        label: "Objavite svojo stran",
+        description: "Objavljena stran je vidna strankam in odprta za naročila.",
+        cta: "Odpri nastavitve objave",
+        hint: "Objava vzame minuto — stran lahko kasneje kadarkoli znova skrijete.",
+      },
+      // P3 #49: profil z načinom "inquiry" — objava odpre povpraševanja.
+      publishInquiry: {
+        label: "Objavite svojo stran",
+        description: "Objavljena stran je vidna strankam in pripravljena na povpraševanja.",
+        cta: "Odpri nastavitve objave",
+        hint: "Objava vzame minuto — stran lahko kasneje kadarkoli znova skrijete.",
+      },
     },
   },
 }
@@ -258,6 +273,20 @@ export const dashboardEn: DashboardDict = {
       publishNoBooking: {
         label: "Publish your page",
         description: "A published page makes you findable — no online bookings promised; you arrange every visit yourself.",
+        cta: "Open publishing settings",
+        hint: "Publishing takes a minute — you can hide the page again at any time.",
+      },
+      // P3 #49: order-mode profiles promise ORDERS, not reservations.
+      publishOrder: {
+        label: "Publish your page",
+        description: "A published page is visible to customers and open for orders.",
+        cta: "Open publishing settings",
+        hint: "Publishing takes a minute — you can hide the page again at any time.",
+      },
+      // P3 #49: inquiry-mode profiles promise INQUIRIES.
+      publishInquiry: {
+        label: "Publish your page",
+        description: "A published page is visible to customers and ready for inquiries.",
         cta: "Open publishing settings",
         hint: "Publishing takes a minute — you can hide the page again at any time.",
       },

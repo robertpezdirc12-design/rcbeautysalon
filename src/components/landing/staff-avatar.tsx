@@ -10,6 +10,14 @@ interface StaffAvatarProps {
   className?: string
   sizes?: string
   priority?: boolean
+  /**
+   * P3 #51: slika je okrasna, kadar je ime izpisano VZRAZNO poleg nje
+   * (ekipna kartica, seznam osebja, stran osebja) — prazen alt bralniku
+   * zaslona prepreči dvojno branje imena (axe image-redundant-alt).
+   * Privzeto ""; ime je vzporedno vidno v vseh obstoječih uporabah,
+   * zato lahko ostane prazen.
+   */
+  alt?: string
 }
 
 /**
@@ -28,6 +36,7 @@ export function StaffAvatar({
   // boxes (next/image otherwise assumes 100vw and over-downloads).
   sizes = "(min-width: 768px) 128px, 96px",
   priority,
+  alt = "",
 }: StaffAvatarProps) {
   const [failed, setFailed] = useState(false)
 
@@ -59,7 +68,7 @@ export function StaffAvatar({
   return (
     <Image
       src={src}
-      alt={name}
+      alt={alt}
       fill
       onError={() => setFailed(true)}
       className={`object-cover ${className}`}

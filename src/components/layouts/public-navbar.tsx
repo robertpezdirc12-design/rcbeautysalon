@@ -33,10 +33,11 @@ interface PublicNavbarProps {
   cta?: { label: string; href: string } | null
   /**
    * Which home-page sections actually exist (anchor targets). The home page
-   * renders #services/#shop only when featured content exists, so a missing
+   * renders #services/#shop only when featured content exists, and #team
+   * only when the profile does not disable staff — a missing or disabled
    * section must not be linked (dead anchor). Absent → assumed available.
    */
-  availableSections?: { services?: boolean; shop?: boolean }
+  availableSections?: { services?: boolean; shop?: boolean; team?: boolean }
 }
 
 export function PublicNavbar({ org, cta, availableSections }: PublicNavbarProps) {
@@ -47,16 +48,20 @@ export function PublicNavbar({ org, cta, availableSections }: PublicNavbarProps)
   const { t } = useI18n()
 
   const homeHref = orgPath(org.slug, "/")
-  // #services/#shop are conditionally rendered — drop them when the tenant
-  // has no featured services/products (about/team/contact always render).
+  // #services/#shop/#team are conditionally rendered — drop them when the
+  // tenant has no featured services/products or the profile disables staff
+  // (P2 #46/#47: about/contact always render).
   const showServices = availableSections?.services !== false
   const showShop = availableSections?.shop !== false
+  const showTeam = availableSections?.team !== false
   const navLinks: NavLinkItem[] = [
     ...(showServices
       ? [{ href: `${homeHref}#services`, sectionId: "services", label: t.public.navServices }]
       : []),
     { href: `${homeHref}#about`, sectionId: "about", label: t.public.navAbout },
-    { href: `${homeHref}#team`, sectionId: "team", label: t.public.navTeam },
+    ...(showTeam
+      ? [{ href: `${homeHref}#team`, sectionId: "team", label: t.public.navTeam }]
+      : []),
     ...(showShop
       ? [{ href: `${homeHref}#shop`, sectionId: "shop", label: t.public.navShop }]
       : []),

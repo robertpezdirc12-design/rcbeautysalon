@@ -179,15 +179,19 @@ export function CartContent() {
                       className="text-primary-text/60"
                     />
                   </div>
-                  <h3 className="mb-2 text-xl font-semibold">
+                  {/* P3 #51: h2 neposredno pod h1 — pravi vrstni red naslovov
+                      (axe heading-order; prej h3 brez vmesnega h2). */}
+                  <h2 className="mb-2 text-xl font-semibold">
                     Vaša košarica je prazna
-                  </h3>
+                  </h2>
                   <p className="text-muted-foreground mx-auto mb-6 max-w-sm">
                     Videti je, da še niste dodali nobenih izdelkov. Začnite z
                     nakupovanjem in napolnite košarico!
                   </p>
+                  {/* P1 #45: najemniški prefiks — goli "/shop" bi preusmeril
+                      kupca v trgovino PRIVZETEGA najemnika. */}
                   <Button asChild size="lg" className="shadow-md">
-                    <Link href="/shop">
+                    <Link href={`${orgPrefix}/shop`}>
                       <ShoppingBag className="mr-2 h-5 w-5" />
                       Raziščite izdelke
                     </Link>
@@ -281,8 +285,9 @@ export function CartContent() {
                   "Zaključi nakup"
                 )}
               </Button>
+              {/* P1 #45: najemniški prefiks — glej zgoraj. */}
               <Button variant="outline" className="w-full" asChild>
-                <Link href="/shop">Nadaljuj z nakupovanjem</Link>
+                <Link href={`${orgPrefix}/shop`}>Nadaljuj z nakupovanjem</Link>
               </Button>
 
               {/* Trust Badges */}

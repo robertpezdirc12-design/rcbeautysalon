@@ -170,6 +170,36 @@ export async function requirePermissionOrg(key: PermissionKey): Promise<{
 }
 
 /**
+ * P3 #52: varianta requirePermissionOrg za dejavnosti, ki jih delita
+ * DVA modula (kategorije pripadajo storitvam IN izdelkom) — zadostuje
+ * KATERAKOLI ključ. Prej lovilnicatch-pareti v akcijah; zdaj en vir
+ * resnice za "ali smem ta modul z dotično pravico".
+ */
+export async function requireAnyPermissionOrg(
+  keys: PermissionKey[]
+): Promise<{
+  session: { user: { id: string; role: string; email?: string | null; name?: string | null } }
+  org: Organization
+}> {
+  const session = await requireRole(["ADMIN"])
+  const perms = await getEffectivePermissions(session.user.id)
+  const allowed = keys.some((k) => perms.includes(k))
+  if (!allowed) {
+    throw new UnauthorizedError(
+      "You do not have permission to perform this action"
+    )
+  }
+  const org = await resolveSessionOrg(session)
+  if (!org) throw new UnauthorizedError("No organization found for this account")
+  return {
+    session: session as unknown as {
+      user: { id: string; role: string; email?: string | null; name?: string | null }
+    },
+    org,
+  }
+}
+
+/**
  * Guard for privilege-ESCALATING administration (E4-6b): creating ADMIN
  * accounts and administering the custom-roles catalog. Only an admin
  * whose effective permission set covers ALL keys may do this — a

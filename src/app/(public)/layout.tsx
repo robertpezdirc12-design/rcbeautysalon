@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma"
 import { PublicNavbar } from "@/components/layouts/public-navbar"
 import Footer from "@/components/layouts/footer"
 import { getPublicOrg, ORG_HEADER } from "@/lib/tenant"
+import { resolveAvailableSections } from "@/lib/public-site"
 import { resolvePublicCta } from "@/lib/public-cta"
 import { resolvePublishGate } from "@/lib/publish-gate"
 import { MaintenanceScreen } from "@/components/public/maintenance-screen"
@@ -14,23 +15,18 @@ import { PublicI18nProvider } from "@/components/providers/public-i18n-provider"
 import { getLocaleFromCookies } from "@/lib/i18n/server"
 
 /**
- * Whether the tenant's home page will actually render the #services and
- * #shop sections (both require featured + active content). The navbar uses
- * this to drop anchors that would be dead — e.g. a product-only tenant
- * has no services section to scroll to.
+ * P2 #46/#47: section flags so the navbar never links an anchor that
+ * does not exist (data gate) or a module the profile disables
+ * (capability gate). Shared with the (customer) layout — navigation
+ * must be identical on every public route.
  */
-async function resolveAvailableSections(
-  organizationId: string
-): Promise<{ services: boolean; shop: boolean }> {
-  const [featuredServices, featuredProducts] = await Promise.all([
-    prisma.service.count({
-      where: { organizationId, isActive: true, isFeatured: true },
-    }),
-    prisma.product.count({
-      where: { organizationId, isActive: true, isFeatured: true },
-    }),
-  ])
-  return { services: featuredServices > 0, shop: featuredProducts > 0 }
+async function availableSectionsFor(org: {
+  id: string
+  vertical: string | null
+  secondaryVertical?: string | null
+  profileOverrides: unknown
+}) {
+  return resolveAvailableSections(org.id, org)
 }
 
 export default async function PublicLayout({
@@ -72,7 +68,7 @@ export default async function PublicLayout({
             logo: org.logo,
           }}
           cta={null}
-          availableSections={await resolveAvailableSections(org.id)}
+          availableSections={await availableSectionsFor(org)}
         />
         <CartOrgScope slug={org.slug} />
         <div className="bg-amber-100 text-amber-950 border-b border-amber-200 px-4 py-2 text-center text-sm font-medium dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
@@ -139,7 +135,9 @@ gtag('config', '${analyticsId}');`}
             logo: org?.logo ?? null,
           }}
           cta={cta.enabled ? { label: cta.label, href: cta.href } : null}
-          availableSections={org ? await resolveAvailableSections(org.id) : undefined}
+          availableSections={
+            org ? await availableSectionsFor(org) : undefined
+          }
         />
         <CartOrgScope slug={org?.slug ?? null} />
         <main id="main" tabIndex={-1}>{children}</main>

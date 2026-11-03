@@ -1,7 +1,8 @@
 import type { MetadataRoute } from "next"
 import { prisma } from "@/lib/prisma"
 import { isBookingEnabled } from "@/lib/public-cta"
-import { getProfile, isCapabilityEnabled } from "@/lib/profiles/registry"
+import { getProfile, isCapabilityEnabled, type ActivityProfile } from "@/lib/profiles/registry"
+import { applyOverrides, parseOverrides } from "@/lib/profiles/overrides"
 import { isInternalTenantSlug } from "@/lib/tenant-flags"
 
 /**
@@ -51,10 +52,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const base = `${appUrl}/s/${org.slug}`
     const lastModified = org.updatedAt
 
+    // P2 #46: učinkovit profil (registrski profil + lastnikove prepone) —
+    // zmogljivostno vezani URL-ji se izpišejo SAMO, ko jih najemnik dejansko
+    // ponuja (prej je bil /services brezpogojen → prazna indeksirana stran
+    // za profile, ki storitve izključujejo).
+    const profile: ActivityProfile = applyOverrides(
+      getProfile(org.vertical),
+      parseOverrides(org.profileOverrides)
+    )
+
     const paths: Array<{ path: string; priority: number }> = [
       { path: "", priority: 1 },
-      { path: "/services", priority: 0.7 },
     ]
+
+    // P2 #46: /services samo, ko profil sploh omogoča storitve.
+    if (isCapabilityEnabled(profile, "services")) {
+      paths.push({ path: "/services", priority: 0.7 })
+    }
 
     // #28/#24: samo profili z dejansko omogočenimi rezervacijami.
     if (isBookingEnabled(org.vertical, org.profileOverrides)) {
@@ -62,7 +76,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
 
     // Trgovina samo, ko je zmogljivost shop dejansko omogočena.
-    const profile = getProfile(org.vertical)
     if (isCapabilityEnabled(profile, "shop")) {
       paths.push({ path: "/shop", priority: 0.7 })
     }

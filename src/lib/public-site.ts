@@ -7,6 +7,8 @@ import { prisma } from "@/lib/prisma"
 import { ORG_HEADER, getOrgBySlug, getSessionOrg } from "@/lib/tenant"
 import { mergeSiteContent, type SiteContent } from "@/lib/site-content"
 import { parsePublishState } from "@/lib/publication"
+import { resolveEffectiveProfile } from "@/lib/profiles/resolve"
+import { sectionsForProfile, type HomeSectionFlags } from "@/lib/home-sections"
 import type { Organization, SalonConfig } from "@prisma/client"
 
 // ============================================================
@@ -352,3 +354,28 @@ export const getPublicStaffBySlug = cache(async (orgId: string, slug: string) =>
   const staffMembers = await getPublicStaffMembers(orgId)
   return staffMembers.find((staff) => staffSlug(staff.name) === slug) ?? null
 })
+
+// ============================================================
+// P2 #46/#47 — header section flags (shared by BOTH public layouts
+// so navigation is identical on "/", "/shop", "/services", …).
+// Data gate (featured content actually renders) + capability gate
+// (profile may disable services/shop/staff entirely — legacy rows
+// must not resurrect a section the profile switched off).
+// ============================================================
+export async function resolveAvailableSections(
+  organizationId: string,
+  org: { vertical: string | null; secondaryVertical?: string | null; profileOverrides: unknown }
+): Promise<HomeSectionFlags> {
+  const [featuredServices, featuredProducts] = await Promise.all([
+    prisma.service.count({
+      where: { organizationId, isActive: true, isFeatured: true },
+    }),
+    prisma.product.count({
+      where: { organizationId, isActive: true, isFeatured: true },
+    }),
+  ])
+  return sectionsForProfile(
+    { services: featuredServices > 0, shop: featuredProducts > 0 },
+    resolveEffectiveProfile(org)
+  )
+}

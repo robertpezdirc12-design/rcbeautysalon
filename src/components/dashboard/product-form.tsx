@@ -25,9 +25,22 @@ import {
 } from "@/components/ui/select"
 import { ImageIcon, TrashIcon, PlusIcon } from "@/components/icons"
 import { SpinnerIcon } from "@/components/icons/spinner-icon"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { toast } from "sonner"
 import { useI18n } from "@/lib/i18n/provider"
 import { createProduct, updateProduct, deleteProduct } from "@/app/actions/products"
+import { createCategory } from "@/app/actions/categories"
+import {
+  categoryPickerMode,
+  normalizeCategoryName,
+} from "@/lib/dashboard/category-picker"
 import {
   createProductSchema,
   updateProductSchema,
@@ -75,6 +88,44 @@ export function ProductForm({ categories, product, mode = "create" }: ProductFor
   const [isUploading, setIsUploading] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // P3 #52: lokalna kopija kategorij — novoustvarjena (iz praznega stanja
+  // izbirnika) je takoj izbirna, brez zapuščanja obrazca.
+  const [categoryList, setCategoryList] = useState(categories)
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState("")
+  const [creatingCategory, setCreatingCategory] = useState(false)
+  const pickerMode = categoryPickerMode(categoryList.length)
+
+  const handleCreateCategory = async () => {
+    const valid = normalizeCategoryName(newCategoryName)
+    if (!valid.ok) {
+      toast.error(t.products.noCategories)
+      return
+    }
+    setCreatingCategory(true)
+    try {
+      const res = await createCategory(valid.name)
+      if (!res.success || !res.category) {
+        toast.error(res.error || t.products.categoryCreateFailed)
+        return
+      }
+      setCategoryList((prev) =>
+        res.reused || prev.some((c) => c.id === res.category!.id)
+          ? prev
+          : [...prev, res.category!]
+      )
+      setValue("categoryId", res.category.id)
+      clearErrors("categoryId")
+      toast.success(t.products.categoryCreated)
+      setCategoryDialogOpen(false)
+      setNewCategoryName("")
+    } catch {
+      toast.error(t.products.categoryCreateFailed)
+    } finally {
+      setCreatingCategory(false)
+    }
+  }
 
   const {
     setValue,
@@ -260,6 +311,54 @@ export function ProductForm({ categories, product, mode = "create" }: ProductFor
 
   return (
     <form action={formAction}>
+      {/* P3 #52: inline ustvarjanje prve kategorije — brez zapuščanja
+          obrazca; uspeh jo takoj izbere v izbirniku. */}
+      <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{t.products.createCategory}</DialogTitle>
+            <DialogDescription>{t.products.noCategories}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="new-category">{t.products.newCategoryLabel}</Label>
+            <Input
+              id="new-category"
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              placeholder={t.products.newCategoryPlaceholder}
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault()
+                  void handleCreateCategory()
+                }
+              }}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setCategoryDialogOpen(false)}
+              disabled={creatingCategory}
+            >
+              {t.common.actions.cancel}
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void handleCreateCategory()}
+              disabled={creatingCategory || newCategoryName.trim().length === 0}
+            >
+              {creatingCategory ? (
+                <SpinnerIcon size={16} className="animate-spin" />
+              ) : (
+                <PlusIcon size={16} className="mr-1" />
+              )}
+              {t.products.createCategory}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Main Form */}
         <div className="space-y-6 lg:col-span-2">
@@ -308,22 +407,43 @@ export function ProductForm({ categories, product, mode = "create" }: ProductFor
 
               <div className="space-y-2">
                 <Label htmlFor="category">{t.products.categoryLabel}</Label>
-                <Select
-                  defaultValue={product?.categoryId || undefined}
-                  onValueChange={(value) => setValue("categoryId", value)}
-                  disabled={isPending}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={t.products.categoryPlaceholder} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((category) => (
-                      <SelectItem key={category.id} value={category.id}>
-                        {category.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {/* P3 #52: 0 kategorij → razloženo prazno stanje + dejanje
+                    "Ustvari kategorijo" (prej prazen popover brez poti naprej). */}
+                {pickerMode === "empty" ? (
+                  <div className="rounded-lg border border-dashed border-border/70 bg-muted/30 p-4 text-center">
+                    <p className="text-muted-foreground text-sm">
+                      {t.products.noCategories}
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="mt-3"
+                      onClick={() => setCategoryDialogOpen(true)}
+                      disabled={isPending}
+                    >
+                      <PlusIcon size={14} className="mr-1" />
+                      {t.products.createCategory}
+                    </Button>
+                  </div>
+                ) : (
+                  <Select
+                    defaultValue={product?.categoryId || undefined}
+                    onValueChange={(value) => setValue("categoryId", value)}
+                    disabled={isPending}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={t.products.categoryPlaceholder} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categoryList.map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
             </CardContent>
           </Card>

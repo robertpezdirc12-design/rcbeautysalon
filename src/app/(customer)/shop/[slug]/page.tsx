@@ -3,7 +3,9 @@ import Image from "next/image"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { getPublicProductById, getPublicSiteData, redirectBareToTenant } from "@/lib/public-site"
-import { canonicalMetadata } from "@/lib/seo"
+import { buildProductJsonLd, canonicalMetadata, resolveAppUrl } from "@/lib/seo"
+import { resolvePublishGate } from "@/lib/publish-gate"
+import { isInternalTenantSlug } from "@/lib/tenant-flags"
 import { orgPath } from "@/lib/org-path"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -76,8 +78,42 @@ const ProductDetails = async ({ params }: ProductDetailsProps) => {
   const inStock = product.stockQuantity > 0
   const mainImage = product.images?.[0] || null
 
+  // P3 #50: Product/Offer JSON-LD — cena, razpoložljivost, SKU. Samo za
+  // objavljene, ne-demo najemnike (enako pravilo kot najemniški blok).
+  const gate = await resolvePublishGate(site?.org ?? null)
+  const productJsonLd =
+    site && product
+      ? buildProductJsonLd({
+          org: { name: site.org.name, slug: site.org.slug },
+          product: {
+            id: product.id,
+            name: product.name,
+            description: product.description,
+            sku: product.sku,
+            price: product.price,
+            compareAtPrice: product.compareAtPrice,
+            images: product.images,
+            stockQuantity: product.stockQuantity,
+          },
+          appUrl: resolveAppUrl(),
+          indexable:
+            gate === "published" && !isInternalTenantSlug(site.org.slug),
+          currency: site.config?.currency || "EUR",
+        })
+      : null
+
   return (
     <div className="min-h-screen bg-linear-to-b from-background to-muted/20">
+      {productJsonLd && (
+        <script
+          type="application/ld+json"
+          // "<" escaped — JSON inside a <script> tag must never contain
+          // an end-tag sequence (robust tudi za opise z "</script>").
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(productJsonLd).replace(/</g, "\\u003c"),
+          }}
+        />
+      )}
       <div className="container mx-auto px-4 py-8">
         {/* Back Button */}
         <Button
@@ -227,7 +263,8 @@ const ProductDetails = async ({ params }: ProductDetailsProps) => {
             {/* Description */}
             {product.description && (
               <div className="mb-6">
-                <h3 className="mb-2 font-semibold">Opis</h3>
+                {/* P3 #51: h2 — h1 → h3 je prelomil vrstni red naslovov (axe). */}
+                <h2 className="mb-2 font-semibold">Opis</h2>
                 <p className="leading-relaxed text-muted-foreground">
                   {product.description}
                 </p>

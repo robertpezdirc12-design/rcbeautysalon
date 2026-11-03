@@ -16,15 +16,20 @@ import { PackageIcon } from "@/components/icons"
 import { AddToCartButton } from "@/components/shop/add-to-cart-button"
 import { getPublicSiteData, getPublicShopProducts, redirectBareToTenant } from "@/lib/public-site"
 import { canonicalMetadata } from "@/lib/seo"
+import { getLocaleFromCookies } from "@/lib/i18n/server"
 import { orgPath } from "@/lib/org-path"
 import { formatCurrency } from "@/lib/utils/format"
 
 export async function generateMetadata(): Promise<Metadata> {
   const site = await getPublicSiteData()
   const orgName = site?.org.name ?? "Salon"
+  const locale = await getLocaleFromCookies()
+  // P3 #50: naslov kataloga ne_more prevzeti naslova LANDING sekcije
+  // ("Izbrani izdelki") — stran izpiše VSE izdelke, ne samo izbrane.
+  const pageTitle = locale === "en" ? "Shop" : "Trgovina"
   // P1 #26: samo-referencirajoč canonical (/s/{slug}/shop).
   return canonicalMetadata(site?.org.slug, "/shop", {
-    title: `${site?.content.shop.title ?? "Trgovina"} | ${orgName}`,
+    title: `${pageTitle} | ${orgName}`,
     description:
       site?.content.shop.subtitle ??
       "Profesionalni izdelki za nego na dom — nega las, kože in nohtov.",
@@ -51,6 +56,11 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
 
   const { org, content } = site
   const slug = org.slug
+  const locale = await getLocaleFromCookies()
+  // P3 #50: posvečen naslov kataloga (landing sekcija obdrži svoj
+  // lastniško uredljiv naslov, npr. "Izbrani izdelki").
+  const pageTitle = locale === "en" ? "Shop" : "Trgovina"
+  const gridTitle = locale === "en" ? "All products" : "Vsi izdelki"
   const allProducts = await getPublicShopProducts(org.id)
 
   // Filter products based on search query
@@ -69,7 +79,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
         <div className="container mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold">{content.shop.title}</h1>
+              <h1 className="text-3xl font-bold">{pageTitle}</h1>
               <p className="text-muted-foreground">{content.shop.subtitle}</p>
             </div>
             <div className="hidden md:block">
@@ -93,6 +103,14 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
 
       {/* Products Grid */}
       <div className="container mx-auto px-4 py-8">
+        {/* P3 #51: h2 med h1 in karticami — sicer axe heading-order javi
+            preskok (h1 → nadaljnji h2/h3 v nogi brez vmesnega h2). */}
+        <h2 className="mb-4 text-xl font-semibold tracking-tight">
+          {gridTitle}
+          <span className="text-muted-foreground ml-2 text-sm font-normal">
+            ({products.length})
+          </span>
+        </h2>
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {products.map((product) => {
             const inStock = product.stockQuantity > 0

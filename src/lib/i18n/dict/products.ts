@@ -46,6 +46,13 @@ export const productsSl = {
   descriptionPlaceholder: "Opišite izdelek …",
   categoryLabel: "Kategorija",
   categoryPlaceholder: "Izberite kategorijo",
+  // P3 #52: prazno stanje izbirnika — razlaga + pot do prve kategorije
+  noCategories: "Ni kategorij. Ustvarite prvo, da lahko razvrstite izdelke.",
+  createCategory: "Ustvari kategorijo",
+  newCategoryLabel: "Ime nove kategorije",
+  newCategoryPlaceholder: "npr. Medi",
+  categoryCreated: "Kategorija ustvarjena",
+  categoryCreateFailed: "Ustvarjanje kategorije ni uspelo",
 
   // Obrazec: kartica cen
   pricingTitle: "Cene",
@@ -148,6 +155,13 @@ export const productsEn: ProductsDict = {
   descriptionPlaceholder: "Describe the product...",
   categoryLabel: "Category",
   categoryPlaceholder: "Select a category",
+  // P3 #52: empty state of the picker — explanation + path to the first one
+  noCategories: "No categories yet. Create the first one to classify products.",
+  createCategory: "Create category",
+  newCategoryLabel: "New category name",
+  newCategoryPlaceholder: "e.g. Honey",
+  categoryCreated: "Category created",
+  categoryCreateFailed: "Creating the category failed",
 
   // Form: pricing card
   pricingTitle: "Pricing",

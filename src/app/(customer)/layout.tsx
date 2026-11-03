@@ -3,6 +3,7 @@ import { notFound } from "next/navigation"
 import { PublicNavbar } from "@/components/layouts/public-navbar"
 import Footer from "@/components/layouts/footer"
 import { getPublicOrg, ORG_HEADER } from "@/lib/tenant"
+import { resolveAvailableSections } from "@/lib/public-site"
 import { resolvePublicCta } from "@/lib/public-cta"
 import { resolvePublishGate } from "@/lib/publish-gate"
 import { MaintenanceScreen } from "@/components/public/maintenance-screen"
@@ -42,6 +43,10 @@ export default async function CustomerLayout({
             logo: org.logo,
           }}
           cta={null}
+          // P2 #46: ista pravila kot na domači strani — navigacija mora biti
+          // identična na VSAKIH javnih poteh (prej je /shop pokazal "Storitve",
+          // ki domača stran ni prikazala).
+          availableSections={await resolveAvailableSections(org.id, org)}
         />
         <CartOrgScope slug={org.slug} />
         <div className="bg-amber-100 text-amber-950 border-b border-amber-200 px-4 py-2 text-center text-sm font-medium dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
@@ -65,6 +70,9 @@ export default async function CustomerLayout({
           logo: org?.logo ?? null,
         }}
         cta={cta.enabled ? { label: cta.label, href: cta.href } : null}
+        availableSections={
+          org ? await resolveAvailableSections(org.id, org) : undefined
+        }
       />
       <CartOrgScope slug={org?.slug ?? null} />
       <main>{children}</main>

@@ -229,6 +229,7 @@ export default async function AdminDashboard() {
           dismissed={checklistDismissed}
           appointmentsCapable={profile.capabilities.appointments !== "disabled"}
           onlineBookingOptIn={onboardingAnswers.onlineBooking !== "no"}
+          ctaMode={profile.website.ctaMode}
           publicUrl={publicUrl}
           celebrated={checklistCelebrated}
           dict={t.dashboard.setupChecklist}

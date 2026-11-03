@@ -6,7 +6,7 @@ import { auth, unstable_update } from "@/lib/auth/auth"
 import { prisma } from "@/lib/prisma"
 import { isReservedSlug, isSlugAvailable, slugify } from "@/lib/tenant"
 import { PALETTES, seedOrganizationCatalog, verticalSiteContent, getVertical, presetStaffImage } from "@/lib/verticals"
-import { listProfileOptions } from "@/lib/profiles/registry"
+import { listProfileOptions, getProfile, isCapabilityEnabled } from "@/lib/profiles/registry"
 import { validateSecondaryVertical } from "@/lib/profiles/secondary"
 import { materializeProfileAssets } from "@/lib/profiles/materialize"
 import { PALETTE_OPTIONS } from "@/lib/palettes-client"
@@ -163,6 +163,13 @@ export async function createSalonOrganization(input: CreateSalonInput): Promise<
 
     const paletteOption = PALETTE_OPTIONS.find((p) => p.id === palette)
 
+    // P2 #47: profil, ki IZKLOPI osebje (npr. čebelarstvo), NE seje staff
+    // vrstice — prej je onboarding brezpogojno ustvaril lastnika kot osebje,
+    // javna stran pa prikazala sekcijo "Naša ekipa", ki je lastnik ne more
+    // urejati (dashboard nima staff vhoda). Profili z osebjem ostanejo
+    // nespremenjeni (lastnik = prvi član osebja).
+    const staffEnabled = isCapabilityEnabled(getProfile(profile.id), "staff")
+
     // --- Tenant creation ---
     // New tenants start UNPUBLISHED (EPIC #3 E3-1): the site is a private
     // owner preview until they publish it from Settings.
@@ -186,38 +193,42 @@ export async function createSalonOrganization(input: CreateSalonInput): Promise<
       if (linkUserId) {
         // #40 — obstoječ račun: povzdigni v lastnika + ustvari Staff profil.
         // Račun NIKOLI ne pobrišemo v čiščenju (je lastnost uporabnika).
-        const staffImage = presetStaffImage(profile.id)
-        const staff = await prisma.staff.create({
-          data: {
-            userId: linkUserId,
-            organizationId: org.id,
-            name: ownerName,
-            email,
-            isActive: true,
-            ...(staffImage ? { image: staffImage } : {}),
-            workingHours: {
-              create: [
-                { dayOfWeek: 1, startTime: "09:00", endTime: "18:00", isActive: true },
-                { dayOfWeek: 2, startTime: "09:00", endTime: "18:00", isActive: true },
-                { dayOfWeek: 3, startTime: "09:00", endTime: "18:00", isActive: true },
-                { dayOfWeek: 4, startTime: "09:00", endTime: "18:00", isActive: true },
-                { dayOfWeek: 5, startTime: "09:00", endTime: "18:00", isActive: true },
-                { dayOfWeek: 6, startTime: "09:00", endTime: "13:00", isActive: true },
-              ],
+        // P2 #47: staff vrstica se ustvari SAMO, ko profil omogoča osebje.
+        if (staffEnabled) {
+          const staffImage = presetStaffImage(profile.id)
+          const staff = await prisma.staff.create({
+            data: {
+              userId: linkUserId,
+              organizationId: org.id,
+              name: ownerName,
+              email,
+              isActive: true,
+              ...(staffImage ? { image: staffImage } : {}),
+              workingHours: {
+                create: [
+                  { dayOfWeek: 1, startTime: "09:00", endTime: "18:00", isActive: true },
+                  { dayOfWeek: 2, startTime: "09:00", endTime: "18:00", isActive: true },
+                  { dayOfWeek: 3, startTime: "09:00", endTime: "18:00", isActive: true },
+                  { dayOfWeek: 4, startTime: "09:00", endTime: "18:00", isActive: true },
+                  { dayOfWeek: 5, startTime: "09:00", endTime: "18:00", isActive: true },
+                  { dayOfWeek: 6, startTime: "09:00", endTime: "13:00", isActive: true },
+                ],
+              },
             },
-          },
-        })
+          })
+          staffId = staff.id
+        }
         await prisma.user.update({
           where: { id: linkUserId },
           data: { organizationId: org.id, role: "ADMIN" },
         })
-        staffId = staff.id
         // Seja dobi novo vlogo + organizacijo TAKOJ (brez ponovne prijave).
         // #40: payload gre kot user patch — jwt callback (trigger update) ga
         // prepiše v token.
         await unstable_update({ user: { role: "ADMIN", organizationId: org.id } })
       } else {
-        // Anonimen obiskovalec — nov lastniški račun s Staff profilom.
+        // Anonimen obiskovalec — nov lastniški račun (staff profil samo, ko
+        // profil omogoča osebje — P2 #47).
         const user = await prisma.user.create({
           data: {
             name: ownerName,
@@ -226,30 +237,34 @@ export async function createSalonOrganization(input: CreateSalonInput): Promise<
             role: "ADMIN",
             emailVerified: new Date(),
             organizationId: org.id,
-            staff: {
-              create: {
-                name: ownerName,
-                email,
-                isActive: true,
-                organizationId: org.id,
-                // Preset portrait for the activity (test/demo realism, EPIC #4
-                // visual pass). undefined -> Prisma leaves image null and the
-                // public staff card renders the initials fallback.
-                ...(presetStaffImage(profile.id)
-                  ? { image: presetStaffImage(profile.id) }
-                  : {}),
-                workingHours: {
-                  create: [
-                    { dayOfWeek: 1, startTime: "09:00", endTime: "18:00", isActive: true },
-                    { dayOfWeek: 2, startTime: "09:00", endTime: "18:00", isActive: true },
-                    { dayOfWeek: 3, startTime: "09:00", endTime: "18:00", isActive: true },
-                    { dayOfWeek: 4, startTime: "09:00", endTime: "18:00", isActive: true },
-                    { dayOfWeek: 5, startTime: "09:00", endTime: "18:00", isActive: true },
-                    { dayOfWeek: 6, startTime: "09:00", endTime: "13:00", isActive: true },
-                  ],
-                },
-              },
-            },
+            ...(staffEnabled
+              ? {
+                  staff: {
+                    create: {
+                      name: ownerName,
+                      email,
+                      isActive: true,
+                      organizationId: org.id,
+                      // Preset portrait for the activity (test/demo realism, EPIC #4
+                      // visual pass). undefined -> Prisma leaves image null and the
+                      // public staff card renders the initials fallback.
+                      ...(presetStaffImage(profile.id)
+                        ? { image: presetStaffImage(profile.id) }
+                        : {}),
+                      workingHours: {
+                        create: [
+                          { dayOfWeek: 1, startTime: "09:00", endTime: "18:00", isActive: true },
+                          { dayOfWeek: 2, startTime: "09:00", endTime: "18:00", isActive: true },
+                          { dayOfWeek: 3, startTime: "09:00", endTime: "18:00", isActive: true },
+                          { dayOfWeek: 4, startTime: "09:00", endTime: "18:00", isActive: true },
+                          { dayOfWeek: 5, startTime: "09:00", endTime: "18:00", isActive: true },
+                          { dayOfWeek: 6, startTime: "09:00", endTime: "13:00", isActive: true },
+                        ],
+                      },
+                    },
+                  },
+                }
+              : {}),
           },
           include: { staff: { select: { id: true } } },
         })

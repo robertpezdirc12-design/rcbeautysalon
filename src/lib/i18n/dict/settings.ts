@@ -426,6 +426,10 @@ export const settingsSl = {
       "Povezava do .mp4 ali .webm videa — če je izpolnjena, se predvaja namesto slike.",
     cta1Label: "Gumb 1 — besedilo",
     ctaBookingHint: "Gumb vodi na rezervacijo (/booking).",
+    // P3 #49: namig sledi načinu CTA profila — prodajni profil vodi v
+    // trgovino, povpraševalni na obrazec (prej statično "rezervacija").
+    ctaOrderHint: "Gumb vodi na trgovino (/shop).",
+    ctaInquiryHint: "Gumb vodi na povpraševanje (/inquiry).",
     cta2Label: "Gumb 2 — besedilo",
     ctaShopHint: "Gumb vodi na trgovino (/shop). Prazno = skrit.",
     about: {
@@ -977,6 +981,9 @@ export const settingsEn: SettingsDict = {
       "Link to an .mp4 or .webm video — if filled in, it plays instead of the image.",
     cta1Label: "Button 1 — text",
     ctaBookingHint: "The button links to booking (/booking).",
+    // P3 #49: hint follows the profile's CTA mode.
+    ctaOrderHint: "The button links to the shop (/shop).",
+    ctaInquiryHint: "The button links to the inquiry form (/inquiry).",
     cta2Label: "Button 2 — text",
     ctaShopHint: "The button links to the shop (/shop). Empty = hidden.",
     about: {

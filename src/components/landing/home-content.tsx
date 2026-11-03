@@ -67,6 +67,9 @@ interface HomeContentProps {
   servicesTotal?: number
   featuredProducts: Product[]
   featuredStaff: Staff[]
+  /** P2 #47: profil z izklopljenim osebjem ne prikaže sekcije ekipe —
+   * niti za obstoječe najemnike z zapuščeno staff vrstico (brez migracije). */
+  staffEnabled?: boolean
   /** Real moderated reviews for the tenant — section renders only when non-empty. */
   testimonials?: LandingTestimonial[]
   /** True when the tenant's website CTA is real booking (not inquiry/quote)
@@ -92,6 +95,7 @@ export function HomeContent({
   servicesTotal = 0,
   featuredProducts,
   featuredStaff,
+  staffEnabled = true,
   testimonials = [],
   bookingEnabled = false,
   hasServices,
@@ -319,8 +323,10 @@ export function HomeContent({
         </SectionWrapper>
       ),
 
-    // Our Team
-    team: (
+    // Our Team — P2 #47: prikazan SAMO, ko profil omogoča osebje IN ko
+    // obstaja vsak en član (prej je prazna/izklopljena ekipa izrisala
+    // naslov in gumb brez vsebine, ki je lastnik ne more urejati).
+    team: !staffEnabled || featuredStaff.length === 0 ? null : (
         <SectionWrapper id="team" className="border-primary/30 border-t py-16">
           <div className="container mx-auto px-4">
             <div className="mb-12 text-center">

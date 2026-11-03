@@ -6,10 +6,10 @@ export const usersSl = {
   titleAccent: "strank",
   subtitle: "Upravljajte svojo bazo strank",
   stats: {
-    totalUsers: "Skupno število uporabnikov",
+    totalCustomersLabel: "Skupno število strank",
     activeSessions: "Aktivne seje",
     newThisMonth: "Novih ta mesec",
-    registeredCustomers: "Registrirane stranke",
+    leadsWithoutAccount: "Stranke brez računa",
   },
   allUsersTitle: "Vsi uporabniki",
   allUsersDesc: "Seznam vseh registriranih uporabnikov",
@@ -25,6 +25,18 @@ export const usersSl = {
   },
   noName: "Brez imena",
   altUser: "Uporabnik",
+  // P2 #48: linke iz javnih obrazcev (Customer brez računa)
+  leads: {
+    title: "Stranke brez računa",
+    desc: "Linke iz javnih obrazcev — stranke, ki še nimajo računa.",
+    badge: "Brez računa",
+    empty: "Ni strank brez računa — vsi vaši linki imajo račun.",
+    table: {
+      customer: "Stranka",
+      submissions: "Oddaje",
+    },
+    viewSubmissions: "Poglej oddaje",
+  },
   searchPlaceholder: "Išči po imenu, e-pošti …",
   filter: "Filter",
   exportList: "Izvozi seznam",
@@ -166,10 +178,10 @@ export const usersEn: UsersDict = {
   titleAccent: "Customers",
   subtitle: "Manage your customer database",
   stats: {
-    totalUsers: "Total Users",
+    totalCustomersLabel: "Total Customers",
     activeSessions: "Active Sessions",
     newThisMonth: "New This Month",
-    registeredCustomers: "Registered Customers",
+    leadsWithoutAccount: "Customers Without Account",
   },
   allUsersTitle: "All Users",
   allUsersDesc: "A list of all registered users",
@@ -185,6 +197,18 @@ export const usersEn: UsersDict = {
   },
   noName: "No name",
   altUser: "User",
+  // P2 #48: leads from public forms (Customer without a user account)
+  leads: {
+    title: "Customers without account",
+    desc: "Leads from public forms — customers who don't have an account yet.",
+    badge: "No account",
+    empty: "No customers without an account — every lead has one.",
+    table: {
+      customer: "Customer",
+      submissions: "Submissions",
+    },
+    viewSubmissions: "View submissions",
+  },
   searchPlaceholder: "Search by name, email...",
   filter: "Filter",
   exportList: "Export List",

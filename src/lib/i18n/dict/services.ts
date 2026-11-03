@@ -70,6 +70,13 @@ export const servicesSl = {
   priceLabel: "Cena (€) *",
   categoryLabel: "Kategorija",
   categoryPlaceholder: "Izberite kategorijo",
+  // P3 #52: prazno stanje izbirnika — razlaga + pot do prve kategorije
+  noCategories: "Ni kategorij. Ustvarite prvo, da lahko razvrstite storitve.",
+  createCategory: "Ustvari kategorijo",
+  newCategoryLabel: "Ime nove kategorije",
+  newCategoryPlaceholder: "npr. Nega las",
+  categoryCreated: "Kategorija ustvarjena",
+  categoryCreateFailed: "Ustvarjanje kategorije ni uspelo",
 
   // Obrazec: kartica slike
   imageTitle: "Slika storitve",
@@ -164,6 +171,13 @@ export const servicesEn: ServicesDict = {
   priceLabel: "Price (€) *",
   categoryLabel: "Category",
   categoryPlaceholder: "Select a category",
+  // P3 #52: empty state of the picker — explanation + path to the first one
+  noCategories: "No categories yet. Create the first one to classify services.",
+  createCategory: "Create category",
+  newCategoryLabel: "New category name",
+  newCategoryPlaceholder: "e.g. Hair care",
+  categoryCreated: "Category created",
+  categoryCreateFailed: "Creating the category failed",
 
   // Form: image card
   imageTitle: "Service Image",

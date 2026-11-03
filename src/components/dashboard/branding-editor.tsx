@@ -74,7 +74,7 @@ import {
 } from "@/lib/site-content"
 import { uploadImage } from "@/lib/upload-client"
 import { PALETTE_OPTIONS } from "@/lib/palettes-client"
-import { listProfileOptions } from "@/lib/profiles/registry"
+import { listProfileOptions, getProfile } from "@/lib/profiles/registry"
 import { cn } from "@/lib/utils"
 import { useI18n } from "@/lib/i18n/provider"
 
@@ -409,6 +409,16 @@ export function BrandingEditor() {
   const [vertical, setVertical] = useState("")
   const [reseed, setReseed] = useState(false)
   const [savingVertical, setSavingVertical] = useState(false)
+
+  // P3 #49: namig hero/CTA gumba sledi načinu CTA profila — prodajni
+  // profil vodi v trgovino, povpraševalni na obrazec (prej je namig
+  // VEDNO obljubljal rezervacijo (/booking), tudi čebelarju).
+  const primaryCtaHint = (() => {
+    const mode = getProfile(vertical || null).website.ctaMode
+    if (mode === "order") return b.ctaOrderHint
+    if (mode === "inquiry" || mode === "quote") return b.ctaInquiryHint
+    return b.ctaBookingHint
+  })()
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -920,7 +930,7 @@ export function BrandingEditor() {
           </Field>
           <Separator />
           <div className="grid gap-4 md:grid-cols-2">
-            <Field label={b.cta1Label} htmlFor="hero-cta1" hint={b.ctaBookingHint}>
+            <Field label={b.cta1Label} htmlFor="hero-cta1" hint={primaryCtaHint}>
               <Input
                 id="hero-cta1"
                 value={content.hero.primaryCta.label}
@@ -1141,7 +1151,7 @@ export function BrandingEditor() {
           <Field
             label={b.labels.buttonText}
             htmlFor="cta-button"
-            hint={b.ctaBookingHint}
+            hint={primaryCtaHint}
           >
             <Input
               id="cta-button"

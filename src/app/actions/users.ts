@@ -15,6 +15,7 @@ import {
 } from "@/lib/permissions/guard-rules"
 import { hasAllPermissions } from "@/lib/permissions/roles"
 import { getEffectivePermissions } from "@/lib/permissions/effective"
+import { buildLeadSearchWhere } from "@/lib/customers/leads"
 
 type UserRole = "ADMIN" | "STAFF" | "CLIENTE"
 
@@ -65,6 +66,9 @@ export async function getAdminUsers(search?: string) {
 }
 
 // Admin: Get user statistics
+// P2 #48: števec odraža STRANKE (Customer vrstice), ne samo registrirane
+// račune — javni obrazci ustvarjajo linke brez računa, ki jih je seznam
+// uporabnikov prej utišano izpuščal.
 export async function getUserStats() {
   const { org } = await requirePermissionOrg("customers.manage")
 
@@ -75,7 +79,7 @@ export async function getUserStats() {
     OR: [{ organizationId: org.id }, { customer: { organizationId: org.id } }],
   }
 
-  const [totalUsers, activeThisMonth, newThisMonth, totalCustomers] =
+  const [totalUsers, activeThisMonth, newThisMonth, totalCustomers, leadsWithoutAccount] =
     await Promise.all([
       prisma.user.count({ where: orgMembership }),
       prisma.user.count({
@@ -92,18 +96,44 @@ export async function getUserStats() {
           ],
         },
       }),
-      prisma.user.count({
-        where: {
-          AND: [
-            orgMembership,
-            { createdAt: { gte: startOfMonth } },
-          ],
-        },
+      // P2 #48: "novih ta mesec" šteje stranke (baza strank), ne račune.
+      prisma.customer.count({
+        where: { organizationId: org.id, createdAt: { gte: startOfMonth } },
       }),
       prisma.customer.count({ where: { organizationId: org.id } }),
+      prisma.customer.count({
+        where: { organizationId: org.id, user: null },
+      }),
     ])
 
-  return { totalUsers, activeThisMonth, newThisMonth, totalCustomers }
+  return {
+    totalUsers,
+    activeThisMonth,
+    newThisMonth,
+    totalCustomers,
+    leadsWithoutAccount,
+  }
+}
+
+// Admin: Get customers WITHOUT a user account (P2 #48) — public form
+// submissions create these leads; they must be visible in the customer
+// list, searchable by name, email and phone.
+export async function getCustomerLeads(search?: string) {
+  const { org } = await requirePermissionOrg("customers.manage")
+
+  return prisma.customer.findMany({
+    where: buildLeadSearchWhere(org.id, search),
+    include: {
+      _count: {
+        select: {
+          appointments: true,
+          orders: true,
+          formSubmissions: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  })
 }
 
 // Admin: Get user by ID with full details

@@ -35,6 +35,9 @@ export default async function HomePage() {
   const bookingEnabled =
     profile.website.ctaMode === "booking" &&
     profile.capabilities.appointments !== "disabled"
+  // P2 #47: profil z izklopljenim osebjem ne izrisuje sekcije ekipe —
+  // tudi ko zapuščena staff vrstica še obstaja v bazi (brez migracije).
+  const staffEnabled = profile.capabilities.staff !== "disabled"
   const [featuredServices, featuredProducts, featuredStaff, testimonials, servicesTotal] = await Promise.all([
     getPublicFeaturedServices(org.id),
     getPublicFeaturedProducts(org.id),
@@ -61,6 +64,7 @@ export default async function HomePage() {
       servicesTotal={servicesTotal}
       featuredProducts={featuredProducts}
       featuredStaff={featuredStaff}
+      staffEnabled={staffEnabled}
       testimonials={testimonials}
       bookingEnabled={bookingEnabled}
       // Sections render only when their featured grid will have content —

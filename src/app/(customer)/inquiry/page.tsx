@@ -18,10 +18,12 @@ import { PublicInquiryForm } from "@/components/public/public-inquiry-form"
 
 // P1 #26: samo-referencirajoč canonical (prej je /inquiry podedoval
 // canonical korena najemnika).
+// P3 #50: naslov vsebuje IME najemnika — dosledno z ostalimi javnimi
+// potmi (zavihki, zaznamki in deljenje povezav brez dvoumnosti).
 export async function generateMetadata(): Promise<Metadata> {
   const org = await getResolvedOrg()
   return canonicalMetadata(org?.slug, "/inquiry", {
-    title: "Povpraševanje",
+    title: `Povpraševanje | ${org?.name ?? "Salon"}`,
     description: "Izpolnite obrazec in odgovorimo v najkrajšem možnem času.",
   })
 }

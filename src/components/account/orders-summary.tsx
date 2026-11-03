@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { ReceiptIcon, StorefrontIcon } from "@/components/icons"
 import { useFormatPrice } from "@/lib/currency"
+import { useOrgPrefix } from "@/lib/org-path-hooks"
 
 interface OrdersSummaryProps {
   stats: {
@@ -23,6 +24,9 @@ interface OrdersSummaryProps {
 
 export function OrdersSummary({ stats }: OrdersSummaryProps) {
   const fmt = useFormatPrice()
+  // P1 #45: najemniški prefiks — goli "/shop" bi stranko poslal v trgovino
+  // PRIVZETEGA najemnika (isti razred napake kot v košarici).
+  const orgPrefix = useOrgPrefix()
 
   return (
     <Card>
@@ -58,12 +62,12 @@ export function OrdersSummary({ stats }: OrdersSummaryProps) {
         </div>
 
         <div className="mt-4 flex flex-col gap-2">
-          <Link href="/my-orders">
+          <Link href={`${orgPrefix}/my-orders`}>
             <Button variant="outline" className="w-full">
               Prikaži vsa naročila
             </Button>
           </Link>
-          <Link href="/shop">
+          <Link href={`${orgPrefix}/shop`}>
             <Button className="w-full">
               <StorefrontIcon size={16} className="mr-2" />
               Obišči trgovino

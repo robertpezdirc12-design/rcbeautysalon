@@ -167,9 +167,9 @@ const Footer = async () => {
 
           {/* Quick Links */}
           <div className="space-y-4">
-            <h3 className="font-heading text-2xl tracking-tight md:text-3xl">
+            <h2 className="font-heading text-2xl tracking-tight md:text-3xl">
               Hitre povezave
-            </h3>
+            </h2>
             <ul className="space-y-3 text-sm">
               {quickLinks.map((link) => (
                 <li key={link.href}>
@@ -189,9 +189,9 @@ const Footer = async () => {
 
           {/* Contact Info */}
           <div className="space-y-4">
-            <h3 className="font-heading text-2xl tracking-tight md:text-3xl">
+            <h2 className="font-heading text-2xl tracking-tight md:text-3xl">
               Kontakt
-            </h3>
+            </h2>
             <ul className="space-y-3 text-sm">
               {(config?.address || config?.city) && (
                 <li className="text-muted-foreground flex items-start gap-3">
@@ -278,9 +278,9 @@ const Footer = async () => {
 
           {/* Business Hours */}
           <div className="space-y-4">
-            <h3 className="font-heading text-2xl tracking-tight md:text-3xl">
+            <h2 className="font-heading text-2xl tracking-tight md:text-3xl">
               Delovni čas
-            </h3>
+            </h2>
             <ul className="text-muted-foreground space-y-2 text-sm">
               {openingHours.map((item) => (
                 <li key={item.day} className="flex items-center justify-between">

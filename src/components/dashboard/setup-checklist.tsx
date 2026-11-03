@@ -41,6 +41,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { GuidedEntryDialog } from "@/components/dashboard/guided-entry"
 import { PROFILE_ICONS } from "@/lib/profiles/profile-icons"
 import type { SetupStep, SetupStepKey } from "@/lib/profiles/setup-checklist"
+import { publishCopyKey } from "@/lib/profiles/setup-checklist"
 import type { DashboardDict } from "@/lib/i18n/dict/dashboard"
 import type { SettingsDict } from "@/lib/i18n/dict/settings"
 import {
@@ -68,6 +69,8 @@ export interface SetupChecklistCardProps {
    * published page still makes them findable).
    */
   onlineBookingOptIn: boolean
+  /** P3 #49: effective CTA mode — publish copy matches the profile. */
+  ctaMode: "booking" | "order" | "inquiry" | "quote"
   /** Public booking URL — powers the growth next-steps after activation. */
   publicUrl: string | null
   /** The completion celebration already fired once (persisted). */
@@ -88,6 +91,7 @@ export function SetupChecklistCard({
   dismissed,
   appointmentsCapable,
   onlineBookingOptIn,
+  ctaMode,
   publicUrl,
   celebrated,
   dict,
@@ -174,7 +178,12 @@ export function SetupChecklistCard({
     if (key === "firstJob" && !appointmentsCapable) return dict.steps.firstJobOrder.description
     // P2: owner declined 24/7 online bookings — do not promise bookings
     // in the publish step copy.
-    if (key === "publish" && !onlineBookingOptIn) return dict.steps.publishNoBooking.description
+    // P3 #49: the copy follows the profile's CTA mode (order → naročila,
+    // inquiry → povpraševanja) — a beekeeper never reads "rezervacije".
+    if (key === "publish") {
+      const copyKey = publishCopyKey(ctaMode, onlineBookingOptIn)
+      if (copyKey !== "publish") return dict.steps[copyKey].description
+    }
     return dict.steps[key].description
   }
   const stepCta = (key: SetupStepKey) => {

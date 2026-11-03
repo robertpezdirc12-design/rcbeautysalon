@@ -169,6 +169,73 @@ export function buildTenantJsonLd({
   }
 }
 
+/**
+ * P3 #50: JSON-LD Product/Offer za stran izdelka — cena, razpoložljivost
+ * in SKU so točno tisto, kar Google uporablja za Product rich results.
+ * Prej je stran izdelka izpisala SAMO najemniški LocalBusiness blok.
+ *
+ * `availability` se izpelje iz stockQuantity (> 0 → InStock); valuta je
+ * privzeto EUR (platformni privzetek, enako kot formatCurrency).
+ * Vrne null za ne-indeksirane najemnike (skriti/draft najemniki ne
+ * smejo peči strukturnih podatkov v predogledu).
+ */
+export interface ProductJsonLdInput {
+  id: string
+  name: string
+  description?: string | null
+  sku?: string | null
+  price: number
+  compareAtPrice?: number | null
+  images?: string[] | null
+  stockQuantity: number
+}
+
+export function buildProductJsonLd({
+  org,
+  product,
+  appUrl,
+  indexable,
+  currency = "EUR",
+}: {
+  org: { name: string; slug: string }
+  product: ProductJsonLdInput
+  appUrl: string
+  indexable: boolean
+  currency?: string
+}): Record<string, unknown> | null {
+  if (!indexable) return null
+
+  const productUrl = `${appUrl}/s/${org.slug}/shop/${product.id}`
+  const image = product.images?.[0]
+    ? [absoluteMediaUrl(product.images[0], appUrl) ?? undefined].filter(
+        (u): u is string => !!u
+      )
+    : undefined
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.name,
+    ...(product.description ? { description: product.description } : {}),
+    ...(product.sku ? { sku: product.sku } : {}),
+    ...(image && image.length > 0 ? { image } : {}),
+    brand: { "@type": "Brand", name: org.name },
+    offers: {
+      "@type": "Offer",
+      url: productUrl,
+      // Decimal vrednost kot string z dvema decimalkama (pričakovan zapis).
+      // compareAtPrice se NE vgrajuje — Product/Offer nima zanesljivega
+      // "prej/potem" polja, blagovna akcija pa je vidna na strani sama.
+      price: product.price.toFixed(2),
+      priceCurrency: currency,
+      availability:
+        product.stockQuantity > 0
+          ? "https://schema.org/InStock"
+          : "https://schema.org/OutOfStock",
+    },
+  }
+}
+
 export function buildTenantMetadata({
   org,
   content,

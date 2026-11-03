@@ -11,8 +11,12 @@ import {
 import { Button } from "@/components/ui/button"
 import { CalendarIcon } from "@/components/icons/calendar-icon"
 import { AppointmentsSummaryProps } from "@/lib/interfaces"
+import { useOrgPrefix } from "@/lib/org-path-hooks"
 
 export function AppointmentsSummary({ stats }: AppointmentsSummaryProps) {
+  // P1 #45: najemniški prefiks — goli "/services" bi stranko poslal k
+  // PRIVZETEMU najemniku (isti razred napake kot v košarici).
+  const orgPrefix = useOrgPrefix()
   return (
     <Card>
       <CardHeader>
@@ -45,12 +49,12 @@ export function AppointmentsSummary({ stats }: AppointmentsSummaryProps) {
         </div>
 
         <div className="mt-4 flex flex-col gap-2">
-          <Link href="/my-appointments">
+          <Link href={`${orgPrefix}/my-appointments`}>
             <Button variant="outline" className="w-full">
               Prikaži vse termine
             </Button>
           </Link>
-          <Link href="/services">
+          <Link href={`${orgPrefix}/services`}>
             <Button className="w-full">
               <CalendarIcon size={16} className="mr-2" />
               Rezerviraj nov termin

@@ -157,3 +157,36 @@ export function parseSetupChecklistUi(value: unknown): SetupChecklistUi {
   if (typeof obj.celebratedAt === "string") ui.celebratedAt = obj.celebratedAt
   return ui
 }
+
+// ============================================================
+// P3 #49 — PUBLISH STEP COPY BY CTA MODE
+// The publish step must promise what the tenant's site actually does:
+//   booking profile (and owner opted in)  → "odprta za rezervacije"
+//   booking profile, owner declined 24/7  → publishNoBooking wording
+//   order profile (e.g. beekeeping)       → "odprta za naročila"
+//   inquiry profile (e.g. seamstress)     → "pripravljena na povpraševanja"
+// Pure + client-safe — the checklist component picks the dict entry
+// with this key so the copy can never drift from the capability.
+// ============================================================
+
+export type PublishCopyKey =
+  | "publish"
+  | "publishNoBooking"
+  | "publishOrder"
+  | "publishInquiry"
+
+export function publishCopyKey(
+  ctaMode: "booking" | "order" | "inquiry" | "quote",
+  onlineBookingOptIn: boolean
+): PublishCopyKey {
+  switch (ctaMode) {
+    case "order":
+      return "publishOrder"
+    case "inquiry":
+    case "quote":
+      return "publishInquiry"
+    case "booking":
+    default:
+      return onlineBookingOptIn ? "publish" : "publishNoBooking"
+  }
+}
