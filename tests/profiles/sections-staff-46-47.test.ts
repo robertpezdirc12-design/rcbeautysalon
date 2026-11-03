@@ -103,6 +103,9 @@ describe("#49 — publish step copy follows the CTA mode", () => {
       expect(steps.publishInquiry.description).toBeTruthy()
       expect(steps.publishOrder.description).not.toBe(steps.publish.description)
       expect(steps.publishOrder.description).not.toContain("rezervacij")
+      // P3 #49 "same family": customers copy has a non-booking variant
+      expect(steps.customersOrder.description).not.toContain("terminov")
+      expect(steps.customersOrder.hint).not.toContain("rezervacij")
     }
   })
 })

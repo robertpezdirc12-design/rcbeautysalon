@@ -176,6 +176,8 @@ export function SetupChecklistCard({
   }
   const stepDescription = (key: SetupStepKey) => {
     if (key === "firstJob" && !appointmentsCapable) return dict.steps.firstJobOrder.description
+    // P3 #49: strank copy brez "terminov" za profile brez rezervacij.
+    if (key === "customers" && !appointmentsCapable) return dict.steps.customersOrder.description
     // P2: owner declined 24/7 online bookings — do not promise bookings
     // in the publish step copy.
     // P3 #49: the copy follows the profile's CTA mode (order → naročila,
@@ -192,6 +194,8 @@ export function SetupChecklistCard({
   }
   const stepHint = (key: SetupStepKey) => {
     if (key === "firstJob" && !appointmentsCapable) return dict.steps.firstJobOrder.hint
+    // P3 #49: brez "ob prvi rezervaciji" za profile brez rezervacij.
+    if (key === "customers" && !appointmentsCapable) return dict.steps.customersOrder.hint
     return dict.steps[key].hint
   }
 

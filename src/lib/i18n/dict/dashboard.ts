@@ -109,6 +109,14 @@ export const dashboardSl = {
         cta: "Dodaj stranko",
         hint: "Stranko dodate ročno ali pa se ob prvi rezervaciji ustvari sama.",
       },
+      // P3 #49: profil brez rezervacij ne obljublja "terminov"/
+      // "rezervacije" — linke pridejo iz povpraševanj in naročil.
+      customersOrder: {
+        label: "Dodajte prvo stranko",
+        description: "Stranke so osnova naročil, povpraševanj in sporočanja.",
+        cta: "Dodaj stranko",
+        hint: "Stranko dodate ročno ali pa jo ustvari prvo povpraševanje ali naročilo.",
+      },
       publish: {
         label: "Objavite svojo stran",
         description: "Objavljena stran je vidna strankam in odprta za rezervacije.",
@@ -251,6 +259,13 @@ export const dashboardEn: DashboardDict = {
         description: "Customers are the basis of bookings, orders and messaging.",
         cta: "Add customer",
         hint: "Add a customer manually, or one is created at the first booking.",
+      },
+      // P3 #49: non-booking profiles get orders/inquiries wording.
+      customersOrder: {
+        label: "Add your first customer",
+        description: "Customers are the basis of orders, inquiries and messaging.",
+        cta: "Add customer",
+        hint: "Add a customer manually, or one is created at the first inquiry or order.",
       },
       publish: {
         label: "Publish your page",
