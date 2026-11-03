@@ -83,7 +83,7 @@ export function BookingForm(props: BookingFormProps) {
     setValue,
     setError,
     clearErrors,
-    trigger,
+    getValues,
     formState: { errors },
   } = useForm<BookingFormValues>({
     mode: "onChange",
@@ -110,12 +110,30 @@ export function BookingForm(props: BookingFormProps) {
     phone: useWatch({ control, name: "phone" }) ?? "",
     notes: useWatch({ control, name: "notes" }) ?? "",
   }
+  // P1 #9 (audit-2026-11): inline validation for the controlled customer
+  // fields. These inputs are intentionally unregistered (React 19 action
+  // reset workaround), so RHF's `trigger()` is a no-op for them — the
+  // single-field check runs the SAME zod schema slice the server uses.
+  type CustomerField = "firstName" | "lastName" | "email" | "phone"
+  const validateCustomerField = (field: CustomerField) => {
+    const slice = schema.pick({ [field]: true } as { [k: string]: true })
+    const result = slice.safeParse({ [field]: getValues(field) })
+    if (result.success) {
+      clearErrors(field)
+    } else {
+      const message = result.error.issues[0]?.message
+      if (message) setError(field, { type: "validation", message })
+    }
+  }
   const setCustomerField = (
     field: keyof typeof customerValues,
     value: string
   ) => {
     setValue(field, value)
-    clearErrors(field)
+    // Don't nag while typing: only re-validate a field that already shows
+    // an error, so it clears the moment the value becomes valid. The old
+    // unconditional clearErrors() also wiped blur/submit errors.
+    if (errors[field]) validateCustomerField(field as CustomerField)
   }
 
   // Handle service selection in staff-first mode
@@ -376,8 +394,9 @@ export function BookingForm(props: BookingFormProps) {
             errors={errors}
             isAuthenticated={isAuthenticated}
             // P1 #9 (audit-2026-11): inline validation on blur, same zod
-            // schema as the server action.
-            onBlurField={(field) => trigger(field)}
+            // schema as the server action (explicit single-field check —
+            // RHF trigger() skips unregistered fields).
+            onBlurField={validateCustomerField}
           />
         </div>
 
