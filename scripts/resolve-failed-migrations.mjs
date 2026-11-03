@@ -60,7 +60,10 @@ for (const name of RESOLVABLE) {
   END IF;
 END $$;`
 
-  const probe = prisma(["db", "execute", "--stdin"], { allowFailure: true, input: probeSql })
+  const probe = prisma(
+    ["db", "execute", "--stdin", "--schema", "prisma/schema.prisma"],
+    { allowFailure: true, input: probeSql }
+  )
   const probeOutput = `${probe.stdout || ""}${probe.stderr || ""}`
 
   if (!probeOutput.includes("FAILED_MIGRATION_PRESENT")) {
@@ -74,6 +77,6 @@ END $$;`
   }
 
   console.log(`resolve-guard: ${name} is FAILED — marking rolled back for retry…`)
-  prisma(["migrate", "resolve", "--rolled-back", name])
+  prisma(["migrate", "resolve", "--rolled-back", name, "--schema", "prisma/schema.prisma"])
   console.log(`resolve-guard: ${name} rolled back; migrate deploy will retry it (idempotent SQL).`)
 }
