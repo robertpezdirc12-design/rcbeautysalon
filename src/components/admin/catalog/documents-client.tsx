@@ -44,6 +44,7 @@ import {
   type DocumentType,
 } from "@/app/actions/documents"
 import type { CatalogDocsDict } from "@/lib/i18n/dict/catalog-docs"
+import { formatCurrency } from "@/lib/utils/format"
 
 // ============================================================
 // DOCUMENTS MANAGER (client) — §13 quotes + invoices.
@@ -91,7 +92,8 @@ const invoiceStatusColors: Record<string, string> = {
 }
 
 function money(n: number): string {
-  return `€${n.toFixed(2)}`
+  // P1 #7 (walkthrough): enoten format valute — "79,02 €", ne "€79.02"
+  return formatCurrency(n)
 }
 
 function formatDate(iso: string | null): string {

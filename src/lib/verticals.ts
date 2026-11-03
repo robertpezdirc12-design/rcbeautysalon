@@ -43,7 +43,7 @@ export const FONT_CSS_VARS: Record<FontKey, string> = {
 }
 
 export const FONT_LABELS: Record<FontKey, string> = {
-  rouge: "Rouge Script (rokovpis)",
+  rouge: "Great Vibes (rokovpis)",
   poppins: "Poppins (sodobno)",
   playfair: "Playfair Display (eleganca)",
   cormorant: "Cormorant (romantično)",

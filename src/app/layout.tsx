@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { Rouge_Script, Poppins, Playfair_Display, Cormorant_Garamond, Oswald, Montserrat, Inter, Lora } from "next/font/google"
+import { Great_Vibes, Poppins, Playfair_Display, Cormorant_Garamond, Oswald, Montserrat, Inter, Lora } from "next/font/google"
 import { SessionProvider } from "@/components/providers/session-provider"
 import { ThemeProvider } from "@/components/providers/theme-provider"
 import { CartProvider } from "@/components/providers/cart-provider"
@@ -24,9 +24,12 @@ import {
 import { getLocaleFromCookies } from "@/lib/i18n/server"
 import type { Organization } from "@prisma/client"
 
-const rougeScript = Rouge_Script({
+// P0 #1 (walkthrough): Rouge Script NIMA latin-ext subseta (šumniki š/č/ž so
+// padali v fallback pisavo) → Great Vibes, ki ima polno latin-ext podporo.
+// CSS spremenljivka ostane --font-rouge-script (FontKey "rouge" je v DB).
+const rougeScript = Great_Vibes({
   variable: "--font-rouge-script",
-  subsets: ["latin"],
+  subsets: ["latin", "latin-ext"],
   weight: ["400"],
   display: "swap",
 })

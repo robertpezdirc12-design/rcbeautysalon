@@ -10,6 +10,7 @@ export const analyticsSl = {
     enquiries: "Povpraševanja",
     vsLastPeriod: "v primerjavi s prejšnjim obdobjem",
     noEnquiryData: "Ni povpraševanj v tem obdobju",
+    noPreviousData: "Ni prejšnjih podatkov",
   },
   period: {
     label: "Obdobje",
@@ -84,6 +85,7 @@ export const analyticsEn: AnalyticsDict = {
     enquiries: "Enquiries",
     vsLastPeriod: "vs last period",
     noEnquiryData: "No enquiries in this period",
+    noPreviousData: "No previous data",
   },
   period: {
     label: "Period",

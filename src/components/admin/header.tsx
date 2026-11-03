@@ -27,7 +27,9 @@ import { MobileSidebar } from "./sidebar"
 import { LanguageSwitcher } from "./language-switcher"
 import { useI18n } from "@/lib/i18n/provider"
 
-export function AdminHeader() {
+export function AdminHeader({ orgSlug }: { orgSlug?: string | null }) {
+  // Javna stran lastnega salona (/s/{slug}) — ne platformni landing (P0 #2 walkthrough).
+  const publicSiteHref = orgSlug ? `/s/${orgSlug}` : "/"
   const router = useRouter()
   const { data: session } = useSession()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -92,7 +94,7 @@ export function AdminHeader() {
               className="hidden gap-2 sm:flex"
               asChild
             >
-              <Link href="/" target="_blank">
+              <Link href={publicSiteHref} target="_blank">
                 <HouseIcon size={16} />
                 <span className="hidden md:inline">{t.common.header.visitSite}</span>
               </Link>
@@ -145,7 +147,7 @@ export function AdminHeader() {
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                      <Link href="/">
+                      <Link href={publicSiteHref}>
                         <HouseIcon size={16} className="mr-2" />
                         {t.common.header.viewAsClient}
                       </Link>

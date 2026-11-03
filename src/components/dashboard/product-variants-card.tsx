@@ -31,6 +31,7 @@ import {
   type VariantItem,
 } from "@/app/actions/catalog"
 import type { CatalogDocsDict } from "@/lib/i18n/dict/catalog-docs"
+import { formatCurrency } from "@/lib/utils/format"
 
 // ============================================================
 // PRODUCT VARIANTS CARD (client) — §11 universal catalog.
@@ -193,7 +194,7 @@ export function ProductVariantsCard({
                     )}
                   </div>
                   <div className="text-muted-foreground mt-0.5 text-xs">
-                    {v.price !== null ? `€${v.price.toFixed(2)}` : labels.priceInherits}
+                    {v.price !== null ? formatCurrency(v.price) : labels.priceInherits}
                     {v.trackInventory && (
                       <>
                         {" · "}

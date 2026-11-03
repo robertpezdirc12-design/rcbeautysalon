@@ -7,12 +7,14 @@ export interface KPIData {
   totalCustomers: number
   // Form submissions (enquiries/quote requests) — E4-2a
   totalEnquiries: number
-  // Comparisons with previous period (percentage change)
-  revenueChange: number
-  appointmentsChange: number
-  ordersChange: number
-  customersChange: number
-  enquiriesChange: number
+  // Comparisons with previous period (percentage change).
+  // null = ni prejšnjega obdobja z podatki (P1 #5) — UI pokaže
+  // "Ni prejšnjih podatkov" namesto izmišljenega +100 %.
+  revenueChange: number | null
+  appointmentsChange: number | null
+  ordersChange: number | null
+  customersChange: number | null
+  enquiriesChange: number | null
 }
 
 export interface RevenueDataPoint {

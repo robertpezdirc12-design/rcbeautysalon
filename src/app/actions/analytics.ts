@@ -26,6 +26,7 @@ import {
   endOfWeek,
   endOfMonth,
 } from "date-fns"
+import { sl } from "date-fns/locale"
 
 // Helper function to get date ranges based on period type
 function getAnalyticsPeriod(period: PeriodType): AnalyticsPeriod {
@@ -66,9 +67,11 @@ function getAnalyticsPeriod(period: PeriodType): AnalyticsPeriod {
   return { startDate, endDate, previousStartDate, previousEndDate }
 }
 
-// Helper para calcular % de cambio
-function calculateChange(current: number, previous: number): number {
-  if (previous === 0) return current > 0 ? 100 : 0
+// Helper para calcular % de cambio.
+// P1 #5 (walkthrough): previous === 0 → null ("Ni prejšnjih podatkov"),
+// NIKOLI izmišljen +100 % (0 → 512,79 € ni +100 %).
+function calculateChange(current: number, previous: number): number | null {
+  if (previous === 0) return null
   return Math.round(((current - previous) / previous) * 100 * 10) / 10
 }
 
@@ -259,13 +262,14 @@ export async function getRevenueChartData(period: PeriodType = "30d"): Promise<R
 
   if (period === "7d" || period === "30d") {
     intervals = eachDayOfInterval({ start: startDate, end: endDate })
-    dateFormat = "MMM d"
+    // P2 #17 (walkthrough): slovenske osi — "4. okt." namesto EN "Oct 4"
+    dateFormat = "d. MMM"
   } else if (period === "90d") {
     intervals = eachWeekOfInterval({ start: startDate, end: endDate })
-    dateFormat = "MMM d"
+    dateFormat = "d. MMM"
   } else {
     intervals = eachMonthOfInterval({ start: startDate, end: endDate })
-    dateFormat = "MMM yyyy"
+    dateFormat = "LLL yyyy"
   }
 
   // Obtener todos los appointments y orders en el rango
@@ -319,7 +323,7 @@ export async function getRevenueChartData(period: PeriodType = "30d"): Promise<R
       .reduce((sum, o) => sum + (o.total?.toNumber() ?? 0), 0)
 
     return {
-      date: format(intervalStart, dateFormat),
+      date: format(intervalStart, dateFormat, { locale: sl }),
       appointments: Math.round(appointmentRevenue * 100) / 100,
       products: Math.round(productRevenue * 100) / 100
     }

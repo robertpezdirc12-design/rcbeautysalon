@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { ShoppingBagIcon } from "@/components/icons"
 import { useI18n } from "@/lib/i18n/provider"
+import { formatCurrency, formatDateStandard } from "@/lib/utils/format"
 
 interface Order {
   id: string
@@ -39,13 +40,15 @@ export function ExportOrdersButton({ orders }: ExportOrdersButtonProps) {
     ]
 
     const rows = orders.map((order) => [
-      order.id,
+      // P1 #9 (walkthrough): kratek prijazen ID namesto celotnega cuid
+      `#${order.id.slice(-6)}`,
       order.customer?.name || order.guestName || t.orders.guest,
       order.customer?.email || order.guestEmail || "-",
       order._count.items.toString(),
-      `€${order.total.toFixed(2)}`,
+      formatCurrency(order.total),
       order.status,
-      new Date(order.createdAt).toLocaleDateString(),
+      // P1 #6: sl-SI datum namesto US privzetega
+      formatDateStandard(new Date(order.createdAt)),
     ])
 
     const csvContent = [

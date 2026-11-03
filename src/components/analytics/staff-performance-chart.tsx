@@ -10,6 +10,7 @@ import {
 import { BarChart } from "@tremor/react"
 import { StaffPerformance } from "@/lib/interfaces"
 import { useI18n } from "@/lib/i18n/provider"
+import { useFormatPrice } from "@/lib/currency"
 import { UserCogIcon } from "@/components/icons"
 
 interface StaffPerformanceChartProps {
@@ -18,6 +19,7 @@ interface StaffPerformanceChartProps {
 
 export function StaffPerformanceChart({ data }: StaffPerformanceChartProps) {
   const { t } = useI18n()
+  const fmt = useFormatPrice()
   const chartData = data.map((staff) => ({
     name: staff.name,
     Appointments: staff.appointments,
@@ -56,7 +58,7 @@ export function StaffPerformanceChart({ data }: StaffPerformanceChartProps) {
               <div className="h-3 w-3 rounded-full bg-amber-500" />
               <span className="text-muted-foreground">
                 {t.analytics.staffPerformance.totalRevenue}:{" "}
-                <span className="font-semibold text-foreground">€{totalRevenue.toLocaleString()}</span>
+                <span className="font-semibold text-foreground">{fmt(totalRevenue)}</span>
               </span>
             </div>
           </div>

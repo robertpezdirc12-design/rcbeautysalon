@@ -14,10 +14,9 @@ import {
   EnvelopeIcon,
 } from "@/components/icons"
 import { getAppointmentById } from "@/app/actions/appointments"
-import { format } from "date-fns"
 import { formatSalonTime } from "@/lib/booking-time"
 import { getSessionSalonTimezone } from "@/lib/tenant"
-import { formatCurrency } from "@/lib/utils/format"
+import { formatCurrency, formatDateStandard } from "@/lib/utils/format"
 import { AppointmentStatusActions } from "@/components/appointments/status-actions"
 import { getServerI18n } from "@/lib/i18n/server"
 import { requirePagePermission } from "@/lib/auth/guards"
@@ -38,7 +37,7 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps) {
   const { id } = await params
-  const [appointment, { t, dateFnsLocale }] = await Promise.all([
+  const [appointment, { t, locale }] = await Promise.all([
     getAppointmentById(id),
     getServerI18n(),
   ])
@@ -56,9 +55,7 @@ export async function generateMetadata({ params }: PageProps) {
     title: t.appointments.details.metaTitle(customerName),
     description: t.appointments.details.metaDescription(
       customerName,
-      format(new Date(appointment.startTime), "MMMM d, yyyy", {
-        locale: dateFnsLocale,
-      })
+      formatDateStandard(new Date(appointment.startTime), locale)
     ),
   }
 }
@@ -66,7 +63,7 @@ export async function generateMetadata({ params }: PageProps) {
 export default async function AppointmentDetailPage({ params }: PageProps) {
   // Custom roles (E4-6b): server-side page guard
   await requirePagePermission("appointments.view")
-  const [{ t, dateFnsLocale }, salonTz] = await Promise.all([
+  const [{ t, locale }, salonTz] = await Promise.all([
     getServerI18n(),
     getSessionSalonTimezone(),
   ])
@@ -159,9 +156,7 @@ export default async function AppointmentDetailPage({ params }: PageProps) {
                       {t.appointments.details.date}
                     </p>
                     <p className="font-medium">
-                      {format(new Date(appointment.startTime), "MMMM d, yyyy", {
-                        locale: dateFnsLocale,
-                      })}
+                      {formatDateStandard(new Date(appointment.startTime), locale)}
                     </p>
                   </div>
                 </div>
@@ -316,9 +311,7 @@ export default async function AppointmentDetailPage({ params }: PageProps) {
             <CardContent className="text-muted-foreground text-sm">
               <p>
                 {t.appointments.details.createdOn(
-                  format(new Date(appointment.createdAt), "MMMM d, yyyy", {
-                    locale: dateFnsLocale,
-                  })
+                  formatDateStandard(new Date(appointment.createdAt), locale)
                 )}
               </p>
               <p>

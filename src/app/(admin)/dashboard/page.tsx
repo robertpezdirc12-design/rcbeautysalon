@@ -251,16 +251,20 @@ export default async function AdminDashboard() {
               {formatCurrency(revenueStats.revenue.total)}
             </div>
             <p className="text-muted-foreground text-xs">
-              {revenueStats.revenue.change !== 0 && (
-                <>
-                  <TrendingUpIcon
-                    size={12}
-                    className={`mr-1 inline ${revenueStats.revenue.change >= 0 ? "text-green-600" : "text-red-600"}`}
-                  />
-                  {formatChange(revenueStats.revenue.change)} {t.dashboard.fromLastMonth}
-                </>
-              )}
-              {revenueStats.revenue.change === 0 && t.dashboard.noPreviousData}
+              {/* P1 #5 + P2 #13 (walkthrough): null = brez prejšnjega meseca →
+                  "Ni prejšnjih podatkov"; trenutna vrednost 0 → delta skrit
+                  ("-100 %" ob 0,00 € straši lastnika). */}
+              {revenueStats.revenue.change === null && t.dashboard.noPreviousData}
+              {revenueStats.revenue.change !== null &&
+                revenueStats.revenue.total > 0 && (
+                  <>
+                    <TrendingUpIcon
+                      size={12}
+                      className={`mr-1 inline ${revenueStats.revenue.change >= 0 ? "text-green-600" : "text-red-600"}`}
+                    />
+                    {formatChange(revenueStats.revenue.change)} {t.dashboard.fromLastMonth}
+                  </>
+                )}
             </p>
           </CardContent>
         </Card>
@@ -317,12 +321,14 @@ export default async function AdminDashboard() {
               {stats.orders.total.toLocaleString("sl-SI")}
             </div>
             <p className="text-muted-foreground text-xs">
-              {stats.orders.change !== 0 && (
-                <>
-                  {formatChange(stats.orders.change)} {t.dashboard.fromLastMonth}
-                </>
-              )}
-              {stats.orders.change === 0 && t.dashboard.noPreviousData}
+              {/* P1 #5 + P2 #13 (walkthrough) — pošteno sporočanje spremembe */}
+              {stats.orders.change === null && t.dashboard.noPreviousData}
+              {stats.orders.change !== null &&
+                stats.orders.total > 0 && (
+                  <>
+                    {formatChange(stats.orders.change)} {t.dashboard.fromLastMonth}
+                  </>
+                )}
             </p>
           </CardContent>
         </Card>

@@ -17,6 +17,7 @@ import {
 import { KPIData } from "@/lib/interfaces"
 import { cn } from "@/lib/utils"
 import { useI18n } from "@/lib/i18n/provider"
+import { useFormatPrice } from "@/lib/currency"
 import { enquiryChangeDisplay } from "@/lib/analytics/trends"
 
 interface KPICardsProps {
@@ -25,11 +26,12 @@ interface KPICardsProps {
 
 export function KPICards({ data }: KPICardsProps) {
   const { t } = useI18n()
+  const fmt = useFormatPrice()
   const enquiryDisplay = enquiryChangeDisplay(data.enquiriesChange, data.totalEnquiries)
   const cards: {
     title: string
     metric: string
-    change: number
+    change: number | null
     noData?: boolean
     icon: typeof CurrencyDollarIcon
     color: string
@@ -37,7 +39,7 @@ export function KPICards({ data }: KPICardsProps) {
   }[] = [
     {
       title: t.analytics.kpi.totalRevenue,
-      metric: `€${data.totalRevenue.toLocaleString("sl-SI", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      metric: fmt(data.totalRevenue),
       change: data.revenueChange,
       icon: CurrencyDollarIcon,
       color: "text-emerald-600 dark:text-emerald-400",
@@ -104,15 +106,17 @@ function ChangeBadge({
   change,
   noData = false,
 }: {
-  change: number
+  change: number | null
   noData?: boolean
 }) {
   const { t } = useI18n()
 
-  if (noData) {
+  // P1 #5 (walkthrough): ni prejšnjega obdobja → pošteno "Ni prejšnjih podatkov",
+  // ne izmišljen +100 % / -100 %.
+  if (noData || change === null) {
     return (
       <div className="mt-2 text-sm text-muted-foreground">
-        {t.analytics.kpi.noEnquiryData}
+        {noData && change !== null ? t.analytics.kpi.noEnquiryData : t.analytics.kpi.noPreviousData}
       </div>
     )
   }

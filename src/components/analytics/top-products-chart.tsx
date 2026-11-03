@@ -11,6 +11,7 @@ import { BarList } from "@tremor/react"
 import { TopProduct } from "@/lib/interfaces"
 import { PackageIcon } from "@/components/icons"
 import { useI18n } from "@/lib/i18n/provider"
+import { useFormatPrice } from "@/lib/currency"
 
 interface TopProductsChartProps {
   data: TopProduct[]
@@ -18,6 +19,7 @@ interface TopProductsChartProps {
 
 export function TopProductsChart({ data }: TopProductsChartProps) {
   const { t } = useI18n()
+  const fmt = useFormatPrice()
   const chartData = data.map((product) => ({
     name: product.name,
     value: product.sales,
@@ -59,7 +61,7 @@ export function TopProductsChart({ data }: TopProductsChartProps) {
                     {product.name}
                   </span>
                   <span className="font-semibold tabular-nums text-foreground">
-                    €{product.revenue.toLocaleString()}
+                    {fmt(product.revenue)}
                   </span>
                 </div>
               ))}

@@ -96,7 +96,7 @@ export default async function MyOrdersPage() {
                       <div className="text-muted-foreground flex items-center gap-2 text-sm">
                         <CalendarIcon size={16} />
                         <span>
-                          {new Date(order.createdAt).toLocaleDateString()}
+                          {new Date(order.createdAt).toLocaleDateString("sl-SI")}
                         </span>
                       </div>
                     </div>

@@ -24,7 +24,8 @@ export const catalogDocsSl = {
     },
     quantity: "Količina",
     listValue: "Vrednost vsebine",
-    discount: "Ugodje",
+    // P1 #10 (walkthrough): "Ugodje" ni slovenska beseda v tem pomenu → "Prihranek"
+    discount: "Prihranek",
     active: "Aktiven",
     inactive: "Neaktiven",
     status: "Stanje",

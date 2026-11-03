@@ -19,6 +19,7 @@ import { TestimonialsSection, type LandingTestimonial } from "@/components/landi
 import { SectionWrapper } from "@/components/layouts/section-wrapper"
 import { AccentSpan, splitLastWord, splitOnComma } from "./section-title"
 import { useNavigationStore } from "@/store/navigation-store"
+import { formatCurrency } from "@/lib/utils/format"
 
 // Fallback visuals for organizations without content imagery
 const DEFAULT_ABOUT_IMAGE =
@@ -207,7 +208,7 @@ export function HomeContent({
                           </h3>
                           <div className="flex items-center justify-between text-sm text-white/90 transition-colors duration-300">
                             <span className="group-hover:text-accent/90 font-medium">
-                              €{service.price.toString()}
+                              {formatCurrency(Number(service.price))}
                             </span>
                             {service.duration && (
                               <span className="text-white/70 group-hover:text-accent/70 transition-colors">

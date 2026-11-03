@@ -1,6 +1,7 @@
 import { Resend } from "resend"
 import { render } from "@react-email/components"
 import { AppointmentConfirmationTemplate } from "./templates/appointment-confirmation-template"
+import { formatDateStandard } from "@/lib/utils/format"
 
 const resend = new Resend(
   process.env.RESEND_API_KEY || "re_placeholder_not_configured"
@@ -49,7 +50,7 @@ export async function sendAppointmentConfirmationEmail({
     const { data, error } = await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL!,
       to: email,
-      subject: `Appointment Confirmed - ${serviceName} on ${new Date(appointmentDate).toLocaleDateString()}`,
+      subject: `Appointment Confirmed - ${serviceName} on ${formatDateStandard(new Date(appointmentDate))}`,
       html,
     })
 

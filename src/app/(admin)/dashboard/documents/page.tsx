@@ -10,6 +10,7 @@ import { getDocumentsOverview } from "@/app/actions/documents"
 import { getServerI18n } from "@/lib/i18n/server"
 import { DocumentsClient } from "@/components/admin/catalog/documents-client"
 import { requirePagePermission } from "@/lib/auth/guards"
+import { formatCurrency } from "@/lib/utils/format"
 
 // ============================================================
 // DOCUMENTS PAGE (EPIC #1 Phase 4b, §13 documents capability)
@@ -30,7 +31,7 @@ export default async function DocumentsPage() {
     { label: d.stats.quotesSent, value: String(overview.stats.quotesSent), icon: FileTextIcon, accent: "text-primary" },
     { label: d.stats.quotesAccepted, value: String(overview.stats.quotesAccepted), icon: CheckCircleIcon, accent: "text-emerald-500" },
     { label: d.stats.invoicesIssued, value: String(overview.stats.invoicesIssued), icon: ClockIcon, accent: "text-amber-500" },
-    { label: d.stats.unpaidTotal, value: `€${overview.stats.unpaidTotal.toFixed(2)}`, icon: CurrencyDollarIcon, accent: "text-violet-500" },
+    { label: d.stats.unpaidTotal, value: formatCurrency(overview.stats.unpaidTotal), icon: CurrencyDollarIcon, accent: "text-violet-500" },
     { label: d.stats.overdue, value: String(overview.stats.overdueCount), icon: WarningCircleIcon, accent: "text-red-500" },
   ]
 

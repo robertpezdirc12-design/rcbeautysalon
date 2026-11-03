@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* Tremor v3 gradi barvne razrede med izvajanjem (`bg-${color}-${shade}` v dist kodi).
+   Brez tega Tailwind v4 ne skenira node_modules → donut/area/bar grafikoni brez barv
+   (črn krog na črnem v temni temi). P0 #3 — vizualni walkthrough. */
+@source "../../node_modules/@tremor/**";
+
 /* ============================================
    RC BEAUTY SALON - DESIGN SYSTEM v2.0
    ============================================
@@ -320,19 +325,19 @@ body {
   line-height: 1.6;
 }
 
-/* Rouge Script - Decorative Headings (min 24px) */
+/* Great Vibes - Decorative Headings (min 24px) — P0 #1: latin-ext (šumniki) */
 .font-heading,
 h1.font-heading,
 h2.font-heading,
 h3.font-heading {
-  font-family: var(--org-font-heading, var(--font-rouge-script)), "Rouge Script", cursive;
+  font-family: var(--org-font-heading, var(--font-rouge-script)), "Great Vibes", cursive;
   font-weight: 400;
   letter-spacing: 0.02em;
   line-height: 1.2;
 }
 
 h1 {
-  font-family: var(--org-font-heading, var(--font-rouge-script)), "Rouge Script", cursive;
+  font-family: var(--org-font-heading, var(--font-rouge-script)), "Great Vibes", cursive;
   font-size: clamp(2.5rem, 5vw, 4rem);
   font-weight: 400;
   letter-spacing: 0.02em;
@@ -340,7 +345,7 @@ h1 {
 }
 
 h2 {
-  font-family: var(--org-font-heading, var(--font-rouge-script)), "Rouge Script", cursive;
+  font-family: var(--org-font-heading, var(--font-rouge-script)), "Great Vibes", cursive;
   font-size: clamp(2rem, 4vw, 3rem);
   font-weight: 400;
   letter-spacing: 0.02em;
@@ -348,7 +353,7 @@ h2 {
 }
 
 h3 {
-  font-family: var(--org-font-heading, var(--font-rouge-script)), "Rouge Script", cursive;
+  font-family: var(--org-font-heading, var(--font-rouge-script)), "Great Vibes", cursive;
   font-size: clamp(1.5rem, 3vw, 2rem);
   font-weight: 400;
   letter-spacing: 0.02em;
@@ -553,10 +558,10 @@ label[for], select, .cursor-pointer {
 
 /* ============================================
    ADMIN & AUTH — READABLE HEADINGS
-   Rouge Script lacks Slovenian diacritics
-   (š č ž), so admin/auth headings use the
-   body font instead. Public site keeps the
-   decorative script headings.
+   Admin/auth headings use the body font for
+   density and readability; the public site
+   keeps the decorative script headings
+   (Great Vibes — full šumniki support, P0 #1).
    ============================================ */
 
 .admin-sans-headings h1,

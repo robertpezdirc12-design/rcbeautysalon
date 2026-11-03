@@ -20,10 +20,9 @@ import {
 import { getUserById, getCustomerTotalSpent } from "@/app/actions/users"
 import { ResetPasswordDialog } from "@/components/dashboard/reset-password-dialog"
 import { auth } from "@/lib/auth/auth"
-import { format } from "date-fns"
 import { formatSalonTime } from "@/lib/booking-time"
 import { getSessionSalonTimezone } from "@/lib/tenant"
-import { formatCurrency } from "@/lib/utils/format"
+import { formatCurrency, formatDateStandard } from "@/lib/utils/format"
 import { getServerI18n } from "@/lib/i18n/server"
 import { requirePagePermission } from "@/lib/auth/guards"
 
@@ -73,7 +72,7 @@ export async function generateMetadata({ params }: PageProps) {
 export default async function UserDetailsPage({ params }: PageProps) {
   // Custom roles (E4-6b): server-side page guard
   await requirePagePermission("customers.manage")
-  const [{ t, dateFnsLocale }, salonTz, session] = await Promise.all([
+  const [{ t, locale }, salonTz, session] = await Promise.all([
     getServerI18n(),
     getSessionSalonTimezone(),
     auth(),
@@ -106,7 +105,7 @@ export default async function UserDetailsPage({ params }: PageProps) {
           <div>
             <h1 className="text-3xl font-bold">{t.users.userDetails}</h1>
             <p className="text-muted-foreground">
-              {t.users.memberSince(format(new Date(user.createdAt), "MMMM yyyy", { locale: dateFnsLocale }))}
+              {t.users.memberSince(formatDateStandard(new Date(user.createdAt), locale))}
             </p>
           </div>
         </div>
@@ -151,7 +150,7 @@ export default async function UserDetailsPage({ params }: PageProps) {
                         <div className="text-muted-foreground flex items-center gap-4 text-sm">
                           <span className="flex items-center gap-1">
                             <CalendarIcon size={14} />
-                            {format(new Date(apt.startTime), "MMM d, yyyy", { locale: dateFnsLocale })}
+                            {formatDateStandard(new Date(apt.startTime), locale)}
                           </span>
                           <span className="flex items-center gap-1">
                             <ClockIcon size={14} />
@@ -216,7 +215,7 @@ export default async function UserDetailsPage({ params }: PageProps) {
                         <div className="text-muted-foreground text-sm">
                           <span>
                             {t.users.itemCount(order.items.length)} •{" "}
-                            {format(new Date(order.createdAt), "MMM d, yyyy", { locale: dateFnsLocale })}
+                            {formatDateStandard(new Date(order.createdAt), locale)}
                           </span>
                         </div>
                         <p className="text-sm">
@@ -402,11 +401,11 @@ export default async function UserDetailsPage({ params }: PageProps) {
               </p>
               <p>
                 <span className="font-medium">{t.users.created}</span>{" "}
-                {format(new Date(user.createdAt), "MMMM d, yyyy", { locale: dateFnsLocale })}
+                {formatDateStandard(new Date(user.createdAt), locale)}
               </p>
               <p>
                 <span className="font-medium">{t.users.lastUpdated}</span>{" "}
-                {format(new Date(user.updatedAt), "MMMM d, yyyy", { locale: dateFnsLocale })}
+                {formatDateStandard(new Date(user.updatedAt), locale)}
               </p>
             </CardContent>
           </Card>

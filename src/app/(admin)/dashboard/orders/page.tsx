@@ -7,6 +7,7 @@ import { getServerI18n } from "@/lib/i18n/server"
 import { OrderSearch } from "@/components/dashboard/order-search"
 import { ExportOrdersButton } from "@/components/dashboard/export-orders-button"
 import { requirePagePermission } from "@/lib/auth/guards"
+import { formatCurrency } from "@/lib/utils/format"
 
 const statusColors: Record<string, string> = {
   PENDING: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
@@ -70,7 +71,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>{t.orders.stats.revenueThisMonth}</CardDescription>
-            <CardTitle className="text-3xl">€{stats.revenueThisMonth.toLocaleString()}</CardTitle>
+            <CardTitle className="text-3xl">{formatCurrency(stats.revenueThisMonth)}</CardTitle>
           </CardHeader>
         </Card>
       </div>
@@ -120,7 +121,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                         </div>
                       </td>
                       <td className="py-4 text-sm">{t.orders.itemsCount(order._count.items)}</td>
-                      <td className="py-4 font-medium">€{order.total.toFixed(2)}</td>
+                      <td className="py-4 font-medium">{formatCurrency(order.total)}</td>
                       <td className="py-4">
                         <span className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${statusColors[order.status]}`}>
                           {t.orders.statusLabels[order.status] ?? order.status}

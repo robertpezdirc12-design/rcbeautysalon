@@ -3,6 +3,7 @@ import { getPublicSiteData, getPublicStaffBySlug } from "@/lib/public-site"
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import { orgPath } from "@/lib/org-path"
+import { formatCurrency } from "@/lib/utils/format"
 import { StaffAvatar } from "@/components/landing/staff-avatar"
 import {
   EnvelopeIcon,
@@ -181,7 +182,7 @@ const StaffDetailPage = async ({ params }: StaffDetailPageProps) => {
                       {service.name}
                     </h3>
                     <span className="rounded-full bg-accent/10 px-3 py-1 text-sm font-semibold text-accent font-body">
-                      €{service.price}
+                      {formatCurrency(Number(service.price))}
                     </span>
                   </div>
                   {service.description && (

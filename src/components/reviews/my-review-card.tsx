@@ -107,7 +107,7 @@ export function MyReviewCard({ review }: MyReviewCardProps) {
                     />
                   ))}
                   <span className="text-muted-foreground ml-2 text-sm">
-                    {new Date(review.createdAt).toLocaleDateString()}
+                    {new Date(review.createdAt).toLocaleDateString("sl-SI")}
                   </span>
                 </div>
               </div>

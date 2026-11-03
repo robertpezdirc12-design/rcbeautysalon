@@ -45,6 +45,7 @@ import {
   type PackageLineInput,
 } from "@/app/actions/catalog"
 import type { CatalogDocsDict } from "@/lib/i18n/dict/catalog-docs"
+import { formatCurrency } from "@/lib/utils/format"
 
 // ============================================================
 // PACKAGES MANAGER (client) — §11 universal catalog.
@@ -84,7 +85,8 @@ const emptyForm = {
 }
 
 function money(n: number): string {
-  return `€${n.toFixed(2)}`
+  // P1 #7 (walkthrough): enoten format valute — "79,02 €", ne "€79.02"
+  return formatCurrency(n)
 }
 
 export function PackagesClient({ packages, catalog, labels }: PackagesClientProps) {

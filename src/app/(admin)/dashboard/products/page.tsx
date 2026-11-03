@@ -12,6 +12,7 @@ import { ProductSearch } from "@/components/dashboard/product-search"
 import { DeleteProductButton } from "@/components/dashboard/delete-product-button"
 import { getServerI18n } from "@/lib/i18n/server"
 import { requirePagePermission } from "@/lib/auth/guards"
+import { formatCurrency } from "@/lib/utils/format"
 
 interface ProductsPageProps {
   searchParams: Promise<{ search?: string }>
@@ -137,10 +138,10 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                       <td className="py-4 text-sm font-mono text-muted-foreground">{product.sku || "-"}</td>
                       <td className="py-4">
                         <div>
-                          <p className="font-medium">€{product.price.toFixed(2)}</p>
+                          <p className="font-medium">{formatCurrency(product.price)}</p>
                           {product.compareAtPrice && (
                             <p className="text-sm text-muted-foreground line-through">
-                              €{product.compareAtPrice.toFixed(2)}
+                              {formatCurrency(product.compareAtPrice)}
                             </p>
                           )}
                         </div>

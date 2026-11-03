@@ -62,10 +62,12 @@ export async function getDashboardStats() {
     }),
   ])
 
+  // P1 #5 (walkthrough): ni prejšnjega meseca → null ("Ni prejšnjih podatkov"),
+  // nikoli izmišljen +100 %.
   const ordersChange =
     lastMonthOrders > 0
       ? ((currentMonthOrders - lastMonthOrders) / lastMonthOrders) * 100
-      : 0
+      : null
 
   return {
     appointments: { total: totalAppointments, monthly: monthlyAppointments },
@@ -105,8 +107,9 @@ export async function getRevenueStats() {
 
   const currentRevenue = Number(currentMonthRevenue._sum.total || 0)
   const lastRevenue = Number(lastMonthRevenue._sum.total || 0)
+  // P1 #5 (walkthrough): ni prejšnjega meseca → null ("Ni prejšnjih podatkov").
   const revenueChange =
-    lastRevenue > 0 ? ((currentRevenue - lastRevenue) / lastRevenue) * 100 : 0
+    lastRevenue > 0 ? ((currentRevenue - lastRevenue) / lastRevenue) * 100 : null
 
   return {
     revenue: { total: currentRevenue, change: revenueChange },

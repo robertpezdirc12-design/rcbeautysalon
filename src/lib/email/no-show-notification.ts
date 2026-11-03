@@ -1,6 +1,7 @@
 import { Resend } from "resend"
 import { render } from "@react-email/components"
 import { NoShowNotificationTemplate } from "./templates/no-show-notification-template"
+import { formatDateStandard } from "@/lib/utils/format"
 
 const resend = new Resend(
   process.env.RESEND_API_KEY || "re_placeholder_not_configured"
@@ -45,7 +46,7 @@ export async function sendNoShowNotificationEmail({
     const { data, error } = await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL!,
       to: email,
-      subject: `Missed Appointment - ${serviceName} on ${new Date(appointmentDate).toLocaleDateString()}`,
+      subject: `Missed Appointment - ${serviceName} on ${formatDateStandard(new Date(appointmentDate))}`,
       html,
     })
 

@@ -8,6 +8,7 @@ import { getPackagesOverview } from "@/app/actions/catalog"
 import { getServerI18n } from "@/lib/i18n/server"
 import { PackagesClient } from "@/components/admin/catalog/packages-client"
 import { requirePagePermission } from "@/lib/auth/guards"
+import { formatCurrency } from "@/lib/utils/format"
 
 // ============================================================
 // PACKAGES PAGE (EPIC #1 Phase 4b, §11 universal catalog)
@@ -31,7 +32,7 @@ export default async function PackagesPage() {
   const stats = [
     { label: p.title, value: String(overview.packages.length), icon: ToteIcon, accent: "text-primary" },
     { label: p.active, value: String(active), icon: SparkleIcon, accent: "text-emerald-500" },
-    { label: p.listValue, value: `€${activeListValue.toFixed(2)}`, icon: UsersIcon, accent: "text-amber-500" },
+    { label: p.listValue, value: formatCurrency(activeListValue), icon: UsersIcon, accent: "text-amber-500" },
   ]
 
   return (

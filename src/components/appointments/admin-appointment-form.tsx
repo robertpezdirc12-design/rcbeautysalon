@@ -39,6 +39,7 @@ import {
 } from "@/app/actions/appointments"
 import { TimeSlot, AvailableStaffMember } from "@/lib/interfaces"
 import { AdminAppointmentFormProps } from "@/lib/interfaces"
+import { formatCurrency } from "@/lib/utils/format"
 
 export default function AdminAppointmentForm({
   services,
@@ -295,7 +296,7 @@ export default function AdminAppointmentForm({
           <SelectContent>
             {services.map((service) => (
               <SelectItem key={service.id} value={service.id}>
-                {service.name} – €{service.price} ({service.duration} min)
+                {service.name} – {formatCurrency(Number(service.price))} ({service.duration} min)
               </SelectItem>
             ))}
           </SelectContent>
