@@ -1,10 +1,7 @@
 import type { Metadata } from "next"
 import Image from "next/image"
-import { notFound } from "next/navigation"
 import { getPublicSiteData, getPublicServicesGrouped, getPublicCategories, getPublicActiveStaffOptions, redirectBareToTenant } from "@/lib/public-site"
 import { canonicalMetadata } from "@/lib/seo"
-import { resolveEffectiveProfile } from "@/lib/profiles/resolve"
-import { isCapabilityEnabled } from "@/lib/profiles/registry"
 import { orgPath } from "@/lib/org-path"
 import { HeroVideo } from "@/components/services/hero-video"
 import { ServicesList } from "@/components/services/services-list"
@@ -40,12 +37,8 @@ export default async function ServicesPage() {
     )
   }
 
-  // P2 #46: profil, ki IZKLOPI storitve (npr. čebelarstvo), ne objavlja
-  // strani /services — prej je javno vrnla HTTP 200 s praznim seznamom
-  // (soft 404 za iskalnike) in bila v sitemapu. Zdaj pravi 404.
-  if (!isCapabilityEnabled(resolveEffectiveProfile(site.org), "services")) {
-    notFound()
-  }
+  // P2 #46: vrata za profile brez storitev so v services/layout.tsx —
+  // SHELL faza (notFound() v strani bi dal 200 + 404 vsebino).
 
   const { org, content } = site
   const slug = org.slug
