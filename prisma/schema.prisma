@@ -121,6 +121,8 @@ model Organization {
   products             Product[]
   staff                Staff[]
   customers            Customer[]
+  // #90: prijave na čakalno listo (zasedeni termini, obvestila ob prostoru)
+  waitlistEntries      WaitlistEntry[]
   appointments         Appointment[]
   orders               Order[]
   media                Media[]
@@ -499,6 +501,8 @@ model Service {
   gallery             ServiceGallery[]
   faqs                ServiceFAQ[]
   packageItems        PackageItem[]
+  // #90: čakanja na prosto mesto za to storitev
+  waitlistEntries     WaitlistEntry[]
 
   @@unique([organizationId, slug])
   @@index([organizationId])
@@ -659,6 +663,47 @@ model Customer {
   @@index([organizationId])
   @@index([email])
   @@index([phone])
+}
+
+// ============================================================
+// #90 — ČAKALNA LISTA (honest waitlist v1)
+// Gost prijavi zahtevo za zaseden termin; ob odprtju prostora
+// lastnik z enim klikom obvesti čakajoče (email s povezavo v
+// rezervacijo). Brez auto-book: obvestilo, ne tiha rezervacija.
+// Org-scoped povsod — vnos najemnika A nikoli viden najemniku B.
+// ============================================================
+enum WaitlistStatus {
+  WAITING
+  NOTIFIED
+  BOOKED
+  EXPIRED
+}
+
+model WaitlistEntry {
+  id             String         @id @default(cuid())
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Gost še ni stranka — kontaktni podatki vstopa (email obvezen,
+  // ker obveščanje teče po e-pošti v v1).
+  name  String
+  email String
+  phone String?
+
+  // Željena storitev (neobvezna — »karkoli prosto«) in približen datum.
+  serviceId     String?
+  service       Service?   @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  preferredDate DateTime?
+  notes         String?    @db.Text
+
+  status     WaitlistStatus @default(WAITING)
+  notifiedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId, status])
+  @@index([serviceId])
 }
 
 model Appointment {

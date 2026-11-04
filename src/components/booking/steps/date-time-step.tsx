@@ -165,9 +165,17 @@ export function DateTimeStep({
                     <SpinnerGapIcon size={32} className="animate-spin text-primary-text" weight="regular" />
                   </div>
                 ) : availableSlots.length === 0 ? (
-                  <p className="text-center text-muted-foreground">
-                    {t.booking.noSlots}
-                  </p>
+                  <div className="space-y-2 text-center">
+                    <p className="text-muted-foreground">{t.booking.noSlots}</p>
+                    {/* #90: pošten izhod — če je dan poln, ponudimo
+                        prijavo na čakalno listo (kartica je na isti strani). */}
+                    <a
+                      href="#waitlist"
+                      className="text-sm font-medium text-primary-text underline-offset-4 hover:underline"
+                    >
+                      {t.booking.waitlistHint}
+                    </a>
+                  </div>
                 ) : (
                   <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
                     {availableSlots.map((slot) => (

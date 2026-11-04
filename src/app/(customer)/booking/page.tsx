@@ -15,6 +15,7 @@ import {
   getCurrentUserStaffId,
 } from "@/app/actions/appointments"
 import { BookingForm } from "@/components/booking/booking-form"
+import { WaitlistCard } from "@/components/booking/waitlist-card"
 import { getStripeForOrg } from "@/lib/stripe"
 import { getServerI18n } from "@/lib/i18n/server"
 
@@ -249,6 +250,10 @@ export default async function BookingPage(props: BookingPageProps) {
           paymentsEnabled={paymentsEnabled}
           defaultValues={defaultValues}
         />
+
+        {/* #90: čakalna lista — vstop za zasedene dneve (anchor iz
+            "ni prostih terminov" stanja koledarskega koraka). */}
+        <WaitlistCard serviceId={service.id} serviceName={service.name} />
       </div>
     </div>
   )

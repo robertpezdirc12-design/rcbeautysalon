@@ -29,6 +29,8 @@ export const bookingSl = {
     "Termin bomo rezervirali tudi za izbrani prostor; preverili bomo, ali je prost.",
   slotsFor: (date: string) => `Prosti termini za ${date}`,
   noSlots: "Za ta dan ni prostih terminov",
+  // #90: izhod iz polnega dne — povezava na prijavo na čakalno listo
+  waitlistHint: "Zasedeno? Prijavite se na čakalno listo ↓",
 
   // ---- Korak 4: kontakt ----
   yourDetails: "Vaši podatki",
@@ -138,6 +140,8 @@ export const bookingEn: BookingDict = {
     "The slot will also be reserved for the chosen space — we make sure it is free.",
   slotsFor: (date: string) => `Available slots for ${date}`,
   noSlots: "No available slots for this day",
+  // #90: exit for a fully-booked day — link to the waitlist join form
+  waitlistHint: "Fully booked? Join the waitlist ↓",
 
   yourDetails: "Your details",
   confirmDetailsDesc: "Confirm your contact details",
