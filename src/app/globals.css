@@ -315,8 +315,10 @@
   --color-info: hsl(var(--info));
   --color-info-foreground: hsl(var(--info-foreground));
 
-  /* Typography */
-  --font-heading: var(--font-rouge-script);
+  /* Typography — #94: platformski default naslovov je FUNKCIONALNA
+     pisava (Poppins); script (Great Vibes) ostane izključno najemniška
+     izbira prek --org-font-heading (theme engine per najemnik). */
+  --font-heading: var(--font-poppins);
   --font-body: var(--font-poppins);
 
   /* Shadows */
@@ -346,14 +348,14 @@ body {
 h1.font-heading,
 h2.font-heading,
 h3.font-heading {
-  font-family: var(--org-font-heading, var(--font-rouge-script)), "Great Vibes", cursive;
+  font-family: var(--org-font-heading, var(--font-heading)), "Poppins", sans-serif;
   font-weight: 400;
   letter-spacing: 0.02em;
   line-height: 1.2;
 }
 
 h1 {
-  font-family: var(--org-font-heading, var(--font-rouge-script)), "Great Vibes", cursive;
+  font-family: var(--org-font-heading, var(--font-heading)), "Poppins", sans-serif;
   font-size: clamp(2.5rem, 5vw, 4rem);
   font-weight: 400;
   letter-spacing: 0.02em;
@@ -361,7 +363,7 @@ h1 {
 }
 
 h2 {
-  font-family: var(--org-font-heading, var(--font-rouge-script)), "Great Vibes", cursive;
+  font-family: var(--org-font-heading, var(--font-heading)), "Poppins", sans-serif;
   font-size: clamp(2rem, 4vw, 3rem);
   font-weight: 400;
   letter-spacing: 0.02em;
@@ -369,7 +371,7 @@ h2 {
 }
 
 h3 {
-  font-family: var(--org-font-heading, var(--font-rouge-script)), "Great Vibes", cursive;
+  font-family: var(--org-font-heading, var(--font-heading)), "Poppins", sans-serif;
   font-size: clamp(1.5rem, 3vw, 2rem);
   font-weight: 400;
   letter-spacing: 0.02em;

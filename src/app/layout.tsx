@@ -203,6 +203,16 @@ export default async function RootLayout({
         })
       }
     }
+  } else {
+    // #94 — PLATFORMSKA LUPINA (brez najemniškega konteksta: landing,
+    // /start, prijava): nevtralna profesionalna osnova + poglobljena
+    // rose kot edini akcent. Najemniške strani to NE vidijo — ko org
+    // obstaja, zgornja veja vbrizga njihovo paleto (vključno z
+    // background/foreground prek globals fallbacka, ki ostane
+    // najemniško nevtralen). Script pisava ostane izključno najemniška
+    // (h1/h2/h3 fallback je --font-heading = Poppins; org premaga prek
+    // --org-font-heading).
+    themeCss = `:root{--background:0 0% 100%;--foreground:222 13% 14%;--card:0 0% 100%;--muted:220 14% 96%;--muted-foreground:220 9% 38%;--border:220 13% 90%;--secondary:220 14% 96%;--secondary-foreground:222 13% 20%;--primary-50:340 45% 97%;--primary-100:340 45% 94%;--primary-200:340 45% 85%;--primary-300:340 45% 70%;--primary-400:340 45% 56%;--primary-500:340 45% 42%;--primary-600:340 45% 36%;--primary-700:340 45% 30%;--primary-800:340 45% 24%;--primary-900:340 45% 18%;--primary:340 45% 42%;--primary-foreground:0 0% 100%;--primary-hover:340 45% 36%;--primary-active:340 45% 30%;--primary-text:340 45% 32%;--accent-text:38 70% 30%;--ring:340 45% 42%}.dark{--background:222 13% 9%;--foreground:0 0% 95%;--card:222 13% 11%;--muted:222 10% 16%;--muted-foreground:220 9% 65%;--border:222 10% 20%;--secondary:222 10% 16%;--secondary-foreground:0 0% 90%;--primary-text:340 45% 78%;--accent-text:38 70% 60%}`
   }
 
   const htmlLocale = await getLocaleFromCookies()

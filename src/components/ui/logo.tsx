@@ -45,9 +45,11 @@ export function Logo({ className, variant = "navbar", src, alt }: LogoProps) {
         aria-label={name}
         className={cn(
           // P1 #22 (re-audit): text-primary-text na bg-primary/10 je pri svetli
-          // rozni paleti padel pod 4.5:1 (4.17). text-foreground zagotovi AA
-          // kontrast v obeh temah pri vsaki paleti.
-          "font-heading text-foreground flex items-center justify-center rounded-full bg-primary/10",
+          // rozni paleti padel pod 4.5:1 (4.17) — solid čip (bg-primary +
+          // text-primary-foreground) zagotovi AA v obeh temah pri vsaki
+          // paleti in daje znački profesionalno težo (#94: bledi oblak je
+          // bil platformski P2 finding).
+          "font-heading flex items-center justify-center rounded-full bg-primary font-semibold text-primary-foreground",
           className
         )}
         style={{ width, height, fontSize: Math.min(Math.max(height * 0.5, 14), 22) }}
