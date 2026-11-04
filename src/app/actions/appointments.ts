@@ -25,6 +25,7 @@ import {
   DEFAULT_SALON_TIMEZONE,
 } from "@/lib/booking-time"
 import { sendAppointmentConfirmationEmail } from "@/lib/email/appointment-confirmation"
+import { resolveAddonSelection, computeAddonTotals, type AddonLike } from "@/lib/booking/addons"
 import { Prisma } from "@prisma/client"
 import { AppointmentStatus } from "@/lib/types"
 import { AdminAppointmentsFilter } from "@/lib/interfaces"
@@ -262,16 +263,58 @@ export async function getStaffForBooking(staffId: string) {
 }
 
 //Get available time slots for a staff member on a specific date
+// #92: aktivni dodatki storitve za rezervacijo (org-scoped, fail-closed:
+// tuja storitev → prazen seznam).
+export async function getServiceAddons(serviceId: string) {
+  const org = await resolveRequestOrg()
+  if (!org) return []
+
+  const service = await prisma.service.findFirst({
+    where: { id: serviceId, organizationId: org.id },
+    select: { id: true },
+  })
+  if (!service) return []
+
+  const addons = await prisma.serviceAddon.findMany({
+    where: { serviceId: service.id, isActive: true },
+    orderBy: [{ position: "asc" }, { name: "asc" }],
+  })
+  return addons.map((a) => ({
+    id: a.id,
+    name: a.name,
+    price: a.price.toNumber(),
+    durationMin: a.durationMin,
+  }))
+}
+
 export async function getAvailableTimeSlots(
   staffId: string,
   date: Date | string,
   serviceDuration: number,
-  resourceRecordId?: string | null
+  resourceRecordId?: string | null,
+  // #92: izbrani dodatki podaljšajo trajanje — ID-ji se razrešijo
+  // org-scoped tukaj (klient pošlje samo ID-je, nikoli trajanj).
+  addonIds: string[] = []
 ): Promise<TimeSlot[]> {
   const org = await resolveRequestOrg()
   if (!org) return []
 
   const tz = await getOrgTimezone(org.id)
+
+  // #92: dodatki podaljšajo trajanje — ID-ji se razrešijo org-scoped
+  // (dodatek tujega najemnika ali neaktiven tiho izpade).
+  let effectiveDuration = serviceDuration
+  if (addonIds.length > 0) {
+    const addonRows = await prisma.serviceAddon.findMany({
+      where: {
+        id: { in: addonIds },
+        isActive: true,
+        service: { organizationId: org.id },
+      },
+      select: { durationMin: true },
+    })
+    effectiveDuration = serviceDuration + addonRows.reduce((s, a) => s + a.durationMin, 0)
+  }
 
   // Normalize to a salon-local calendar key "yyyy-MM-dd" (never the server clock)
   const dateKey = toDateKey(date, tz)
@@ -354,12 +397,12 @@ export async function getAvailableTimeSlots(
   // Loop through working hours creating 30-minute slots
   for (
     let startMin = workStartMin;
-    startMin + serviceDuration <= workEndMin;
+    startMin + effectiveDuration <= workEndMin;
     startMin += 30
   ) {
     const slotStart = instantFromParts(dateKey, minutesToTime(startMin), tz)
     if (!slotStart) continue
-    const slotEnd = new Date(slotStart.getTime() + serviceDuration * 60000)
+    const slotEnd = new Date(slotStart.getTime() + effectiveDuration * 60000)
 
     // Check for conflicts with existing appointments
     // Overlap formula: (startA < endB) && (endA > startB)
@@ -389,7 +432,7 @@ export async function getAvailableTimeSlots(
       if (!slot.available) continue
       const slotStart = instantFromParts(dateKey, slot.time, tz)
       if (!slotStart) continue
-      const slotEnd = new Date(slotStart.getTime() + serviceDuration * 60000)
+      const slotEnd = new Date(slotStart.getTime() + effectiveDuration * 60000)
       if (hasResourceConflict(resourceBusy, slotStart, slotEnd)) slot.available = false
     }
   }
@@ -521,6 +564,31 @@ export async function createAppointment(
     const baseTotalPrice = services.reduce((sum, s) => sum + s.price, 0)
     const totalDuration = services.reduce((sum, s) => sum + s.duration, 0)
 
+    // #92: dodatki — razrešeni ZDAJ strežniško (ID-ji iz klienta, cene
+    // iz DB). Dodatek velja, če je aktiven in pripada izbrani storitvi
+    // tega najemnika; tuj/neznani ID tiho izpade. Snapshot gre na termin.
+    let selectedAddons: AddonLike[] = []
+    if (data.addonIds && data.addonIds.length > 0) {
+      const addonRows = await prisma.serviceAddon.findMany({
+        where: {
+          id: { in: data.addonIds },
+          isActive: true,
+          serviceId: { in: services.map((s) => s.id) },
+          service: { organizationId: org.id },
+        },
+      })
+      selectedAddons = resolveAddonSelection(
+        addonRows.map((a) => ({
+          id: a.id,
+          name: a.name,
+          price: a.price.toNumber(),
+          durationMin: a.durationMin,
+        })),
+        data.addonIds
+      )
+    }
+    const { addonPrice, addonDurationMin } = computeAddonTotals(selectedAddons)
+
     // Check if admin is creating appointment for a customer
     const isAdminCreating = session?.user?.role === "ADMIN" && data.guestName
 
@@ -532,11 +600,12 @@ export async function createAppointment(
       ["STAFF", "ADMIN"].includes(session.user.role) &&
       !isAdminCreating
 
-    // Apply 20% employee discount if applicable
+    // Apply 20% employee discount if applicable — na CELO košarico
+    // (storitve + dodatki), enako kot v createCheckoutSession.
     const employeeDiscountRate = 0.20
     const totalPrice = isEmployeeBooking
-      ? baseTotalPrice * (1 - employeeDiscountRate)
-      : baseTotalPrice
+      ? (baseTotalPrice + addonPrice) * (1 - employeeDiscountRate)
+      : baseTotalPrice + addonPrice
 
     // Calculate appointment end time based on total duration
     // Build the exact start instant in the SALON timezone from date+time
@@ -553,7 +622,9 @@ export async function createAppointment(
       return { success: false, error: "Neveljaven datum ali ura termina" }
     }
 
-    const endTime = addMinutes(startInstant, totalDuration)
+    // #92: dodatki podaljšajo trajanje termina (konec + slot preverba).
+    const effectiveTotalDuration = totalDuration + addonDurationMin
+    const endTime = addMinutes(startInstant, effectiveTotalDuration)
 
     // Get salon configuration for deposit amount
     const config = await getSalonConfig()
@@ -576,7 +647,7 @@ export async function createAppointment(
     const slots = await getAvailableTimeSlots(
       data.staffId,
       data.bookingDate ?? startInstant,
-      totalDuration
+      effectiveTotalDuration
     )
     const requestedTime = data.bookingTime ?? format(startInstant, "HH:mm")
     const slotAvailable = slots.find(
@@ -779,6 +850,16 @@ export async function createAppointment(
         totalPrice,
         depositAmount,
         depositPaid,
+        // #92: snapshot izbranih dodatkov (cene iz DB ob rezervaciji —
+        // kasnejša sprememba kataloga ne prepiše zgodovine termina).
+        addons:
+          selectedAddons.length > 0
+            ? selectedAddons.map((a) => ({
+                name: a.name,
+                price: a.price,
+                durationMin: a.durationMin,
+              }))
+            : undefined,
         // Create appointment-service relationships
         services: {
           create: data.serviceIds.map((serviceId) => ({

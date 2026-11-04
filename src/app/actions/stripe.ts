@@ -171,6 +171,11 @@ export async function createCheckoutSession(
         // E2-7 (G7): optional workspace resource — validated + conflict-
         // checked again in the webhook before the appointment is created.
         resourceRecordId: data.resourceRecordId || "",
+        // #92: dodatki potujejo kot ID-ji — webhook jih ponovno razreši
+        // org-scoped iz DB in zapiše snapshot (cene iz metadata se NE
+        // zaupajo). Polog ostane vezan na storitev (deposit pravilo);
+        // dodatki se plačajo ob obisku.
+        addonIds: JSON.stringify(data.addonIds ?? []),
       },
       success_url: `${baseUrl}/booking/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}/booking/cancel`,

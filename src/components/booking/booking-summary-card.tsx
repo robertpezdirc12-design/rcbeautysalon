@@ -44,6 +44,8 @@ interface BookingSummaryCardProps {
   submitting: boolean
   error: string | null
   availableSlots: TimeSlot[]
+  // #92: izbrani dodatki — vidni v povzetku PRED potrditvijo
+  selectedAddons?: { name: string; price: number; durationMin: number }[]
   isEmployee?: boolean
   // False when the salon has no Stripe key: the booking is submitted
   // WITHOUT online payment (PENDING, deposit payable in salon).
@@ -55,6 +57,7 @@ export function BookingSummaryCard({
   selectedStaff,
   selectedDate,
   selectedTime,
+  selectedAddons = [],
   salonConfig,
   submitting,
   error,
@@ -96,9 +99,12 @@ export function BookingSummaryCard({
   if (!selectedStaff) missing.push(t.booking.staff)
   if (!selectedDate || !selectedTime) missing.push(t.booking.dateTime)
 
-  // Calculate employee discount (20%)
+  // Calculate employee discount (20%) — na celotno košarico (storitev +
+  // dodatki), enako kot strežnik v createAppointment/createCheckout.
   const employeeDiscountRate = 0.20
-  const originalPrice = service?.price || 0
+  const addonsPrice = selectedAddons.reduce((s, a) => s + a.price, 0)
+  const addonsDuration = selectedAddons.reduce((s, a) => s + a.durationMin, 0)
+  const originalPrice = (service?.price || 0) + addonsPrice
   const discountAmount = isEmployee ? originalPrice * employeeDiscountRate : 0
   const finalPrice = originalPrice - discountAmount
 
@@ -145,9 +151,30 @@ export function BookingSummaryCard({
               <p className="font-semibold text-muted-foreground">{t.booking.duration}</p>
               <p className="text-base font-medium text-foreground">
                 <ClockIcon size={14} className="mr-1 inline text-primary-text" weight="regular" />
-                {t.booking.minutes(service?.duration || 0)}
+                {t.booking.minutes((service?.duration || 0) + addonsDuration)}
               </p>
             </div>
+            {selectedAddons.length > 0 && (
+              <>
+                <Separator className="bg-border/50" />
+                <div>
+                  <p className="font-semibold text-muted-foreground">{t.booking.addonsTitle}</p>
+                  <ul className="mt-1 space-y-1">
+                    {selectedAddons.map((a) => (
+                      <li key={a.name} className="flex items-center justify-between text-sm">
+                        <span className="text-foreground">
+                          + {a.name}
+                          {a.durationMin > 0 ? (
+                            <span className="text-muted-foreground"> · +{a.durationMin} min</span>
+                          ) : null}
+                        </span>
+                        <span className="font-medium text-foreground">{fmt(a.price)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </>
+            )}
           </div>
 
           <Separator className="my-4 bg-border/50" />

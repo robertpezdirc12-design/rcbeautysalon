@@ -3,7 +3,13 @@ import { notFound } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { ArrowLeftIcon } from "@/components/icons"
 import { ServiceForm } from "@/components/dashboard/service-form"
-import { getServiceById, getAllCategories, getAllActiveStaff } from "@/app/actions/services"
+import { ServiceAddonsEditor } from "@/components/dashboard/service-addons-editor"
+import {
+  getServiceById,
+  getAllCategories,
+  getAllActiveStaff,
+  getServiceAddonsForEdit,
+} from "@/app/actions/services"
 import { getServerI18n } from "@/lib/i18n/server"
 import { requirePagePermission } from "@/lib/auth/guards"
 
@@ -16,11 +22,13 @@ export default async function EditServicePage({ params }: EditServicePageProps) 
   await requirePagePermission("services.manage")
   const { id } = await params
 
-  // Fetch service, categories, and staff in parallel
-  const [service, categories, staff, { t }] = await Promise.all([
+  // Fetch service, categories, staff and addons in parallel
+  const [service, categories, staff, addons, { t }] = await Promise.all([
     getServiceById(id),
     getAllCategories(),
     getAllActiveStaff(),
+    // #92: dodatki za urejevalnik (org-scoped)
+    getServiceAddonsForEdit(id),
     getServerI18n(),
   ])
 
@@ -50,6 +58,9 @@ export default async function EditServicePage({ params }: EditServicePageProps) 
         service={service}
         mode="edit"
       />
+
+      {/* #92: dodatki — urejajo se ločeno od storitve (replace-all) */}
+      <ServiceAddonsEditor serviceId={service.id} initialAddons={addons} />
     </div>
   )
 }

@@ -282,7 +282,40 @@ export async function POST(req: Request) {
         (sum, s) => sum + s.price.toNumber(),
         0
       )
-      const endTime = addMinutes(startTime, totalDuration)
+
+      // #92: dodatki potujejo kot ID-ji prek metadata — ponovno se
+      // razrešijo org-scoped iz DB (cene iz metadata se NE zaupajo) in
+      // prištejeta ceni/trajanju termina; snapshot gre na zapis.
+      let selectedAddons: { name: string; price: number; durationMin: number }[] = []
+      if (metadata.addonIds) {
+        try {
+          const addonIds: string[] = JSON.parse(metadata.addonIds || "[]")
+          if (Array.isArray(addonIds) && addonIds.length > 0) {
+            const addonRows = await prisma.serviceAddon.findMany({
+              where: {
+                id: { in: addonIds },
+                isActive: true,
+                serviceId: { in: serviceIds },
+                service: { organizationId: org.id },
+              },
+            })
+            const byId = new Map(addonRows.map((a) => [a.id, a]))
+            selectedAddons = addonIds
+              .filter((id) => byId.has(id))
+              .map((id) => {
+                const a = byId.get(id)!
+                return { name: a.name, price: a.price.toNumber(), durationMin: a.durationMin }
+              })
+          }
+        } catch {
+          // Pokvarjen metadata → brez dodatkov; plačilo storitve ostane
+          // veljavno (ne obrnemo plačila zaradi dodatka).
+        }
+      }
+      const addonPrice = selectedAddons.reduce((s, a) => s + a.price, 0)
+      const addonDuration = selectedAddons.reduce((s, a) => s + a.durationMin, 0)
+
+      const endTime = addMinutes(startTime, totalDuration + addonDuration)
 
       // DOUBLE-BOOKING GUARD — re-check that the slot is still free before
       // confirming. Payment received for a taken slot is logged for manual refund.
@@ -409,10 +442,11 @@ export async function POST(req: Request) {
           endTime,
           status: "CONFIRMED", // Confirmed because payment was successful
           notes,
-          totalPrice,
+          totalPrice: totalPrice + addonPrice,
           depositAmount,
           depositPaid: true, // Payment was successful
           stripePaymentId: paymentIntentId,
+          addons: selectedAddons.length > 0 ? selectedAddons : undefined,
           services: {
             create: serviceIds.map((serviceId: string) => ({
               serviceId,

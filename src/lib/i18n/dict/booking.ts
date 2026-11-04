@@ -31,6 +31,8 @@ export const bookingSl = {
   noSlots: "Za ta dan ni prostih terminov",
   // #90: izhod iz polnega dne — povezava na prijavo na čakalno listo
   waitlistHint: "Zasedeno? Prijavite se na čakalno listo ↓",
+  // #92: izbirni dodatki storitve (cena/trajanje se prištejeta atomarno)
+  addonsTitle: "Dodatki (neobvezno)",
 
   // ---- Korak 4: kontakt ----
   yourDetails: "Vaši podatki",
@@ -142,6 +144,8 @@ export const bookingEn: BookingDict = {
   noSlots: "No available slots for this day",
   // #90: exit for a fully-booked day — link to the waitlist join form
   waitlistHint: "Fully booked? Join the waitlist ↓",
+  // #92: optional service add-ons (price/duration added atomically)
+  addonsTitle: "Add-ons (optional)",
 
   yourDetails: "Your details",
   confirmDetailsDesc: "Confirm your contact details",

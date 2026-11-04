@@ -12,6 +12,7 @@ import {
   getAvailableStaff,
   getSalonConfig,
   getStaffForBooking,
+  getServiceAddons,
   getCurrentUserStaffId,
 } from "@/app/actions/appointments"
 import { BookingForm } from "@/components/booking/booking-form"
@@ -226,6 +227,10 @@ export default async function BookingPage(props: BookingPageProps) {
     availableStaff = availableStaff.filter((s) => s.id !== currentUserStaffId)
   }
 
+  // #92: aktivni dodatki storitve (service-first) — staff-first način jih
+  // (v1) ne ponuja, ker se storitev šele izbira med osebjem.
+  const addons = await getServiceAddons(service.id)
+
   return (
     <div className="from-muted/30 via-background to-muted/20 min-h-screen bg-linear-to-b py-12">
       <div className="container mx-auto max-w-6xl px-4">
@@ -248,6 +253,7 @@ export default async function BookingPage(props: BookingPageProps) {
           isAuthenticated={!!session?.user}
           isEmployee={isEmployee}
           paymentsEnabled={paymentsEnabled}
+          addons={addons}
           defaultValues={defaultValues}
         />
 

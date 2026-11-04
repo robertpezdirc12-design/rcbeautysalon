@@ -36,6 +36,11 @@ interface DateTimeStepProps {
   resources?: BookingResource[]
   selectedResourceId?: string | null
   onSelectResource?: (id: string | null) => void
+  // #92: izbirni dodatki — checkboxi nad izbiro datuma (spremenijo
+  // trajanje → sloti se osvežijo prek serviceDuration).
+  addons?: { id: string; name: string; price: number; durationMin: number }[]
+  selectedAddonIds?: string[]
+  onToggleAddon?: (id: string) => void
 }
 
 export function DateTimeStep({
@@ -51,6 +56,9 @@ export function DateTimeStep({
   resources = [],
   selectedResourceId = null,
   onSelectResource,
+  addons = [],
+  selectedAddonIds = [],
+  onToggleAddon,
 }: DateTimeStepProps) {
   const { t, locale, withBusiness } = useI18n()
   const dfLocale = getDateFnsLocale(locale)
@@ -74,7 +82,8 @@ export function DateTimeStep({
           selectedStaffId,
           dateKey,
           serviceDuration,
-          selectedResourceId
+          selectedResourceId,
+          selectedAddonIds
         )
         setAvailableSlots(slots)
       } catch (err) {
@@ -86,7 +95,7 @@ export function DateTimeStep({
     }
 
     loadTimeSlots()
-  }, [selectedStaffId, selectedDate, serviceDuration, selectedResourceId])
+  }, [selectedStaffId, selectedDate, serviceDuration, selectedResourceId, selectedAddonIds])
 
   return (
     <Card className="shadow-lg">
@@ -152,6 +161,40 @@ export function DateTimeStep({
                 <p className="text-xs text-muted-foreground">
                   {t.booking.resourceNote}
                 </p>
+              </div>
+            )}
+
+            {/* #92: izbirni dodatki — cena in trajanje se prištejeta
+                atomarno (Sloti se osvežijo, cena je vidna v povzetku PRED
+                potrditvijo). Nič ni izbrano privzeto. */}
+            {addons.length > 0 && onToggleAddon && (
+              <div className="space-y-2">
+                <Label className="block text-sm font-medium">{t.booking.addonsTitle}</Label>
+                <div className="flex flex-wrap gap-2">
+                  {addons.map((addon) => {
+                    const checked = selectedAddonIds.includes(addon.id)
+                    return (
+                      <button
+                        key={addon.id}
+                        type="button"
+                        role="checkbox"
+                        aria-checked={checked}
+                        onClick={() => onToggleAddon(addon.id)}
+                        className={`rounded-full border px-4 py-1.5 text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                          checked
+                            ? "border-primary bg-primary/5 ring-2 ring-primary/30"
+                            : "hover:border-primary/40"
+                        }`}
+                      >
+                        {addon.name}
+                        <span className="text-muted-foreground ml-1.5 text-xs">
+                          +{addon.price.toFixed(2).replace(".", ",")} €
+                          {addon.durationMin > 0 ? ` · +${addon.durationMin} min` : ""}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
             )}
 

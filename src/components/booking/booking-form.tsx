@@ -46,6 +46,11 @@ export function BookingForm(props: BookingFormProps) {
   // the selector then never renders).
   const [resources, setResources] = useState<BookingResource[]>([])
   const [selectedResourceId, setSelectedResourceId] = useState<string | null>(null)
+  // #92: izbrani dodatki (ID-ji) — cene/trajanje razreši strežnik iz DB.
+  const [selectedAddonIds, setSelectedAddonIds] = useState<string[]>([])
+  const availableAddons = props.addons ?? []
+  const selectedAddons = availableAddons.filter((a) => selectedAddonIds.includes(a.id))
+  const addonDurationMin = selectedAddons.reduce((s, a) => s + a.durationMin, 0)
 
   useEffect(() => {
     let cancelled = false
@@ -212,6 +217,7 @@ export function BookingForm(props: BookingFormProps) {
             notes: parsed.data.notes || undefined,
             isEmployee: true, // Apply 20% discount, no deposit
             resourceRecordId: selectedResourceId,
+            addonIds: selectedAddonIds,
           })
 
           if (result.success && result.appointmentId) {
@@ -233,6 +239,7 @@ export function BookingForm(props: BookingFormProps) {
           bookingDate,
           bookingTime,
           resourceRecordId: selectedResourceId,
+          addonIds: selectedAddonIds,
           guestName: !isAuthenticated
             ? `${parsed.data.firstName} ${parsed.data.lastName}`
             : undefined,
@@ -264,6 +271,7 @@ export function BookingForm(props: BookingFormProps) {
             guestPhone: parsed.data.phone || undefined,
             notes: parsed.data.notes || undefined,
             resourceRecordId: selectedResourceId,
+            addonIds: selectedAddonIds,
           })
 
           if (fallback.success && fallback.appointmentId) {
@@ -353,7 +361,7 @@ export function BookingForm(props: BookingFormProps) {
           {/* Step 3: Date & Time Selection */}
           <DateTimeStep
             selectedStaffId={staffId}
-            serviceDuration={selectedService?.duration || 60}
+            serviceDuration={(selectedService?.duration || 60) + addonDurationMin}
             selectedDate={selectedDate}
             selectedTime={selectedTime}
             onSelectDate={(date) => {
@@ -380,6 +388,16 @@ export function BookingForm(props: BookingFormProps) {
               // The slot set depends on the resource — clear a stale time
               // (same reason as the day-change fix above).
               setSelectedResourceId(id)
+              if (selectedTime) setValue("time", "")
+            }}
+            // #92: dodatki podaljšajo trajanje → sloti se spremenijo,
+            // zastarel čas se počisti (isti razlog kot pri viru).
+            addons={availableAddons}
+            selectedAddonIds={selectedAddonIds}
+            onToggleAddon={(id) => {
+              setSelectedAddonIds((prev) =>
+                prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+              )
               if (selectedTime) setValue("time", "")
             }}
             maxBookingAdvance={salonConfig.maxBookingAdvance}
@@ -411,6 +429,7 @@ export function BookingForm(props: BookingFormProps) {
             }
             selectedDate={selectedDate}
             selectedTime={selectedTime}
+            selectedAddons={selectedAddons}
             salonConfig={salonConfig}
             submitting={isPending}
             error={flowError}

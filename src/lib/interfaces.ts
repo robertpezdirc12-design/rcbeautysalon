@@ -400,6 +400,9 @@ export interface CreateAppointmentData {
   // E2-7 (G7): optional workspace resource (ExtensionRecord id) — only
   // honored when the org profile enables workspace-resources + appointments.
   resourceRecordId?: string | null
+  // #92: izbrani dodatki (ID-ji) — strežnik razreši cene/trajanje iz DB
+  // (org-scoped, aktiven), nikoli ne zaupa klientu.
+  addonIds?: string[]
 }
 
 export interface AppointmentCreationResult {
@@ -464,6 +467,10 @@ export interface CreateCheckoutSessionData {
   // E2-7 (G7): optional workspace resource id — carried via checkout
   // metadata into the webhook-created appointment.
   resourceRecordId?: string | null
+  // #92: izbrani dodatki — ID-ji potujejo prek checkout metadata;
+  // webhook jih ponovno razreši org-scoped iz DB (cene iz metadate
+  // se NIKOLI ne zaupajo).
+  addonIds?: string[]
 }
 
 export interface CreateCheckoutSessionResult {
@@ -623,6 +630,14 @@ export interface BookingSalonConfig {
   maxBookingAdvance: number
 }
 
+// #92: izbirni dodatek storitve (UI oblika — cena številka, ne Decimal)
+export interface BookingAddon {
+  id: string
+  name: string
+  price: number
+  durationMin: number
+}
+
 // Base props shared by both booking modes
 interface BookingFormBaseProps {
   salonConfig: BookingSalonConfig
@@ -631,6 +646,9 @@ interface BookingFormBaseProps {
   // False when the salon has no Stripe key (payments optional, E4-3b):
   // booking is submitted without online payment and lands as PENDING.
   paymentsEnabled?: boolean
+  // #92: aktivni dodatki storitve (service-first: izbrane storitve;
+  // staff-first: prvi seznam — UI jih pokaže po izbiri storitve).
+  addons?: BookingAddon[]
   defaultValues?: {
     firstName?: string
     lastName?: string

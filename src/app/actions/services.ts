@@ -498,6 +498,87 @@ export async function getServiceById(id: string) {
 }
 
 //Create Service
+
+// ============================================================
+// #92 — DODATKI STORITVE (admin)
+// Replace-all semantika: shranjevanje prepiše celoten seznam
+// dodatkov storitve (enostavno in idempotentno). Termin_snapshoti
+// ostanejo nedotaknjeni — zgodovina termina ne sledi katalogu.
+// ============================================================
+export interface ServiceAddonInput {
+  name: string
+  price: number
+  durationMin: number
+}
+
+/** Aktivni dodatki storitve za urejevalnik (org-scoped, fail-closed). */
+export async function getServiceAddonsForEdit(serviceId: string) {
+  const { org } = await requirePermissionOrg("services.manage")
+  const service = await prisma.service.findFirst({
+    where: { id: serviceId, organizationId: org.id },
+    select: { id: true },
+  })
+  if (!service) return []
+
+  const addons = await prisma.serviceAddon.findMany({
+    where: { serviceId: service.id },
+    orderBy: [{ position: "asc" }, { name: "asc" }],
+  })
+  return addons.map((a) => ({
+    id: a.id,
+    name: a.name,
+    price: a.price.toNumber(),
+    durationMin: a.durationMin,
+  }))
+}
+
+export async function upsertServiceAddons(
+  serviceId: string,
+  addons: ServiceAddonInput[]
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { org } = await requirePermissionOrg("services.manage")
+
+    const service = await prisma.service.findFirst({
+      where: { id: serviceId, organizationId: org.id },
+      select: { id: true },
+    })
+    if (!service) {
+      return { success: false, error: "Storitev ni najdena ali ni vaša." }
+    }
+
+    // Sanitizacija: samo veljavne vrstice (ime ≥ 2, cena ≥ 0, trajanje ≥ 0).
+    const clean = (Array.isArray(addons) ? addons : [])
+      .filter(
+        (a): a is ServiceAddonInput =>
+          !!a && typeof a === "object" &&
+          typeof a.name === "string" && a.name.trim().length >= 2 &&
+          Number.isFinite(a.price) && a.price >= 0 &&
+          Number.isFinite(a.durationMin) && a.durationMin >= 0
+      )
+      .slice(0, 12)
+      .map((a, i) => ({
+        name: a.name.trim().slice(0, 60),
+        price: Math.round(a.price * 100) / 100,
+        durationMin: Math.max(0, Math.round(a.durationMin)),
+        position: i,
+      }))
+
+    await prisma.$transaction([
+      prisma.serviceAddon.deleteMany({ where: { serviceId: service.id } }),
+      ...(clean.length > 0
+        ? [prisma.serviceAddon.createMany({ data: clean.map((a) => ({ ...a, serviceId: service.id })) })]
+        : []),
+    ])
+
+    revalidatePath("/dashboard/services")
+    return { success: true }
+  } catch (error) {
+    console.error("upsertServiceAddons failed:", error)
+    return { success: false, error: "Shranjevanje dodatkov ni uspelo. Poskusite znova." }
+  }
+}
+
 export async function createService(data: CreateServiceInput) {
   try {
     const { org } = await requirePermissionOrg("services.manage")
