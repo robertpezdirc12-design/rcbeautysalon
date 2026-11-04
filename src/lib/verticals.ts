@@ -278,6 +278,15 @@ const IMG = {
   staffNails: "/img/presets/staff-nails.jpg",
 }
 
+// P2 #61: every sample image the presets ship — used by the publish gate to
+// warn owners who are about to go live with stock imagery.
+const SAMPLE_IMAGE_URLS: ReadonlySet<string> = new Set(Object.values(IMG))
+
+/** True when the url is still one of the preset sample images. */
+export function isSampleImageUrl(url: string | null | undefined): boolean {
+  return !!url && SAMPLE_IMAGE_URLS.has(url)
+}
+
 /**
  * Owner staff portrait per vertical, applied when onboarding creates the
  * tenant's first (owner) staff profile. Verticals without a fitting
@@ -632,38 +641,131 @@ export function verticalSiteContent(id: string): SiteContent {
   return withImages(v.id, v.siteContent, aboutImg)
 }
 
-/** Creates categories + sample services + sample products for a fresh organization. */
-export async function seedOrganizationCatalog(orgId: string, verticalId: string): Promise<void> {
-  const existing = await prisma.category.count({ where: { organizationId: orgId } })
-  if (existing > 0) return
+/** What "Dopolni katalog" actually did — shown in the toast (P2 #59). */
+export interface CatalogSeedReport {
+  added: { categories: number; services: number; products: number }
+  /** Foreign-preset sample rows replaced (provenance-flagged, never edited rows only). */
+  replaced: { categories: number; services: number; products: number }
+  /** Rows deliberately kept (owner-created, or referenced by real business data). */
+  kept: number
+}
+
+/**
+ * Fill in the MISSING parts of a preset's catalog (P2 #59): categories +
+ * services when the tenant has none, products when the tenant has none —
+ * independently, so a tenant with categories still gets products of a
+ * product-centric preset (and vice versa).
+ *
+ * Provenance (`presetSeed`): every row this function creates is flagged with
+ * the preset id. With `replaceForeignPreset` (vertical switch), sample rows of
+ * OTHER presets are replaced, while owner-created rows (presetSeed = null) are
+ * never touched. Sample rows already referenced by real business data
+ * (appointments, orders) are kept — they are history, not samples.
+ */
+export async function seedOrganizationCatalog(
+  orgId: string,
+  verticalId: string,
+  opts: { replaceForeignPreset?: boolean } = {}
+): Promise<CatalogSeedReport> {
   const preset = getVertical(verticalId)
-  for (const cat of preset.categories) {
-    const category = await prisma.category.create({
-      data: { name: cat.name, slug: cat.slug, organizationId: orgId },
+  const report: CatalogSeedReport = {
+    added: { categories: 0, services: 0, products: 0 },
+    replaced: { categories: 0, services: 0, products: 0 },
+    kept: 0,
+  }
+
+  // ------------------------------------------------------------
+  // P2 #59: the two halves of the catalog are independent — the old
+  // implementation early-returned when ANY category existed, which made
+  // "Dopolni katalog" a silent no-op for product-centric presets
+  // (beekeeping ships categories: []) and left stale honey products on a
+  // seamstress site.
+  // ------------------------------------------------------------
+
+  // Replace foreign-preset sample rows first (vertical switch flow):
+  // rows flagged with a DIFFERENT preset id are the previous activity's
+  // samples. Owner-created rows (presetSeed = null) are never touched;
+  // sample rows with real business history (appointments/orders) are kept.
+  if (opts.replaceForeignPreset) {
+    const foreign = preset.id
+    const replacedServices = await prisma.service.deleteMany({
+      where: {
+        organizationId: orgId,
+        presetSeed: { not: null, notIn: [foreign] },
+        appointmentServices: { none: {} },
+      },
     })
-    for (const [i, svc] of cat.services.entries()) {
-      await prisma.service.create({
-        data: {
-          name: svc.name,
-          slug: `${cat.slug}-${svc.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`,
-          description: svc.description,
-          duration: svc.duration,
-          price: svc.price,
-          imageUrl: svc.imageUrl,
-          isActive: true,
-          isFeatured: !!svc.isFeatured && i < 2,
-          order: i,
-          organizationId: orgId,
-          categoryId: category.id,
-        },
+    report.replaced.services = replacedServices.count
+    report.kept += await prisma.service.count({
+      where: {
+        organizationId: orgId,
+        presetSeed: { not: null, notIn: [foreign] },
+        appointmentServices: { some: {} },
+      },
+    })
+    const replacedProducts = await prisma.product.deleteMany({
+      where: {
+        organizationId: orgId,
+        presetSeed: { not: null, notIn: [foreign] },
+        orderItems: { none: {} },
+      },
+    })
+    report.replaced.products = replacedProducts.count
+    report.kept += await prisma.product.count({
+      where: {
+        organizationId: orgId,
+        presetSeed: { not: null, notIn: [foreign] },
+        orderItems: { some: {} },
+      },
+    })
+    // Categories last (services already removed): a category is replaced
+    // only when it holds no owner-created service (those were placed there
+    // deliberately and must not be orphaned).
+    const replacedCategories = await prisma.category.deleteMany({
+      where: {
+        organizationId: orgId,
+        presetSeed: { not: null, notIn: [foreign] },
+        services: { none: { presetSeed: null } },
+      },
+    })
+    report.replaced.categories = replacedCategories.count
+  }
+
+  const existingCats = await prisma.category.count({ where: { organizationId: orgId } })
+  if (existingCats === 0) {
+    for (const cat of preset.categories) {
+      const category = await prisma.category.create({
+        data: { name: cat.name, slug: cat.slug, organizationId: orgId, presetSeed: preset.id },
       })
+      for (const [i, svc] of cat.services.entries()) {
+        await prisma.service.create({
+          data: {
+            name: svc.name,
+            slug: `${cat.slug}-${svc.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`,
+            description: svc.description,
+            duration: svc.duration,
+            price: svc.price,
+            imageUrl: svc.imageUrl,
+            isActive: true,
+            isFeatured: !!svc.isFeatured && i < 2,
+            order: i,
+            organizationId: orgId,
+            categoryId: category.id,
+            presetSeed: preset.id,
+          },
+        })
+        report.added.services += 1
+      }
+      report.added.categories += 1
     }
   }
-  // Sample products for product-centric profiles (e.g. beekeeping).
+
+  // Sample products for product-centric profiles (e.g. beekeeping) —
+  // independent of the category guard above (P2 #59).
   if (preset.products?.length) {
     const existingProducts = await prisma.product.count({ where: { organizationId: orgId } })
     if (existingProducts === 0) {
-      await prisma.product.createMany({
+      const res = await prisma.product.createMany({
         data: preset.products.map((p) => ({
           name: p.name,
           description: p.description,
@@ -674,8 +776,12 @@ export async function seedOrganizationCatalog(orgId: string, verticalId: string)
           isActive: true,
           isFeatured: !!p.isFeatured,
           organizationId: orgId,
+          presetSeed: preset.id,
         })),
       })
+      report.added.products = res.count
     }
   }
+
+  return report
 }

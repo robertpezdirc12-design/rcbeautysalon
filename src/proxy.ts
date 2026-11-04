@@ -56,7 +56,14 @@ async function resolveTenant(
     const info = (await res.json()) as TenantInfo
     // P0 #24 (reopen): 15 s — usklajeno z Cache-Control resolverja;
     // spremembe vertikale/objave so vidne najkasneje ~1,25 min.
-    tenantCache.set(slug, { info, exp: Date.now() + 15_000 })
+    // P3 #64: negativen odgovor (exists:false) je edini, ki ga naslednja
+    // akcija lastnika (objava) takoj razveljavi — dobi le 1 s TTL, da
+    // še vedno duši 404 burke za nezane sluge, objava pa je vidna takoj.
+    // Pozitivni odgovor ostane na 15 s (usklajen z resolverjem).
+    tenantCache.set(slug, {
+      info,
+      exp: Date.now() + (info.exists ? 15_000 : 1_000),
+    })
     return info
   } catch {
     return null

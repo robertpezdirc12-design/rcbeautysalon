@@ -605,3 +605,116 @@ export function formatOpeningHours(hours: OpeningHour[]): { day: string; value: 
     value: h.open && h.close ? `${h.open} – ${h.close}` : "Zaprto",
   }))
 }
+
+// ============================================================
+// P2 #61 — CONTENT ↔ ACTIVITY COHERENCE
+// The publish gate validates completeness (name, contact, catalog
+// counts). This function adds the missing COHERENCE half: does the
+// stored content actually belong to the selected activity? The mixed
+// site from production (beekeeper hero around a seamstress price
+// list) published silently because nothing asked this question.
+//
+// Pure + client-safe: compares the STORED raw JSON (not the merged
+// view — missing keys render the tenant vertical's defaults, which are
+// coherent by construction) against every preset's default content.
+// ============================================================
+
+import { PROFILES } from "@/lib/profiles/registry"
+
+export interface ContentActivityMismatch {
+  /** The stored title that betrayed the foreign preset. */
+  foundTitle: string
+  /** Preset the content actually belongs to. */
+  matchedVerticalId: string
+  matchedVerticalLabel: string
+  /** The tenant's activity. */
+  expectedVerticalId: string
+  expectedVerticalLabel: string
+}
+
+/** Normalise a title for comparison: case/whitespace/punctuation-insensitive. */
+function normalizeTitle(value: unknown): string {
+  if (typeof value !== "string") return ""
+  return value
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim()
+}
+
+/** The three copy blocks that identify whose content this is. */
+const MISMATCH_FIELDS = ["hero", "about", "cta"] as const
+
+/**
+ * Detect content that verbatim belongs to a DIFFERENT activity preset.
+ * Returns null when the content is coherent (or absent — null content
+ * renders the vertical defaults, which are coherent by construction).
+ *
+ * Rule: a preset "matches" when ≥ 80 % of the stored identifying titles
+ * equal that preset's default titles. A match on a preset whose defaults
+ * DIFFER from the tenant vertical's defaults is a mismatch (the equality
+ * guard prevents false positives for profiles that share copy, e.g.
+ * generic ↔ beauty).
+ */
+export function detectContentActivityMismatch(
+  stored: unknown,
+  vertical: string
+): ContentActivityMismatch | null {
+  if (!stored || typeof stored !== "object" || Array.isArray(stored)) return null
+  const s = stored as Record<string, unknown>
+
+  // Only titles PRESENT in the stored JSON are evidence — missing keys
+  // fall back to the tenant's own defaults when rendered.
+  const storedTitles: { field: string; normalized: string; raw: string }[] = []
+  for (const field of MISMATCH_FIELDS) {
+    const block = s[field] as { title?: unknown } | undefined
+    if (block && typeof block.title === "string" && block.title.trim()) {
+      storedTitles.push({
+        field,
+        normalized: normalizeTitle(block.title),
+        raw: block.title,
+      })
+    }
+  }
+  if (storedTitles.length === 0) return null
+
+  const tenantDefaults = defaultSiteContent(vertical)
+  const tenantDefaultHero = normalizeTitle(tenantDefaults.hero.title)
+
+  let bestId: string | null = null
+  let bestScore = 0
+  for (const id of Object.keys(PROFILES)) {
+    const defaults = defaultSiteContent(id)
+    let score = 0
+    for (const t of storedTitles) {
+      const block = defaults[t.field as keyof SiteContent] as { title?: unknown } | undefined
+      if (block && normalizeTitle(block?.title) === t.normalized) score += 1
+    }
+    if (score > bestScore) {
+      bestScore = score
+      bestId = id
+    }
+  }
+
+  const threshold = Math.ceil(storedTitles.length * 0.8)
+  if (!bestId || bestId === vertical || bestScore < Math.max(1, threshold)) return null
+
+  // Shared-copy guard: when the best-matching preset's own defaults equal
+  // the tenant vertical's defaults (generic reuses beauty copy), the
+  // content IS the tenant's default — not a foreign preset's.
+  const bestDefaults = defaultSiteContent(bestId)
+  if (normalizeTitle(bestDefaults.hero.title) === tenantDefaultHero) return null
+
+  const matchedTitle =
+    storedTitles.find((t) => {
+      const block = bestDefaults[t.field as keyof SiteContent] as { title?: unknown } | undefined
+      return block && normalizeTitle(block?.title) === t.normalized
+    }) ?? storedTitles[0]
+
+  return {
+    foundTitle: matchedTitle.raw,
+    matchedVerticalId: bestId,
+    matchedVerticalLabel: PROFILES[bestId]?.label ?? bestId,
+    expectedVerticalId: vertical,
+    expectedVerticalLabel: PROFILES[vertical]?.label ?? vertical,
+  }
+}

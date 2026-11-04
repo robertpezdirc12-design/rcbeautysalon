@@ -1,4 +1,8 @@
 import type { CapabilityMatrix } from "@/lib/profiles/types"
+import {
+  detectContentActivityMismatch,
+  type ContentActivityMismatch,
+} from "@/lib/site-content"
 
 /**
  * Publication lifecycle (EPIC #3, E3-1).
@@ -22,12 +26,22 @@ export interface PublishRequirementsInput {
   productCount: number
   /** Effective capability matrix (shared profile + owner overrides). */
   capabilities: Pick<CapabilityMatrix, "services" | "shop">
+  /** P2 #61: raw stored content; null/undefined = vertical defaults (coherent). */
+  siteContent?: unknown
+  /** P2 #61: current activity id, e.g. "seamstress". */
+  vertical?: string
+  /** P2 #61: true when every image is still the preset sample (warning only). */
+  usesOnlySampleImages?: boolean
 }
 
 export interface PublishValidation {
   ok: boolean
   /** Human-readable (Slovenian, the public site language) reasons blocking publication. */
   errors: string[]
+  /** P2 #61: non-blocking advisories (sample imagery, legacy rows of a disabled capability). */
+  warnings: string[]
+  /** P2 #61: structured mismatch info — the UI turns it into a one-click fix. */
+  mismatch: ContentActivityMismatch | null
 }
 
 /**
@@ -38,6 +52,7 @@ export function validatePublishRequirements(
   input: PublishRequirementsInput,
 ): PublishValidation {
   const errors: string[] = []
+  const warnings: string[] = []
 
   if (!input.orgName || input.orgName.trim().length === 0) {
     errors.push("Ime podjetja ni nastavljeno (Nastavitve → Osnovni podatki).")
@@ -64,7 +79,48 @@ export function validatePublishRequirements(
     errors.push("Trgovina je obvezna za to dejavnost — dodajte vsaj en izdelek.")
   }
 
-  return { ok: errors.length === 0, errors }
+  // --------------------------------------------------------------
+  // P2 #61 — COHERENCE gate (the mixed-site defence in depth):
+  // 1. Stored content that verbatim belongs to a DIFFERENT preset blocks
+  //    publication (the production defect: beekeeper hero around a
+  //    seamstress price list went live because nothing asked).
+  // 2. Legacy rows of a DISABLED capability are a warning only — since
+  //    #60 the body/header never render them, so they cannot confuse
+  //    visitors, but the owner should still know they exist.
+  // --------------------------------------------------------------
+  let mismatch: ContentActivityMismatch | null = null
+  if (input.vertical) {
+    mismatch = detectContentActivityMismatch(input.siteContent, input.vertical)
+    if (mismatch) {
+      errors.push(
+        `Vsebina ne ustreza izbrani dejavnosti: naslov strani je «${mismatch.foundTitle}» ` +
+          `(${mismatch.matchedVerticalLabel}), dejavnost pa je ${mismatch.expectedVerticalLabel}. ` +
+          `Naložite vzorčno vsebino ali uredite vsebino pred objavo.`,
+      )
+    }
+
+    if (
+      input.capabilities.services === "disabled" &&
+      input.serviceCount > 0
+    ) {
+      warnings.push(
+        `V katalogu je ${input.serviceCount} storitev, vendar jih dejavnost ${input.vertical} ne prikazuje — obiščevalci jih ne bodo videli.`,
+      )
+    }
+    if (input.capabilities.shop === "disabled" && input.productCount > 0) {
+      warnings.push(
+        `V trgovini je ${input.productCount} izdelkov, vendar jih dejavnost ${input.vertical} ne prikazuje — obiščevalci jih ne bodo videli.`,
+      )
+    }
+  }
+
+  if (input.usesOnlySampleImages) {
+    warnings.push(
+      "Uporabljate vzorčne slike — zamenjajte jih s svojimi pred objavo.",
+    )
+  }
+
+  return { ok: errors.length === 0, errors, warnings, mismatch }
 }
 
 export const PUBLISH_STATES: PublishState[] = ["DRAFT", "PUBLISHED", "UNPUBLISHED"]

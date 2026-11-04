@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
-import { Globe, GlobeLock, Eye, PencilRuler, Rocket, Undo2 } from "lucide-react"
+import { Globe, GlobeLock, Eye, PencilRuler, Rocket, TriangleAlert, Wand2, Undo2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -27,6 +27,8 @@ import {
   unpublishSite,
   type PublicationStatus,
 } from "@/app/actions/publication"
+import { loadSampleSiteContent } from "@/app/actions/site-content"
+import type { ContentActivityMismatch } from "@/lib/site-content"
 
 interface PublicationCardProps {
   initial: PublicationStatus
@@ -57,11 +59,14 @@ const stateLabels: Record<PublicationStatus["state"], { label: string; className
 export function PublicationCard({ initial, siteHref }: PublicationCardProps) {
   const [status, setStatus] = useState(initial)
   const [errors, setErrors] = useState<string[]>([])
+  const [mismatch, setMismatch] = useState<ContentActivityMismatch | null>(null)
+  const [fixingMismatch, setFixingMismatch] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
 
   const handlePublish = () => {
     setErrors([])
+    setMismatch(null)
     startTransition(async () => {
       try {
         const result = await publishSite()
@@ -71,16 +76,42 @@ export function PublicationCard({ initial, siteHref }: PublicationCardProps) {
             publishedAt: new Date(),
             hasUnpublishedChanges: false,
             hasPublishedSnapshot: true,
+            warnings: result.warnings,
           })
-          toast.success("Spletna stran je objavljena.")
+          // P3 #64: negativen resolve-tenant odgovor ni več cacheiran, a
+          // CDN/pozitivni cachei lahko še nekaj sekund servirajo staro —
+          // sporočilo ne obljublja takojšnje dostopnosti, če ta ni zagotovljena.
+          toast.success(
+            "Spletna stran je objavljena. Če se stran ne odpre takoj, poskusite še enkrat v nekaj sekundah."
+          )
         } else {
           setErrors(result.errors)
+          setMismatch(result.mismatch)
           toast.error("Objava ni uspela — glejte razlogi spodaj.")
         }
       } catch {
         toast.error("Prišlo je do napake. Poskusite znova.")
       }
     })
+  }
+
+  // P2 #61: one-click fix for the coherence error — load the current
+  // activity's sample content, then retry the publish automatically.
+  const handleLoadSample = async () => {
+    setFixingMismatch(true)
+    try {
+      const res = await loadSampleSiteContent()
+      if (res.success) {
+        toast.success("Vzorčna vsebina je naložena — objavljam znova …")
+        handlePublish()
+      } else {
+        toast.error(res.error)
+      }
+    } catch {
+      toast.error("Prišlo je do napake. Poskusite znova.")
+    } finally {
+      setFixingMismatch(false)
+    }
   }
 
   const handleUnpublish = () => {
@@ -136,6 +167,20 @@ export function PublicationCard({ initial, siteHref }: PublicationCardProps) {
           </div>
         )}
 
+        {status.warnings.length > 0 && (
+          <div className="border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950 flex items-start gap-2 rounded-md border p-3 text-sm">
+            <TriangleAlert className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+            <div>
+              <p className="text-amber-800 dark:text-amber-300 font-medium">Opozorila pred objavo:</p>
+              <ul className="text-amber-800/90 dark:text-amber-300/90 list-disc space-y-0.5 pl-5">
+                {status.warnings.map((w) => (
+                  <li key={w}>{w}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
+
         {errors.length > 0 && (
           <div
             role="alert"
@@ -147,6 +192,21 @@ export function PublicationCard({ initial, siteHref }: PublicationCardProps) {
                 <li key={e}>{e}</li>
               ))}
             </ul>
+            {mismatch && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-2"
+                disabled={fixingMismatch || isPending}
+                onClick={() => void handleLoadSample()}
+              >
+                <Wand2 className="size-4" aria-hidden="true" />
+                {fixingMismatch
+                  ? "Nalagam vzorčno vsebino …"
+                  : `Naloži vzorčno vsebino za ${mismatch.expectedVerticalLabel}`}
+              </Button>
+            )}
           </div>
         )}
 

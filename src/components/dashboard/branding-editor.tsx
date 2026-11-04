@@ -409,6 +409,10 @@ export function BrandingEditor() {
   const [vertical, setVertical] = useState("")
   const [reseed, setReseed] = useState(false)
   const [savingVertical, setSavingVertical] = useState(false)
+  // P1 #58: explicit content decision inside a dialog — the old
+  // window.confirm left the previous trade's hero/about/CTA live.
+  const [verticalDialogOpen, setVerticalDialogOpen] = useState(false)
+  const [contentMode, setContentMode] = useState<"reseed" | "keep">("reseed")
 
   // P3 #49: namig hero/CTA gumba sledi načinu CTA profila — prodajni
   // profil vodi v trgovino, povpraševalni na obrazec (prej je namig
@@ -432,6 +436,11 @@ export function BrandingEditor() {
         setPublication(
           "publication" in res && res.publication ? res.publication : null
         )
+        // P1 #58: default content mode — reseed while the content is still
+        // the wizard's untouched sample, keep once the owner edited it.
+        if (typeof res.contentUntouched === "boolean") {
+          setContentMode(res.contentUntouched ? "reseed" : "keep")
+        }
         setDirty(false)
       } else {
         setError(
@@ -540,20 +549,43 @@ export function BrandingEditor() {
 
   const handleVertical = async () => {
     if (!org || savingVertical) return
-    const label = listProfileOptions().find((v) => v.id === vertical)?.label ?? vertical
-    const confirmed = window.confirm(
-      b.vertical.changeConfirm(label) + (reseed ? b.vertical.reseedConfirmNote : "")
-    )
-    if (!confirmed) return
+    // P1 #58: the dialog owns the decision — opening it IS the explicit
+    // confirmation flow (published impact, content mode, catalog note).
+    setVerticalDialogOpen(true)
+  }
+
+  const confirmVertical = async () => {
+    if (!org || savingVertical) return
     setSavingVertical(true)
     try {
-      const res = await updateOrgVertical(vertical, reseed)
+      const res = await updateOrgVertical(vertical, {
+        reseedCatalog: reseed,
+        contentMode,
+      })
       if ("error" in res && typeof res.error === "string") {
         toast.error(res.error)
         return
       }
       setOrg({ ...org, vertical })
-      toast.success(b.vertical.changed)
+      if (contentMode === "reseed") {
+        // Reload the editor so the form reflects the freshly seeded content.
+        await load()
+      }
+      if (res.seed) {
+        const { added, replaced, kept } = res.seed
+        toast.success(b.vertical.changed, {
+          description: [
+            b.vertical.seedAdded(added.categories, added.services, added.products),
+            replaced.categories + replaced.services + replaced.products > 0
+              ? b.vertical.seedReplaced(replaced.categories, replaced.services, replaced.products)
+              : null,
+            kept > 0 ? b.vertical.seedKept(kept) : null,
+          ].filter(Boolean).join(" "),
+        })
+      } else {
+        toast.success(b.vertical.changed)
+      }
+      setVerticalDialogOpen(false)
       router.refresh()
     } catch {
       toast.error(b.vertical.changeFailed)
@@ -731,6 +763,7 @@ export function BrandingEditor() {
           publishedAt: new Date(),
           hasUnpublishedChanges: false,
           hasPublishedSnapshot: true,
+          warnings: res.warnings,
         })
         toast.success(b.publishDone)
         router.refresh()
@@ -1424,6 +1457,90 @@ export function BrandingEditor() {
                 {savingVertical && <SpinnerIcon size={16} className="mr-2 animate-spin" />}
                 {b.vertical.change}
               </Button>
+
+              {/* P1 #58: explicit content decision — the old flow left the
+                  previous trade's hero/about/CTA live and silently produced
+                  a public page describing two businesses at once. */}
+              <AlertDialog open={verticalDialogOpen} onOpenChange={setVerticalDialogOpen}>
+                <AlertDialogContent className="max-h-[85vh] overflow-y-auto">
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      {b.vertical.dialogTitle(
+                        listProfileOptions().find((v) => v.id === vertical)?.label ?? vertical
+                      )}
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>{b.vertical.dialogDesc}</AlertDialogDescription>
+                  </AlertDialogHeader>
+
+                  <div className="space-y-3" role="radiogroup" aria-label={b.vertical.contentTitle}>
+                    <p className="text-sm font-medium">{b.vertical.contentTitle}</p>
+                    {([
+                      { mode: "reseed" as const, label: b.vertical.contentReseed, hint: b.vertical.contentReseedHint },
+                      { mode: "keep" as const, label: b.vertical.contentKeep, hint: b.vertical.contentKeepHint },
+                    ]).map((opt) => {
+                      const selected = contentMode === opt.mode
+                      return (
+                        <button
+                          key={opt.mode}
+                          type="button"
+                          role="radio"
+                          aria-checked={selected}
+                          onClick={() => setContentMode(opt.mode)}
+                          className={`w-full rounded-lg border p-3 text-left transition-colors ${
+                            selected
+                              ? "border-primary bg-primary/5"
+                              : "hover:bg-muted/50"
+                          }`}
+                        >
+                          <span className="flex items-center gap-2">
+                            <span
+                              className={`flex size-4 shrink-0 items-center justify-center rounded-full border ${
+                                selected ? "border-primary" : "border-muted-foreground/40"
+                              }`}
+                              aria-hidden
+                            >
+                              {selected && <span className="bg-primary size-2 rounded-full" />}
+                            </span>
+                            <span className="text-sm font-medium">{opt.label}</span>
+                          </span>
+                          <span className="text-muted-foreground mt-1 block pl-6 text-xs">
+                            {opt.hint}
+                          </span>
+                        </button>
+                      )
+                    })}
+                    {reseed && (
+                      <p className="text-muted-foreground flex items-start gap-2 text-xs">
+                        <WarningCircleIcon size={14} className="mt-0.5 shrink-0" />
+                        {b.vertical.catalogNote}
+                      </p>
+                    )}
+                    {publication?.state === "PUBLISHED" && (
+                      <p className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">
+                        <WarningCircleIcon size={14} className="mt-0.5 shrink-0" />
+                        {b.vertical.publishedImpact}
+                      </p>
+                    )}
+                  </div>
+
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={savingVertical}>
+                      {b.vertical.cancel}
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={(e) => {
+                        e.preventDefault()
+                        void confirmVertical()
+                      }}
+                      disabled={savingVertical}
+                      className="min-h-11"
+                    >
+                      {savingVertical && <SpinnerIcon size={16} className="mr-2 animate-spin" />}
+                      {b.vertical.change}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           </details>
         </EditorCard>

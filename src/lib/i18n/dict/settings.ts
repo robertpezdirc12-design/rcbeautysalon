@@ -538,6 +538,27 @@ export const settingsSl = {
         "\nKatalog bo dopolnjen z vzorčnimi storitvami nove panoge.",
       changed: "Panoga je zamenjana",
       changeFailed: "Zamenjava panoge ni uspela.",
+      // P1 #58 — switch dialog with an explicit content choice
+      dialogTitle: (label: string) => `Zamenjava panoge na "${label}"`,
+      dialogDesc:
+        "Izberite, kaj se zgodi z vsebino strani. Odločitev je obvezna.",
+      contentTitle: "Vsebina strani",
+      contentReseed: "Naloži vzorčno vsebino nove panoge",
+      contentReseedHint:
+        "Priporočeno, če vsebine še niste urejali — hero, o nas in CTA se prilagodijo novi dejavnosti.",
+      contentKeep: "Obdrži mojo trenutno vsebino",
+      contentKeepHint:
+        "Besedila ostanejo — sami jih prilagodite novi dejavnosti. Objaviti je treba ročno.",
+      publishedImpact:
+        "Stran je javno objavljena: obiskovalci bodo do ponovne objave še videli zadnjo objavljeno verzijo, zatem pa novo vsebino.",
+      catalogNote: "Katalog bo dopolnjen z vzorcem izbrane panoge (ročno dodane postavke ostanejo).",
+      cancel: "Prekliči",
+      seedAdded: (c: number, s: number, p: number) =>
+        `Katalog dopolnjen: ${c} kategorij, ${s} storitev, ${p} izdelkov.`,
+      seedReplaced: (c: number, s: number, p: number) =>
+        `Zamenjanih vzorčnih postavk prejšnje panoge: ${c} kategorij, ${s} storitev, ${p} izdelkov.`,
+      seedKept: (n: number) =>
+        `Ohranjenih postavk z zgodovino ali ročno dodanih: ${n}.`,
     },
     heroTitleRequired: "Hero naslov je obvezen.",
     imageUploaded: "Slika je naložena — ne pozabite shraniti sprememb",
@@ -1091,6 +1112,27 @@ export const settingsEn: SettingsDict = {
         "\nThe catalog will be filled with sample services of the new industry.",
       changed: "Industry changed",
       changeFailed: "Changing the industry failed.",
+      // P1 #58 — switch dialog with an explicit content choice
+      dialogTitle: (label: string) => `Changing the industry to "${label}"`,
+      dialogDesc:
+        "Choose what happens with your site content. The decision is required.",
+      contentTitle: "Site content",
+      contentReseed: "Load the new industry's sample content",
+      contentReseedHint:
+        "Recommended if you never edited the content — hero, about and CTA adapt to the new activity.",
+      contentKeep: "Keep my current content",
+      contentKeepHint:
+        "Texts stay as they are — adapt them to the new activity yourself. Publishing is manual.",
+      publishedImpact:
+        "Your site is publicly published: visitors will keep seeing the last published version until you publish again, then the new content.",
+      catalogNote: "The catalog will be filled with the selected industry's samples (manually added items are kept).",
+      cancel: "Cancel",
+      seedAdded: (c: number, s: number, p: number) =>
+        `Catalog completed: ${c} categories, ${s} services, ${p} products.`,
+      seedReplaced: (c: number, s: number, p: number) =>
+        `Replaced sample items of the previous industry: ${c} categories, ${s} services, ${p} products.`,
+      seedKept: (n: number) =>
+        `Kept items with history or manually added: ${n}.`,
     },
     heroTitleRequired: "Hero title is required.",
     imageUploaded: "Image uploaded — don't forget to save changes",

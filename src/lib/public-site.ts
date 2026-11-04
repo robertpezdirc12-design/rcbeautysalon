@@ -366,16 +366,23 @@ export async function resolveAvailableSections(
   organizationId: string,
   org: { vertical: string | null; secondaryVertical?: string | null; profileOverrides: unknown }
 ): Promise<HomeSectionFlags> {
-  const [featuredServices, featuredProducts] = await Promise.all([
+  // P3 #62: staff is counted like services/products — the "Ekipa" anchor
+  // is dead when the tenant has no active members.
+  const [featuredServices, featuredProducts, activeStaff] = await Promise.all([
     prisma.service.count({
       where: { organizationId, isActive: true, isFeatured: true },
     }),
     prisma.product.count({
       where: { organizationId, isActive: true, isFeatured: true },
     }),
+    prisma.staff.count({ where: { organizationId, isActive: true } }),
   ])
   return sectionsForProfile(
-    { services: featuredServices > 0, shop: featuredProducts > 0 },
+    {
+      services: featuredServices > 0,
+      shop: featuredProducts > 0,
+      team: activeStaff > 0,
+    },
     resolveEffectiveProfile(org)
   )
 }

@@ -91,10 +91,20 @@ export function buildSetupChecklist(input: SetupChecklistInput): SetupChecklist 
         ? input.orderCount > 0
         : true // neither capability → nothing to wait for
 
+  // ------------------------------------------------------------
+  // P3 #63 — visibility and completion share ONE predicate per step.
+  // Previously `doneByKey` counted a step as done while `visibleKeys`
+  // used a DIFFERENT condition, so a beekeeper (staff capability
+  // disabled) saw a pre-ticked "Dodajte osebje" linking to a page his
+  // navigation hides. "Capability disabled" is a STRONGER removal
+  // signal than "solo", not a weaker one.
+  // ------------------------------------------------------------
+  const staffApplies = input.staffCapable && !input.soloMode
+
   const doneByKey: Record<SetupStepKey, boolean> = {
     vertical: input.verticalChosen,
     catalog: !input.catalogCapable ? true : input.catalogTouched,
-    staff: !input.staffCapable || input.soloMode ? true : input.staffCount > 1, // 1 = owner seeded by the wizard
+    staff: !staffApplies || input.staffCount > 1, // 1 = owner seeded by the wizard
     customers: !input.customersCapable ? true : input.customerCount > 0,
     publish: input.published,
     firstJob: firstJobDone,
@@ -111,11 +121,16 @@ export function buildSetupChecklist(input: SetupChecklistInput): SetupChecklist 
       : "/dashboard/work-orders",
   }
 
-  // "solo" (P2): the owner told the wizard nobody else works here —
-  // the staff step is REMOVED, never shown as an obligation.
-  const visibleKeys = STEP_ORDER.filter(
-    (key) => !(key === "staff" && input.soloMode),
-  )
+  // A step whose capability the profile disables (or that cannot apply)
+  // is REMOVED — never shown as an obligation, never counted in total,
+  // and `nextKey` can therefore never point at a hidden step.
+  const visibleKeys = STEP_ORDER.filter((key) => {
+    if (key === "staff") return staffApplies
+    if (key === "catalog") return input.catalogCapable
+    if (key === "customers") return input.customersCapable
+    if (key === "firstJob") return input.appointmentsCapable || input.workOrdersCapable
+    return true
+  })
 
   const steps = visibleKeys.map((key) => ({
     key,

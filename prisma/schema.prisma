@@ -432,6 +432,12 @@ model Category {
   name String
   slug String
 
+  // P2 #59: provenance of sample rows — preset id (e.g. "beekeeping") when
+  // the row was seeded by seedOrganizationCatalog, NULL when owner-created.
+  // "Dopolni katalog" replaces foreign-preset sample rows and never touches
+  // owner-created (NULL) rows.
+  presetSeed String?
+
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
@@ -451,6 +457,8 @@ model Service {
   name        String
   slug        String // URL: /services/[slug] — unique PER ORGANIZATION (same-vertical tenants must not collide)
   description String? @db.Text
+  // P2 #59: provenance of sample rows (preset id) — NULL = owner-created.
+  presetSeed  String?
   duration    Int // minutes
   price       Decimal @db.Decimal(10, 2)
   imageUrl    String? // Cloudinary Public ID (e.g. "services_haircut_ksqpaa")
@@ -700,6 +708,9 @@ model Product {
   // Inventory
   trackInventory Boolean @default(true)
   stockQuantity  Int     @default(0)
+
+  // P2 #59: provenance of sample rows (preset id) — NULL = owner-created.
+  presetSeed     String?
 
   // Images
   images String[]

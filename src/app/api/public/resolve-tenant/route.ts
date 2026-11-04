@@ -44,10 +44,15 @@ export async function GET(request: Request) {
 
     // Neznan ALI suspendiran najemnik: za proxy je to "ne obstaja"
     // (spletna stran je OFF — pravi 404, ne soft 404).
+    // P3 #64: negativen odgovor se NE cacheira — to je edini odgovor,
+    // ki ga naslednja uporabnikova akcija (OBJAVA) lahko razveljavi.
+    // Cacheiran exists:false je povzročil ~20 s 404 po uspešni objavi
+    // (lastnik je mislil, da je objava spodletela). Ponovni izračun je
+    // poceni (findUnique po indeksiranem slugu), napaka pa draga.
     if (!org || org.status !== "ACTIVE") {
       return NextResponse.json(
         { exists: false },
-        { headers: { "Cache-Control": "public, max-age=15, stale-while-revalidate=60" } }
+        { headers: { "Cache-Control": "no-store" } }
       )
     }
 

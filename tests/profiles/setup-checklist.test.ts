@@ -80,7 +80,7 @@ describe("buildSetupChecklist", () => {
     expect(neitherDone.steps.find((s) => s.key === "firstJob")?.done).toBe(false)
   })
 
-  it("disabled capabilities collapse into silent 'done' steps (no nagging)", () => {
+  it("disabled capabilities REMOVE their steps entirely (P3 #63 — no silent 'done' rows)", () => {
     const c = buildSetupChecklist({
       ...freshSalon,
       catalogCapable: false,
@@ -89,11 +89,14 @@ describe("buildSetupChecklist", () => {
       appointmentsCapable: false,
       workOrdersCapable: false,
     })
-    const byKey = Object.fromEntries(c.steps.map((s) => [s.key, s.done]))
-    expect(byKey.catalog).toBe(true)
-    expect(byKey.staff).toBe(true)
-    expect(byKey.customers).toBe(true)
-    expect(byKey.firstJob).toBe(true)
+    // #63: a step whose capability the profile disables is absent —
+    // never rendered as a pre-ticked obligation.
+    const keys = c.steps.map((s) => s.key)
+    expect(keys).not.toContain("catalog")
+    expect(keys).not.toContain("staff")
+    expect(keys).not.toContain("customers")
+    expect(keys).not.toContain("firstJob")
+    expect(keys).toEqual(["vertical", "publish"])
     // publish stays the only real next action
     expect(c.nextKey).toBe("publish")
   })

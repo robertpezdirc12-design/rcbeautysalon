@@ -24,7 +24,7 @@ import { dashboardSl, dashboardEn } from "@/lib/i18n/dict/dashboard"
 describe("#46 — sectionsForProfile (capability + data gates)", () => {
   it("beekeeping: services, shop section exists but services capability disabled → no services anchor", () => {
     const flags = sectionsForProfile(
-      { services: false, shop: true },
+      { services: false, shop: true, team: false },
       PROFILES.beekeeping
     )
     expect(flags.services).toBe(false)
@@ -34,7 +34,7 @@ describe("#46 — sectionsForProfile (capability + data gates)", () => {
 
   it("beauty with featured services/products keeps all anchors", () => {
     const flags = sectionsForProfile(
-      { services: true, shop: true },
+      { services: true, shop: true, team: true },
       PROFILES.beauty
     )
     expect(flags.services).toBe(true)
@@ -45,18 +45,31 @@ describe("#46 — sectionsForProfile (capability + data gates)", () => {
   it("capability gate overrides legacy data (existing tenants, no migration)", () => {
     //even if featured rows exist, a disabled capability must drop the anchor
     const flags = sectionsForProfile(
-      { services: true, shop: true },
+      { services: true, shop: true, team: true },
       PROFILES.beekeeping
     )
     expect(flags.services).toBe(false)
     expect(flags.team).toBe(false)
   })
 
-  it("every profile with staff enabled keeps the team anchor", () => {
+  it("every profile with staff enabled keeps the team anchor (with staff data)", () => {
     for (const profile of Object.values(PROFILES)) {
-      const flags = sectionsForProfile({ services: true, shop: true }, profile)
+      const flags = sectionsForProfile(
+        { services: true, shop: true, team: true },
+        profile
+      )
       expect(flags.team).toBe(isCapabilityEnabled(profile, "staff"))
     }
+  })
+
+  it("#62 — team is data-gated: 0 active staff removes the anchor even when the profile allows staff", () => {
+    const flags = sectionsForProfile(
+      { services: true, shop: true, team: false },
+      PROFILES.seamstress
+    )
+    expect(flags.team).toBe(false)
+    expect(flags.services).toBe(true)
+    expect(flags.shop).toBe(true)
   })
 })
 
