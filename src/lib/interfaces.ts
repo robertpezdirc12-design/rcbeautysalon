@@ -481,6 +481,13 @@ export interface CreateProductInput {
   categoryId?: string
   isActive?: boolean
   isFeatured?: boolean
+  // #78: retail layer (null na update pomeni eksplicitno brisanje vrednosti)
+  barcode?: string
+  brand?: string
+  unit?: string
+  vatRate?: number | null
+  forSale?: boolean
+  reorderPoint?: number | null
 }
 
 export interface AppointmentsSummaryProps {

@@ -178,9 +178,13 @@ export async function createProductCheckoutSession(
       where: {
         id: { in: productIds },
         isActive: true,
+        // #78: checkout sprejema SAMO prodajne izdelke (forSale) —
+        // back-bar se ne da kupiti, niti s staljenim cart-om.
+        forSale: true,
         organizationId: org.id,
       },
-      select: { id: true, name: true, images: true, price: true },
+      // #78: per-izdelek DDV stopnja za točen informativni razpad.
+      select: { id: true, name: true, images: true, price: true, vatRate: true },
     })
 
     const productMap = new Map(dbProducts.map((p) => [p.id, p]))
@@ -208,12 +212,21 @@ export async function createProductCheckoutSession(
     // checkout NE prišteva davka (prej magični 8 % → napačen skupni znesek
     // na naročilu računu). DDV se izkaže iz bruto zneska kot informativni
     // razpad (istega funkcije kot v košarici — en vir resnice, src/lib/vat).
+    // #78: stopnja je PER IZDELEK (product.vatRate), privzeto 22 % —
+    // redukcija po vrsticah, ker lahko ima salono izdelek z 9,5 %.
     const subtotal = pricedItems.reduce(
       (sum, item) => sum + item.price * item.quantity,
       0
     )
     const shipping = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_COST
-    const tax = vatFromGross(subtotal + shipping, SI_VAT_RATE)
+    const tax = pricedItems.reduce((sum, item) => {
+      const product = productMap.get(item.productId)! // existence guaranteed above
+      const rate =
+        product.vatRate && product.vatRate.toNumber() > 0
+          ? product.vatRate.toNumber() / 100
+          : SI_VAT_RATE
+      return sum + vatFromGross(item.price * item.quantity, rate)
+    }, vatFromGross(shipping, SI_VAT_RATE))
     const total = subtotal + shipping
 
     // Get or create customer

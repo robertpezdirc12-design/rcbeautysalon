@@ -29,6 +29,41 @@ export const productsSl = {
   activeBadge: "Aktiven",
   inactiveBadge: "Neaktiven",
 
+  // #78: filtri, sortiranje, paginacija
+  filterAll: "Vsi",
+  filterLow: "Nizka zaloga",
+  filterOut: "Brez zaloge",
+  filterInactive: "Neaktivni",
+  filterCategory: "Kategorija",
+  filterAllCategories: "Vse kategorije",
+  sortBy: "Razvrsti",
+  sortNewest: "Najnovejši",
+  sortName: "Ime (A–Ž)",
+  sortPrice: "Cena (naraščajoče)",
+  sortStock: "Zaloga (naraščajoče)",
+  pageInfo: (page: number, totalPages: number) => `Stran ${page} od ${totalPages}`,
+  prevPage: "Prejšnja",
+  nextPage: "Naslednja",
+  totalProductsCount: (n: number) => `${n} izdelkov`,
+
+  // #78: prejem blaga + inventura (ukazi v glavi tabele)
+  receiveDelivery: "Prejem blaga",
+  stocktakeLink: "Inventura",
+
+  // #78: obrazec — maloprodajni sloj
+  barcodeLabel: "Črtna koda (EAN)",
+  barcodePlaceholder: "npr. 3838900000001",
+  brandLabel: "Znamka",
+  brandPlaceholder: "npr. Keune",
+  unitLabel: "Enota",
+  unitPlaceholder: "kos",
+  vatRateLabel: "DDV stopnja (%)",
+  vatRateHelp: "Cene so bruto (DDV vključen); stopnja pove, katera je znotraj. Prazno = 22 %.",
+  forSaleLabel: "Za prodajo",
+  forSaleDesc: "Izključeno — notranja uporaba (back-bar) se ne prodaja na strani",
+  reorderPointLabel: "Prag nizke zaloge",
+  reorderPointHelp: "Ob tem številu se izdelek obarva kot nizka zaloga. Prazno = privzeto podjetja.",
+
   // Iskanje
   searchPlaceholder: "Iskanje izdelkov …",
 
@@ -68,6 +103,34 @@ export const productsSl = {
   stockQuantityLabel: "Količina na zalogi",
   trackInventoryLabel: "Sledenje zalogi",
   trackInventoryDesc: "Omogočite sledenje zalogi za ta izdelek",
+
+  // #78: prejem blaga (dialog)
+  deliveryTitle: "Prejem blaga",
+  deliveryDesc: "Zabeležite prejeto dobavo kot en dogodek — vsaka linija dobi premik z virom „Dobava“.",
+  deliveryDocumentLabel: "Številka dobavnice",
+  deliveryDocumentPlaceholder: "npr. DDV-2026-014",
+  deliverySupplierLabel: "Dobavitelj (opcijsko)",
+  deliveryProductLabel: "Izdelek",
+  deliveryQtyLabel: "Količina",
+  deliveryAddLine: "Dodaj linijo",
+  deliveryRemoveLine: "Odstrani",
+  deliverySubmit: "Zabeleži prejem",
+  deliverySuccess: (n: number) => `Prejeto: ${n} linij zabeleženih kot dobava`,
+  deliveryFailed: "Prejem blaga ni uspel",
+  deliveryNoProducts: "Ni sledenih izdelkov — dodajte izdelek s sledenjem zaloge.",
+
+  // #78: inventura
+  stocktakeTitle: "Inventura",
+  stocktakeSubtitle: "Vnesite prešteto stanje — razlike se zapišejo kot premiki z virom „Inventura“, samo neničelne.",
+  stocktakeSystemLabel: "Sistem",
+  stocktakeCountedLabel: "Prešteto",
+  stocktakeDeltaLabel: "Razlika",
+  stocktakeNoteLabel: "Opomba (opcijsko)",
+  stocktakeSubmit: "Zapiši razlike",
+  stocktakeSuccess: (n: number) => `Inventura zapisana: ${n} popravkov`,
+  stocktakeNoDeltas: "Ni razlik — vse se ujema.",
+  stocktakeEmpty: "Ni sledenih izdelkov za štetje.",
+  stocktakePrint: "Natisni seznam",
 
   // Obrazec: kartica slik
   imagesTitle: "Slike izdelka",
@@ -138,6 +201,41 @@ export const productsEn: ProductsDict = {
   activeBadge: "Active",
   inactiveBadge: "Inactive",
 
+  // #78: filters, sorting, pagination
+  filterAll: "All",
+  filterLow: "Low stock",
+  filterOut: "Out of stock",
+  filterInactive: "Inactive",
+  filterCategory: "Category",
+  filterAllCategories: "All categories",
+  sortBy: "Sort",
+  sortNewest: "Newest",
+  sortName: "Name (A–Z)",
+  sortPrice: "Price (ascending)",
+  sortStock: "Stock (ascending)",
+  pageInfo: (page: number, totalPages: number) => `Page ${page} of ${totalPages}`,
+  prevPage: "Previous",
+  nextPage: "Next",
+  totalProductsCount: (n: number) => `${n} products`,
+
+  // #78: delivery + stock take (table header actions)
+  receiveDelivery: "Record a delivery",
+  stocktakeLink: "Stock take",
+
+  // #78: form — retail layer
+  barcodeLabel: "Barcode (EAN)",
+  barcodePlaceholder: "e.g. 3838900000001",
+  brandLabel: "Brand",
+  brandPlaceholder: "e.g. Keune",
+  unitLabel: "Unit",
+  unitPlaceholder: "pcs",
+  vatRateLabel: "VAT rate (%)",
+  vatRateHelp: "Prices are gross (VAT included); the rate states which one is inside. Empty = 22%.",
+  forSaleLabel: "For sale",
+  forSaleDesc: "Off — internal use (back-bar), not sellable on the site",
+  reorderPointLabel: "Low-stock threshold",
+  reorderPointHelp: "At this count the product shows as low stock. Empty = business default.",
+
   // Search
   searchPlaceholder: "Search products by name, SKU...",
 
@@ -177,6 +275,34 @@ export const productsEn: ProductsDict = {
   stockQuantityLabel: "Stock Quantity",
   trackInventoryLabel: "Track Inventory",
   trackInventoryDesc: "Enable stock tracking for this product",
+
+  // #78: delivery (dialog)
+  deliveryTitle: "Record a delivery",
+  deliveryDesc: "Log the received goods as ONE event — every line gets a movement with the “Delivery” source.",
+  deliveryDocumentLabel: "Delivery note number",
+  deliveryDocumentPlaceholder: "e.g. DN-2026-014",
+  deliverySupplierLabel: "Supplier (optional)",
+  deliveryProductLabel: "Product",
+  deliveryQtyLabel: "Quantity",
+  deliveryAddLine: "Add line",
+  deliveryRemoveLine: "Remove",
+  deliverySubmit: "Record delivery",
+  deliverySuccess: (n: number) => `Received: ${n} lines recorded as a delivery`,
+  deliveryFailed: "Recording the delivery failed",
+  deliveryNoProducts: "No tracked products — add a product with stock tracking first.",
+
+  // #78: stock take
+  stocktakeTitle: "Stock take",
+  stocktakeSubtitle: "Enter the counted quantities — deltas are written as “Stock take” movements, non-zero ones only.",
+  stocktakeSystemLabel: "System",
+  stocktakeCountedLabel: "Counted",
+  stocktakeDeltaLabel: "Delta",
+  stocktakeNoteLabel: "Note (optional)",
+  stocktakeSubmit: "Write deltas",
+  stocktakeSuccess: (n: number) => `Stock take recorded: ${n} adjustments`,
+  stocktakeNoDeltas: "No deltas — everything matches.",
+  stocktakeEmpty: "No tracked products to count.",
+  stocktakePrint: "Print list",
 
   // Form: images card
   imagesTitle: "Product Images",

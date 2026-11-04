@@ -25,6 +25,25 @@ const productBaseSchema = z.object({
   categoryId: z.string().optional(),
   isActive: z.boolean(),
   isFeatured: z.boolean(),
+  // #78: retail layer — barcode/brand/unit so opcijska besedila, vatRate je
+  // odstotek 0–100, forSale loči prodajne izdelke od back-bara, reorderPoint
+  // je per-izdelek prag nizke zaloge (null = org privzeto).
+  barcode: z.string().max(64).optional(),
+  brand: z.string().max(100).optional(),
+  unit: z.string().max(20).optional(),
+  vatRate: z
+    .number()
+    .min(0, "VAT rate must be 0–100")
+    .max(100, "VAT rate must be 0–100")
+    .optional()
+    .nullable(),
+  forSale: z.boolean().optional(),
+  reorderPoint: z
+    .number()
+    .int()
+    .min(0, "Reorder point must be 0 or more")
+    .optional()
+    .nullable(),
 })
 
 // Schema for creating products

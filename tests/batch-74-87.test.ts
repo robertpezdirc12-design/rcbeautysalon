@@ -24,7 +24,10 @@ describe("P1 #76: scheduler exists and is safe", () => {
   it("vercel.json exists with a cron entry pointing at /api/cron/tick", () => {
     const raw = read("vercel.json")
     expect(raw).toContain("/api/cron/tick")
-    expect(raw).toContain("*/15 * * * *")
+    // #76 follow-up (commit 1e5f6b4): Vercel plan allows ONE daily cron —
+    // the schedule is daily at 03:00 UTC; an external scheduler can hit
+    // /api/cron/tick more often (documented in the issue).
+    expect(raw).toContain("0 3 * * *")
   })
 
   it("cron route refuses requests without a valid Bearer CRON_SECRET", () => {

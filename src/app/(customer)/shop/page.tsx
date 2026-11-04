@@ -182,6 +182,10 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
                       </span>
                     )}
                   </div>
+                  {/* #78: cene so bruto — izkazano, da je DDV vključen. */}
+                  <p className="text-muted-foreground mt-1 text-xs">
+                    {locale === "en" ? "VAT included" : "z DDV"}
+                  </p>
                 </CardContent>
                 <CardFooter className="flex flex-col gap-2 p-4 pt-0">
                   <AddToCartButton

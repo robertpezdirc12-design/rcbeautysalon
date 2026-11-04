@@ -72,6 +72,13 @@ interface ProductData {
   categoryId: string | null
   isActive: boolean
   isFeatured: boolean
+  // #78: retail layer
+  barcode?: string | null
+  brand?: string | null
+  unit?: string | null
+  vatRate?: number | null
+  forSale?: boolean
+  reorderPoint?: number | null
 }
 
 interface ProductFormProps {
@@ -145,6 +152,13 @@ export function ProductForm({ categories, product, mode = "create" }: ProductFor
       categoryId: product?.categoryId || "",
       isActive: product?.isActive ?? true,
       isFeatured: product?.isFeatured ?? false,
+      // #78: retail layer
+      barcode: product?.barcode || "",
+      brand: product?.brand || "",
+      unit: product?.unit || "kos",
+      vatRate: product?.vatRate ?? undefined,
+      forSale: product?.forSale ?? true,
+      reorderPoint: product?.reorderPoint ?? undefined,
     },
   })
 
@@ -158,6 +172,13 @@ export function ProductForm({ categories, product, mode = "create" }: ProductFor
   const watchIsFeatured = watch("isFeatured")
   const watchTrackInventory = watch("trackInventory")
   const watchCategoryId = watch("categoryId")
+  // #78: retail layer
+  const watchBarcode = watch("barcode")
+  const watchBrand = watch("brand")
+  const watchUnit = watch("unit")
+  const watchVatRate = watch("vatRate")
+  const watchForSale = watch("forSale")
+  const watchReorderPoint = watch("reorderPoint")
 
   // All text/number fields are CONTROLLED — the React 19 `action={}`
   // pathway resets uncontrolled inputs after every action submission,
@@ -265,6 +286,13 @@ export function ProductForm({ categories, product, mode = "create" }: ProductFor
         categoryId: fdOptStr(formData, "categoryId"),
         isActive: fdBool(formData, "isActive"),
         isFeatured: fdBool(formData, "isFeatured"),
+        // #78: retail layer (fdNum vrača null za prazno — CreateProductInput želi undefined)
+        barcode: fdOptStr(formData, "barcode"),
+        brand: fdOptStr(formData, "brand"),
+        unit: fdOptStr(formData, "unit"),
+        vatRate: fdNum(formData, "vatRate") ?? undefined,
+        forSale: fdBool(formData, "forSale"),
+        reorderPoint: fdNum(formData, "reorderPoint") ?? undefined,
       }
 
       const schema = isEditMode ? updateProductSchema : createProductSchema
@@ -287,10 +315,16 @@ export function ProductForm({ categories, product, mode = "create" }: ProductFor
           ? await updateProduct(product.id, {
               ...parsed.data,
               compareAtPrice: parsed.data.compareAtPrice ?? undefined,
+              // #78: prazno polje → eksplicitno null (briše vrednost),
+              // ne undefined (ki bi pustil staro vrednost v bazi).
+              vatRate: parsed.data.vatRate ?? null,
+              reorderPoint: parsed.data.reorderPoint ?? null,
             })
           : await createProduct({
               ...parsed.data,
               compareAtPrice: parsed.data.compareAtPrice ?? undefined,
+              vatRate: parsed.data.vatRate ?? undefined,
+              reorderPoint: parsed.data.reorderPoint ?? undefined,
             })
 
         if (result.success) {
@@ -503,6 +537,32 @@ export function ProductForm({ categories, product, mode = "create" }: ProductFor
                   </p>
                 </div>
               </div>
+
+              {/* #78: DDV stopnja — cena je bruto, stopnja pove katera je znotraj. */}
+              <div className="space-y-2">
+                <Label htmlFor="vatRate">{t.products.vatRateLabel}</Label>
+                <Input
+                  id="vatRate"
+                  name="vatRate"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  placeholder="22.00"
+                  value={watchVatRate ?? ""}
+                  onChange={(e) => {
+                    setValue(
+                      "vatRate",
+                      numberValue(e.target.value) as unknown as number
+                    )
+                    clearErrors("vatRate")
+                  }}
+                  disabled={isPending}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {t.products.vatRateHelp}
+                </p>
+              </div>
             </CardContent>
           </Card>
 
@@ -546,6 +606,74 @@ export function ProductForm({ categories, product, mode = "create" }: ProductFor
                     disabled={isPending}
                   />
                 </div>
+                {/* #78: črtna koda — prejem blaga z skeniranjem. */}
+                <div className="space-y-2">
+                  <Label htmlFor="barcode">{t.products.barcodeLabel}</Label>
+                  <Input
+                    id="barcode"
+                    name="barcode"
+                    placeholder={t.products.barcodePlaceholder}
+                    value={watchBarcode ?? ""}
+                    onChange={(e) => {
+                      setValue("barcode", e.target.value)
+                      clearErrors("barcode")
+                    }}
+                    disabled={isPending}
+                  />
+                </div>
+                {/* #78: znamka. */}
+                <div className="space-y-2">
+                  <Label htmlFor="brand">{t.products.brandLabel}</Label>
+                  <Input
+                    id="brand"
+                    name="brand"
+                    placeholder={t.products.brandPlaceholder}
+                    value={watchBrand ?? ""}
+                    onChange={(e) => {
+                      setValue("brand", e.target.value)
+                      clearErrors("brand")
+                    }}
+                    disabled={isPending}
+                  />
+                </div>
+                {/* #78: enota. */}
+                <div className="space-y-2">
+                  <Label htmlFor="unit">{t.products.unitLabel}</Label>
+                  <Input
+                    id="unit"
+                    name="unit"
+                    placeholder={t.products.unitPlaceholder}
+                    value={watchUnit ?? ""}
+                    onChange={(e) => {
+                      setValue("unit", e.target.value)
+                      clearErrors("unit")
+                    }}
+                    disabled={isPending}
+                  />
+                </div>
+                {/* #78: per-izdelek prag nizke zaloge. */}
+                <div className="space-y-2">
+                  <Label htmlFor="reorderPoint">{t.products.reorderPointLabel}</Label>
+                  <Input
+                    id="reorderPoint"
+                    name="reorderPoint"
+                    type="number"
+                    min="0"
+                    placeholder="10"
+                    value={watchReorderPoint ?? ""}
+                    onChange={(e) => {
+                      setValue(
+                        "reorderPoint",
+                        numberValue(e.target.value) as unknown as number
+                      )
+                      clearErrors("reorderPoint")
+                    }}
+                    disabled={isPending}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {t.products.reorderPointHelp}
+                  </p>
+                </div>
               </div>
               <div className="flex items-center justify-between">
                 <div>
@@ -557,6 +685,20 @@ export function ProductForm({ categories, product, mode = "create" }: ProductFor
                 <Switch
                   checked={watchTrackInventory}
                   onCheckedChange={(checked) => setValue("trackInventory", checked)}
+                  disabled={isPending}
+                />
+              </div>
+              {/* #78: forSale — "do we sell it", ne "do we count it". */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>{t.products.forSaleLabel}</Label>
+                  <p className="text-xs text-muted-foreground">
+                    {t.products.forSaleDesc}
+                  </p>
+                </div>
+                <Switch
+                  checked={watchForSale}
+                  onCheckedChange={(checked) => setValue("forSale", checked)}
                   disabled={isPending}
                 />
               </div>
@@ -664,6 +806,8 @@ export function ProductForm({ categories, product, mode = "create" }: ProductFor
         <input type="hidden" name="trackInventory" value={String(watchTrackInventory)} />
         <input type="hidden" name="isActive" value={String(watchIsActive)} />
         <input type="hidden" name="isFeatured" value={String(watchIsFeatured)} />
+        {/* #78: forSale mirror (Switch nima DOM inputa). */}
+        <input type="hidden" name="forSale" value={String(watchForSale)} />
         {images.map((image) => (
           <input key={image} type="hidden" name="images" value={image} />
         ))}

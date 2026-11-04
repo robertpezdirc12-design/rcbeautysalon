@@ -7,6 +7,7 @@ import { z } from "zod"
 
 import { getSessionEffectiveProfile } from "@/lib/profiles/resolve"
 import { computeStockDelta, type StockDirectionValue } from "@/lib/inventory/stock"
+import { isLowStock, resolveReorderPoint } from "@/lib/inventory/low-stock"
 
 // ============================================================
 // INVENTORY RUNTIME (EPIC #2 E2-2) — stock movement ledger.
@@ -26,6 +27,10 @@ const movementInputSchema = z.object({
   note: z.string().max(500).nullable().optional(),
   supplierRecordId: z.string().min(1).max(64).nullable().optional(),
   batchRecordId: z.string().min(1).max(64).nullable().optional(),
+  // #78: RETURN is a first-class receipt source (customer brought it back).
+  // DELIVERY/STOCKTAKE have their own dedicated flows below — the generic
+  // manual form must not pretend to be a delivery document or a count.
+  source: z.enum(["MANUAL", "RETURN"]).optional(),
 })
 
 export type MovementInput = z.input<typeof movementInputSchema>
@@ -52,7 +57,7 @@ export interface StockMovementItem {
   id: string
   direction: StockDirectionValue
   quantity: number
-  source: "MANUAL" | "ORDER"
+  source: "MANUAL" | "ORDER" | "DELIVERY" | "STOCKTAKE" | "RETURN"
   note: string | null
   variantName: string | null
   supplierTitle: string | null
@@ -177,7 +182,7 @@ export async function createStockMovement(
           productVariantId: variant?.id ?? null,
           direction: data.direction,
           quantity: data.quantity,
-          source: "MANUAL",
+          source: data.source ?? "MANUAL",
           note: data.note?.trim() || null,
           supplierRecordId: data.supplierRecordId ?? null,
           batchRecordId: data.batchRecordId ?? null,
@@ -282,29 +287,291 @@ export interface StockSummary {
 }
 
 /**
- * Seštevek zaloge za dashboard widget (lowStock). Counts follow
- * the products page thresholds (in > 10, low 1–10, out 0).
+ * Seštevek zaloge za dashboard widget (lowStock).
+ *
+ * #78: prag NI več trdo kodirana 10 — per-izdelek reorderPoint razreši
+ * low-stock helper (isti helper kot stats kartica in tabela), tako da se
+ * widget in /dashboard/products ne moreta razlikovati.
  */
 export async function getStockSummary(): Promise<StockSummary> {
   const { org } = await requirePermissionOrg("products.manage")
 
-  const [inStock, low, out, lowItems] = await Promise.all([
-    prisma.product.count({
-      where: { organizationId: org.id, stockQuantity: { gt: 10 } },
-    }),
-    prisma.product.count({
-      where: { organizationId: org.id, stockQuantity: { gt: 0, lte: 10 } },
-    }),
+  const [out, trackedRows] = await Promise.all([
     prisma.product.count({
       where: { organizationId: org.id, stockQuantity: { equals: 0 } },
     }),
     prisma.product.findMany({
-      where: { organizationId: org.id, stockQuantity: { lte: 10 } },
-      select: { id: true, name: true, stockQuantity: true },
+      where: { organizationId: org.id, stockQuantity: { gt: 0 } },
+      select: { id: true, name: true, stockQuantity: true, reorderPoint: true },
       orderBy: { stockQuantity: "asc" },
-      take: 5,
     }),
   ])
 
-  return { inStock, low, out, lowItems }
+  const config = await prisma.salonConfig.findUnique({
+    where: { organizationId: org.id },
+    select: { defaultReorderPoint: true },
+  })
+  const orgDefault = config?.defaultReorderPoint ?? null
+
+  const lowRows = trackedRows.filter((r) =>
+    isLowStock(r.stockQuantity, resolveReorderPoint(r.reorderPoint, orgDefault))
+  )
+
+  return {
+    inStock: trackedRows.length - lowRows.length,
+    low: lowRows.length,
+    out,
+    lowItems: lowRows.slice(0, 5).map((r) => ({
+      id: r.id,
+      name: r.name,
+      stockQuantity: r.stockQuantity,
+    })),
+  }
+}
+
+// ============================================================
+// #78: PREJEM BLAGA (DELIVERY) — "prejeli smo dobavo" kot EN dogodek.
+// En submission = N StockMovement vrstic z ISTO referenco (vir DELIVERY,
+// skupni note "Dobava {documentNumber}"), vsaka linija pa posodobi
+// stockQuantity v isti transakciji. Prejem je Vedno IN — blago prihaja.
+// ============================================================
+
+const deliveryLineSchema = z.object({
+  productId: z.string().min(1).max(64),
+  quantity: z.number().int().positive().max(1_000_000),
+  productVariantId: z.string().min(1).max(64).nullable().optional(),
+})
+
+const deliverySchema = z.object({
+  documentNumber: z.string().max(100).optional(),
+  supplierRecordId: z.string().min(1).max(64).nullable().optional(),
+  lines: z.array(deliveryLineSchema).min(1, "Dobava mora imeti vsaj eno linijo").max(100),
+})
+
+export type DeliveryInput = z.input<typeof deliverySchema>
+
+export interface DeliveryResult {
+  ok: boolean
+  error?:
+    | "VALIDATION"
+    | "NOT_FOUND"
+    | "NOT_TRACKED"
+    | "VARIANT_MISMATCH"
+    | "RECORD_LINK"
+    | "GENERIC"
+  receivedCount?: number
+}
+
+/**
+ * Prejmi dobavo: en dogodek, N linij, ena transakcija.
+ * Vse linije morajo pripadati temu najemniku; sledljivost dobavitelja
+ * velja samo, kadar profil omogoča `suppliers` extensijo (kot pri
+ * ročnem premiku).
+ */
+export async function recordDelivery(input: DeliveryInput): Promise<DeliveryResult> {
+  const parsed = deliverySchema.safeParse(input)
+  if (!parsed.success) return { ok: false, error: "VALIDATION" }
+  const data = parsed.data
+
+  const { session, org } = await requirePermissionOrg("products.manage")
+
+  // Enako kljucu vsak id: linije z istim izdelkom se seštejejo.
+  const productIds = [...new Set(data.lines.map((l) => l.productId))]
+  const products = await prisma.product.findMany({
+    where: { id: { in: productIds }, organizationId: org.id },
+    select: { id: true, name: true, trackInventory: true, stockQuantity: true },
+  })
+  if (products.length !== productIds.length) {
+    return { ok: false, error: "NOT_FOUND" }
+  }
+  const untracked = products.find((p) => !p.trackInventory)
+  if (untracked) return { ok: false, error: "NOT_TRACKED" }
+
+  const profile = await getSessionEffectiveProfile()
+  const supplierEnabled = profile.extensions.includes("suppliers")
+  if (data.supplierRecordId && !supplierEnabled) {
+    return { ok: false, error: "RECORD_LINK" }
+  }
+  if (data.supplierRecordId) {
+    const rec = await prisma.extensionRecord.findFirst({
+      where: {
+        id: data.supplierRecordId,
+        organizationId: org.id,
+        entityKey: "supplier",
+      },
+      select: { id: true },
+    })
+    if (!rec) return { ok: false, error: "RECORD_LINK" }
+  }
+
+  // Variante (opcijsko) morajo pripadati svojemu izdelku.
+  const variantIds = data.lines
+    .map((l) => l.productVariantId)
+    .filter((v): v is string => typeof v === "string")
+  const variants = variantIds.length
+    ? await prisma.productVariant.findMany({
+        where: { id: { in: variantIds }, organizationId: org.id },
+        select: { id: true, productId: true, stockQuantity: true },
+      })
+    : []
+  for (const line of data.lines) {
+    if (!line.productVariantId) continue
+    const v = variants.find((x) => x.id === line.productVariantId)
+    if (!v || v.productId !== line.productId) {
+      return { ok: false, error: "VARIANT_MISMATCH" }
+    }
+  }
+
+  const reference = data.documentNumber?.trim()
+    ? `Dobava ${data.documentNumber.trim()}`
+    : "Dobava"
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      for (const line of data.lines) {
+        const product = products.find((p) => p.id === line.productId)!
+        const variant = line.productVariantId
+          ? variants.find((v) => v.id === line.productVariantId)!
+          : null
+        const computed = computeStockDelta(
+          variant ? variant.stockQuantity : product.stockQuantity,
+          "IN",
+          line.quantity
+        )
+        // Zaloge ne morem povečati pod nič — IN ne more biti zavrnjen
+        // razen pri pokvarjenem state-u; varovalka vseeno.
+        if (!computed.ok) continue
+
+        if (variant) {
+          await tx.productVariant.update({
+            where: { id: variant.id },
+            data: { stockQuantity: computed.nextStock },
+          })
+        } else {
+          await tx.product.update({
+            where: { id: product.id },
+            data: { stockQuantity: computed.nextStock },
+          })
+        }
+
+        await tx.stockMovement.create({
+          data: {
+            organizationId: org.id,
+            productId: product.id,
+            productVariantId: variant?.id ?? null,
+            direction: "IN",
+            quantity: line.quantity,
+            source: "DELIVERY",
+            note: reference,
+            supplierRecordId: data.supplierRecordId ?? null,
+            createdById: session.user.id,
+          },
+        })
+      }
+    })
+  } catch (error) {
+    console.error("[inventory] delivery transaction failed:", error)
+    return { ok: false, error: "GENERIC" }
+  }
+
+  revalidatePath("/dashboard/products")
+  revalidatePath("/dashboard")
+
+  return { ok: true, receivedCount: data.lines.length }
+}
+
+// ============================================================
+// #78: INVENTURA (STOCKTAKE) — prešteto stanje se zapiše kot RAZLIKA
+// (prešteto − sistem), NIČesar se ne prepiše direktno. Celotna vrednost
+// evidence je v tem, da razlaga trenutno številko: vsak popravek ima
+// svojo vrstico z virom STOCKTAKE. Inventura je reverzibilna z naslednjim
+// štetjem. Ničelne razlike NE pišejo (brez šuma v evidenci).
+// ============================================================
+
+const stocktakeLineSchema = z.object({
+  productId: z.string().min(1).max(64),
+  counted: z.number().int().min(0).max(1_000_000),
+})
+
+const stocktakeSchema = z.object({
+  note: z.string().max(200).optional(),
+  lines: z.array(stocktakeLineSchema).min(1).max(500),
+})
+
+export type StockTakeInput = z.input<typeof stocktakeSchema>
+
+export interface StockTakeResult {
+  ok: boolean
+  error?: "VALIDATION" | "NOT_FOUND" | "NOT_TRACKED" | "GENERIC"
+  adjusted?: { productId: string; name: string; delta: number }[]
+}
+
+/**
+ * Inventura: za vsak izdelek z NENIČELNO razliko zapiši premik
+ * (sign razlike določi smer) in posodobi stanje v eni transakciji.
+ */
+export async function submitStockTake(input: StockTakeInput): Promise<StockTakeResult> {
+  const parsed = stocktakeSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, error: "VALIDATION" }
+  const data = parsed.data
+
+  const { session, org } = await requirePermissionOrg("products.manage")
+
+  const productIds = [...new Set(data.lines.map((l) => l.productId))]
+  const products = await prisma.product.findMany({
+    where: { id: { in: productIds }, organizationId: org.id },
+    select: { id: true, name: true, trackInventory: true, stockQuantity: true },
+  })
+  if (products.length !== productIds.length) {
+    return { ok: false, error: "NOT_FOUND" }
+  }
+  const untracked = products.find((p) => !p.trackInventory)
+  if (untracked) return { ok: false, error: "NOT_TRACKED" }
+
+  const adjusted: { productId: string; name: string; delta: number }[] = []
+  try {
+    await prisma.$transaction(async (tx) => {
+      for (const line of data.lines) {
+        const product = products.find((p) => p.id === line.productId)!
+        const delta = line.counted - product.stockQuantity
+        if (delta === 0) continue // neničelne razlike se pišejo SAMO
+
+        const direction: StockDirectionValue = delta > 0 ? "IN" : "OUT"
+        const computed = computeStockDelta(
+          product.stockQuantity,
+          direction,
+          Math.abs(delta)
+        )
+        if (!computed.ok) continue // ne more iti pod nič (counted >= 0 to jamči)
+
+        await tx.product.update({
+          where: { id: product.id },
+          data: { stockQuantity: computed.nextStock },
+        })
+        await tx.stockMovement.create({
+          data: {
+            organizationId: org.id,
+            productId: product.id,
+            direction,
+            quantity: Math.abs(delta),
+            source: "STOCKTAKE",
+            note:
+              data.note?.trim() ||
+              `Inventura: prešteto ${line.counted}, sistem ${product.stockQuantity}`,
+            createdById: session.user.id,
+          },
+        })
+        adjusted.push({ productId: product.id, name: product.name, delta })
+      }
+    })
+  } catch (error) {
+    console.error("[inventory] stocktake transaction failed:", error)
+    return { ok: false, error: "GENERIC" }
+  }
+
+  revalidatePath("/dashboard/products")
+  revalidatePath("/dashboard/products/stocktake")
+  revalidatePath("/dashboard")
+
+  return { ok: true, adjusted }
 }

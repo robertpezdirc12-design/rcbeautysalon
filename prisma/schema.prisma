@@ -414,6 +414,10 @@ model SalonConfig {
   // Booking settings
   bookingDeposit     Decimal @default(50.00) @db.Decimal(10, 2)
   depositRefundable  Boolean @default(false)
+  // #78: org-level low-stock threshold. Product.reorderPoint overrides it
+  // per product; resolved through src/lib/inventory/low-stock.ts (ONE helper
+  // for the stats card, the table colour and the dashboard widget).
+  defaultReorderPoint Int     @default(10)
   minBookingAdvance  Int     @default(24) // hours
   maxBookingAdvance  Int     @default(30) // days
   cancellationPolicy String? @db.Text
@@ -720,6 +724,19 @@ model Product {
   trackInventory Boolean @default(true)
   stockQuantity  Int     @default(0)
 
+  // #78: retail layer — the fields a real shop needs on top of stock.
+  // `price` stays GROSS (DDV included, Slovenian convention); `vatRate`
+  // states which rate is inside the gross price (null = standard 22 %).
+  // `forSale` is NOT a rename of `trackInventory`: trackInventory says
+  // "do we count it", forSale says "do we sell it" (back-bar shampoo is
+  // tracked but not sellable; a gift box sellable but maybe not tracked).
+  barcode      String?
+  brand        String?
+  unit         String   @default("kos")
+  vatRate      Decimal? @db.Decimal(5, 2) // 0–100, e.g. 9.50 or 22.00
+  forSale      Boolean  @default(true)
+  reorderPoint Int? // per-product low-stock threshold (null = org default)
+
   // P2 #59: provenance of sample rows (preset id) — NULL = owner-created.
   presetSeed     String?
 
@@ -745,10 +762,13 @@ model Product {
   stockMovements StockMovement[]
 
   @@unique([organizationId, sku])
+  // #78: barcode is unique per tenant (same rule as SKU, #77).
+  @@unique([organizationId, barcode])
   @@index([organizationId])
   @@index([categoryId])
   @@index([isActive])
   @@index([isFeatured])
+  @@index([organizationId, forSale])
 }
 
 model Order {
@@ -1220,6 +1240,11 @@ enum StockDirection {
 enum StockMovementSource {
   MANUAL
   ORDER
+  // #78: a delivery can be RECEIVED as one event (N rows share a note),
+  // a stock take writes only the DELTA, a customer return comes back IN.
+  DELIVERY
+  STOCKTAKE
+  RETURN
 }
 
 model StockMovement {

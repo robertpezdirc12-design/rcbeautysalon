@@ -296,7 +296,9 @@ export async function getPublicRelatedServices(
 /** All active shop products (tenant-scoped). */
 export async function getPublicShopProducts(orgId: string) {
   const products = await prisma.product.findMany({
-    where: { organizationId: orgId, isActive: true },
+    // #78: samo izdelki ZA PRODAJO (forSale) so javni — back-bar / notranja
+    // uporaba (forSale=false) ne sodi v trgovino, tudi če jih sistem šteje.
+    where: { organizationId: orgId, isActive: true, forSale: true },
     orderBy: [{ isFeatured: "desc" }, { name: "asc" }],
   })
   return products.map((product) => ({
