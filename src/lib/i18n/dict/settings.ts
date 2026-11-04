@@ -559,6 +559,11 @@ export const settingsSl = {
         `Zamenjanih vzorčnih postavk prejšnje panoge: ${c} kategorij, ${s} storitev, ${p} izdelkov.`,
       seedKept: (n: number) =>
         `Ohranjenih postavk z zgodovino ali ročno dodanih: ${n}.`,
+      // P1 #69 — forms/workflows are profile-owned
+      assetsReplaced: (f: number, w: number) =>
+        `Deaktiviranih obrazcev: ${f}, delovnih procesov: ${w} (prejšnje panoge).`,
+      assetsAdded: (f: number, w: number) =>
+        `Dodanih obrazcev: ${f}, delovnih procesov: ${w} (nova panoga).`,
     },
     heroTitleRequired: "Hero naslov je obvezen.",
     imageUploaded: "Slika je naložena — ne pozabite shraniti sprememb",
@@ -1133,6 +1138,11 @@ export const settingsEn: SettingsDict = {
         `Replaced sample items of the previous industry: ${c} categories, ${s} services, ${p} products.`,
       seedKept: (n: number) =>
         `Kept items with history or manually added: ${n}.`,
+      // P1 #69 — forms/workflows are profile-owned
+      assetsReplaced: (f: number, w: number) =>
+        `Deactivated forms: ${f}, workflows: ${w} (previous activity).`,
+      assetsAdded: (f: number, w: number) =>
+        `Added forms: ${f}, workflows: ${w} (new activity).`,
     },
     heroTitleRequired: "Hero title is required.",
     imageUploaded: "Image uploaded — don't forget to save changes",

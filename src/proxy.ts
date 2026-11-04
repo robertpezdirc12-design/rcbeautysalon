@@ -5,13 +5,16 @@ import { isPlatformAdminEmail, PLATFORM_ADMIN_EMAILS_ENV } from "@/lib/platform/
 const ORG_HEADER = "x-org-slug"
 
 // ------------------------------------------------------------
-// P1 #39-5 (re-audit 2026-11): goli javni dostop ("/", "/services", …)
+// P1 #39-5 (re-audit 2026-11): goli javni dostop ("/services", …)
 // servira ISEO vsebino kot /s/{prvi-objavljeni}/… — dvojniki. Proxy
 // jih trajno preusmeri (308) na kanonično najemniško pot. Privzeti
 // slug pride iz /api/public/default-tenant-slug (proxy ne doseže baze)
 // in se krajsa drži v pomnilniku (60 s).
+// P1 #66: goli "/" je IZLOŽEN iz tega pravila — kore platforme je
+// PRODUKTNA izložba (marketing landing → /start), ne najstarejši
+// najemnik. Najemniške poti pod /s/ in custom domene so nespremenjene.
 // ------------------------------------------------------------
-const BARE_PUBLIC_PATH = /^\/$|^\/(services|staff|shop|booking|cart|inquiry)(\/|$)/
+const BARE_PUBLIC_PATH = /^\/(services|staff|shop|booking|cart|inquiry)(\/|$)/
 
 // ------------------------------------------------------------
 // P0 #24 / P1 #27 (re-audit 2026-11): Next.js 16 streaming pomeni,

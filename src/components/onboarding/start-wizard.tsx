@@ -78,9 +78,12 @@ const STEPS = [
 export function StartWizard({
   authedEmail,
   authedName,
+  initialVertical = null,
 }: {
   authedEmail?: string | null
   authedName?: string | null
+  /** P1 #66: deep-link preselect — /start?vertical=<id> (validated upstream). */
+  initialVertical?: string | null
 }) {
   const router = useRouter()
   const authed = Boolean(authedEmail)
@@ -91,7 +94,9 @@ export function StartWizard({
   const [creating, setCreating] = useState(false)
 
   // Step 1 — vertical & palette
-  const [vertical, setVertical] = useState<string | null>(null)
+  // P1 #66: deep-link preselect — the landing's trade cards land here with
+  // the activity already chosen; "Naprej" is enabled immediately.
+  const [vertical, setVertical] = useState<string | null>(initialVertical)
   const [secondary, setSecondary] = useState<string | null>(null)
   const [palette, setPalette] = useState<string | null>(null)
 

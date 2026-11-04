@@ -159,8 +159,9 @@ export function LoginForm({ orgName, orgLogo, orgSlug }: LoginFormProps) {
 
             <div className="text-center text-sm text-muted-foreground">
               {t.auth.login.ownSalon}{" "}
+              {/* P2 #68: nevtralni CTA — platforma najema strani vsem obrtom. */}
               <Link href="/start" className="font-medium text-primary-text hover:underline">
-                Ustvari svoj salon
+                Ustvari svoje podjetje
               </Link>
             </div>
 

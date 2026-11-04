@@ -13,9 +13,13 @@ import { CartOrgScope } from "@/components/shop/cart-org-scope"
 import { analyticsScriptIdFor } from "@/lib/analytics/measurement-id"
 import { PublicI18nProvider } from "@/components/providers/public-i18n-provider"
 import { getLocaleFromCookies } from "@/lib/i18n/server"
+import { hostFromHostHeader, isPlatformHost } from "@/lib/domains/normalize"
+import { getPlatformHosts } from "@/lib/domains/provider"
+import { hasUnpublishedChanges } from "@/lib/publication"
+import { OwnerBar } from "@/components/public/owner-bar"
 
 /**
- * P2 #46/#47: section flags so the navbar never links an anchor that
+ * P2 #46/#46: section flags so the navbar never links an anchor that
  * does not exist (data gate) or a module the profile disables
  * (capability gate). Shared with the (customer) layout — navigation
  * must be identical on every public route.
@@ -29,11 +33,42 @@ async function availableSectionsFor(org: {
   return resolveAvailableSections(org.id, org)
 }
 
+/**
+ * P1 #66: does THIS request serve a tenant site? True under /s/[slug]
+ * (ORG_HEADER set by the proxy) or on a custom domain. The bare platform
+ * root is the PRODUCT landing — no tenant chrome, no tenant data.
+ */
+async function isTenantContext(): Promise<boolean> {
+  const h = await headers()
+  if (h.get(ORG_HEADER)) return true
+  const requestHost = hostFromHostHeader(h.get("host"))
+  return !!requestHost && !isPlatformHost(requestHost, getPlatformHosts())
+}
+
 export default async function PublicLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  // P1 #66: the PLATFORM ROOT (bare "/" on a platform host) renders the
+  // product landing — no tenant resolution, no tenant navbar/footer, no
+  // tenant data. A provider must be able to FIND the platform.
+  if (!(await isTenantContext())) {
+    const platformSkipLabel =
+      (await getLocaleFromCookies()) === "en" ? "Skip to content" : "Preskoči na vsebino"
+    return (
+      <PublicI18nProvider org={null}>
+        <a
+          href="#main"
+          className="bg-background text-foreground sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-100 focus:rounded-md focus:px-4 focus:py-2 focus:shadow-lg focus:outline-hidden focus:ring-2 focus:ring-primary"
+        >
+          {platformSkipLabel}
+        </a>
+        <main id="main" tabIndex={-1}>{children}</main>
+      </PublicI18nProvider>
+    )
+  }
+
   const org = await getPublicOrg()
 
   // P1 #27 (re-audit 2026-11): UNKNOWN slug ali SUSPENDED tenant pod
@@ -101,6 +136,39 @@ export default async function PublicLayout({
 
   const cta = resolvePublicCta(org?.vertical, await getLocaleFromCookies(), org?.profileOverrides)
 
+  // P2 #67: owner affordance on THEIR OWN public site — resolved
+  // server-side, rendered only for the owner of this organisation
+  // (never embedded for customers/anonymous — conditional render only).
+  const { auth } = await import("@/lib/auth/auth")
+  const session = await auth()
+  const isOwner =
+    !!org &&
+    !!session?.user?.organizationId &&
+    session.user.organizationId === org.id
+  let ownerBar: React.ReactNode = null
+  if (isOwner && org) {
+    const [pub, contentVersion] = await Promise.all([
+      prisma.salonConfig.findUnique({
+        where: { organizationId: org.id },
+        select: { publishedContentVersion: true },
+      }),
+      prisma.organization.findUnique({
+        where: { id: org.id },
+        select: { contentVersion: true, publishedAt: true },
+      }),
+    ])
+    ownerBar = (
+      <OwnerBar
+        slug={org.slug}
+        hasUnpublished={hasUnpublishedChanges(
+          contentVersion?.contentVersion ?? null,
+          pub?.publishedContentVersion ?? null
+        )}
+        publishedAt={contentVersion?.publishedAt ?? null}
+      />
+    )
+  }
+
   const skipLabel = (await getLocaleFromCookies()) === "en" ? "Skip to content" : "Preskoči na vsebino"
 
   return (
@@ -128,6 +196,7 @@ gtag('config', '${analyticsId}');`}
         </>
       )}
       <PublicI18nProvider org={org}>
+        {ownerBar}
         <PublicNavbar
           org={{
             slug: org?.slug ?? null,

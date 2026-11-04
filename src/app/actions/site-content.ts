@@ -295,14 +295,54 @@ export async function updateOrgVertical(
     if (options.reseedCatalog) {
       seed = await seedOrganizationCatalog(org.id, preset.id, { replaceForeignPreset: true })
     }
+
+    // P1 #69: forms/workflows belong to the PROFILE — the switch must
+    // re-materialize the new activity's templates and deactivate the old
+    // profile's rows (never delete; owner-created rows stay untouched).
+    // Effective set = primary + secondary activity.
+    const { materializeProfileAssets, deactivateForeignProfileAssets } =
+      await import("@/lib/profiles/materialize")
+    const materialized = await materializeProfileAssets(org.id, preset.id)
+    const assets = await deactivateForeignProfileAssets(org.id, [
+      preset.id,
+      org.secondaryVertical ?? "",
+    ])
+    assets.formsAdded = materialized.forms
+    assets.workflowsAdded = materialized.workflows
+
     revalidatePath("/", "layout")
-    return { success: true as const, contentMode, seed }
+    return { success: true as const, contentMode, seed, assets }
   } catch (error) {
     if (error instanceof UnauthorizedError) {
       return { success: false, error: error.message }
     }
     console.error("Error updating vertical:", error)
     return { success: false, error: "Failed to update vertical." }
+  }
+}
+
+/**
+ * P1 #69 — read-only preview for the switch dialog: what a switch to the
+ * selected activity would change in forms/workflows (counts only).
+ */
+export async function previewVerticalSwitch(vertical: string): Promise<{
+  success: boolean
+  assets?: {
+    formsAdded: number
+    workflowsAdded: number
+    formsDeactivated: number
+    workflowsDeactivated: number
+  }
+}> {
+  try {
+    const { org } = await requirePermissionOrg("settings.manage")
+    const { previewProfileAssetSwitch } = await import("@/lib/profiles/materialize")
+    const assets = await previewProfileAssetSwitch(org.id, vertical, [
+      org.secondaryVertical ?? "",
+    ])
+    return { success: true, assets }
+  } catch {
+    return { success: false }
   }
 }
 

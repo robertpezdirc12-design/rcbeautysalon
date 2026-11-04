@@ -13,6 +13,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
@@ -22,6 +24,9 @@ import {
   ShieldCheck,
   Trash,
   CircleNotch,
+  CheckCircle,
+  Phone,
+  EnvelopeSimple,
 } from "@phosphor-icons/react/dist/ssr"
 import { useCartStore } from "@/store/cart-store"
 import { CartItem } from "@/components/shop/cart-item"
@@ -30,11 +35,25 @@ import { createProductCheckoutSession } from "@/app/actions/product-checkout"
 import { useOrgPrefix } from "@/lib/org-path-hooks"
 import { SI_VAT_RATE, vatFromGross, vatLabel } from "@/lib/vat"
 
+// P1 #65: guest checkout contact — account is an OFFER, not a precondition.
+interface GuestContact {
+  name: string
+  email: string
+  phone: string
+  address: string
+}
+
+interface OfflineConfirmation {
+  orderNumber: string
+  contactPhone: string | null
+  contactEmail: string | null
+}
+
 export function CartContent() {
   const fmt = useFormatPrice()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { data: session, status } = useSession()
+  const { status } = useSession()
   // Tenant-aware cart path: "/s/[slug]/cart" on tenant sites, "/cart" on
   // bare routes — so the login round-trip returns to the SAME tenant cart.
   const orgPrefix = useOrgPrefix()
@@ -42,6 +61,16 @@ export function CartContent() {
   const { items, getTotalPrice, getTotalItems, clearCart } = useCartStore()
   const [isCheckingOut, setIsCheckingOut] = useState(false)
   const [showClearDialog, setShowClearDialog] = useState(false)
+  // P1 #65: guest contact form + offline confirmation screen.
+  const [contact, setContact] = useState<GuestContact>({
+    name: "",
+    email: "",
+    phone: "",
+    address: "",
+  })
+  const [confirmation, setConfirmation] = useState<OfflineConfirmation | null>(
+    null
+  )
   const totalPrice = getTotalPrice()
   const totalItems = getTotalItems()
   const shipping = items.length === 0 || totalPrice >= 50 ? 0 : 5.99
@@ -83,21 +112,33 @@ export function CartContent() {
     // this guard remains as a belt-and-braces fallback for programmatic calls.
     if (status === "loading") return
 
-    if (!session) {
-      // P1 #38: prijava z jasnim namenom — po prijavi se checkout nadaljuje
-      // samodejno (zastavica nadaljuj=1), namesto da uporabnik trikoma nazaj
-      // na košarico in znova klikne.
-      toast.error("Za zaključek nakupa se prijavite ali ustvarite račun")
-      router.push(
-        `/login?callbackUrl=${encodeURIComponent(`${cartPath}?nadaljuj=1`)}`
-      )
-      return
+    // P1 #65: guests check out with contact details — no login wall. The
+    // login links remain as an offer ("Že imate račun?") inside the form.
+    if (status === "unauthenticated") {
+      if (contact.name.trim().length < 2) {
+        toast.error("Vnesite ime in priimek.")
+        return
+      }
+      if (!contact.email.trim() && !contact.phone.trim()) {
+        toast.error("Vnesite e-pošto ali telefonsko številko.")
+        return
+      }
     }
 
     setIsCheckingOut(true)
 
     try {
-      const result = await createProductCheckoutSession(items)
+      const result = await createProductCheckoutSession(
+        items,
+        status === "unauthenticated"
+          ? {
+              name: contact.name,
+              email: contact.email || undefined,
+              phone: contact.phone || undefined,
+              address: contact.address || undefined,
+            }
+          : undefined
+      )
 
       if (!result.success) {
         if (result.stockErrors && result.stockErrors.length > 0) {
@@ -107,6 +148,19 @@ export function CartContent() {
         } else {
           toast.error(result.error || "Ustvarjanje plačilne seje ni uspelo")
         }
+        return
+      }
+
+      if (result.offline) {
+        // P1 #65: a real confirmation screen with an order number — not a
+        // toast that disappears. The demand is recorded; the owner sees it.
+        setConfirmation({
+          orderNumber: result.orderNumber ?? "",
+          contactPhone: result.contactPhone ?? null,
+          contactEmail: result.contactEmail ?? null,
+        })
+        clearCart()
+        window.scrollTo({ top: 0, behavior: "smooth" })
         return
       }
 
@@ -123,6 +177,71 @@ export function CartContent() {
 
   const loginUrl = `/login?callbackUrl=${encodeURIComponent(`${cartPath}?nadaljuj=1`)}`
   const registerUrl = `/register?callbackUrl=${encodeURIComponent(`${cartPath}?nadaljuj=1`)}`
+
+  // P1 #65: full-page confirmation after an offline order — the customer
+  // gets an order number and the tenant's real contact channels.
+  if (confirmation) {
+    return (
+      <div className="mx-auto max-w-xl">
+        <Card className="border-border/50 shadow-sm">
+          <CardHeader className="text-center">
+            <div className="bg-emerald-100 dark:bg-emerald-950 mx-auto mb-4 flex size-16 items-center justify-center rounded-full">
+              <CheckCircle
+                size={40}
+                weight="regular"
+                className="text-emerald-700 dark:text-emerald-300"
+              />
+            </div>
+            <CardTitle className="text-2xl">Hvala za naročilo!</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 text-center">
+            <p className="text-muted-foreground">
+              Naročilo je bilo zabeleženo — salon vas bo kontaktiral za
+              prevzem/dostavo in plačilo.
+            </p>
+            <div className="bg-muted/40 rounded-lg border p-4">
+              <p className="text-muted-foreground text-xs">Številka naročila</p>
+              <p className="font-mono text-lg font-bold">
+                {confirmation.orderNumber}
+              </p>
+            </div>
+            {(confirmation.contactPhone || confirmation.contactEmail) && (
+              <div className="space-y-2 text-sm">
+                <p className="text-muted-foreground">
+                  Za hitro sporazumevanje:
+                </p>
+                <div className="flex flex-wrap items-center justify-center gap-3">
+                  {confirmation.contactPhone && (
+                    <a
+                      href={`tel:${confirmation.contactPhone.replace(/[^+\d]/g, "")}`}
+                      className="text-primary-text inline-flex items-center gap-1.5 font-medium hover:underline"
+                    >
+                      <Phone size={16} aria-hidden="true" />
+                      {confirmation.contactPhone}
+                    </a>
+                  )}
+                  {confirmation.contactEmail && (
+                    <a
+                      href={`mailto:${confirmation.contactEmail}`}
+                      className="text-primary-text inline-flex items-center gap-1.5 font-medium hover:underline"
+                    >
+                      <EnvelopeSimple size={16} aria-hidden="true" />
+                      {confirmation.contactEmail}
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
+          </CardContent>
+          <CardFooter className="flex justify-center">
+            <Button asChild size="lg">
+              <Link href={`${orgPrefix}/shop`}>Nadaljuj z nakupovanjem</Link>
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <>
@@ -149,8 +268,8 @@ export function CartContent() {
       </div>
 
       <div className="grid gap-8 lg:grid-cols-3">
-        {/* Cart Items */}
-        <div className="lg:col-span-2">
+        {/* Cart Items + guest contact */}
+        <div className="space-y-6 lg:col-span-2">
           <Card className="border-border/50 shadow-sm">
             <CardHeader className="border-border/50 bg-muted/30 flex flex-row items-center justify-between border-b">
               <CardTitle className="flex items-center gap-2">
@@ -206,6 +325,87 @@ export function CartContent() {
               )}
             </CardContent>
           </Card>
+
+          {/* P1 #65: guest checkout — kontakt kot enakovredna pot, prijava
+              ostane ponujena (ne zahtevana). Vidno SAMO v košarici s
+              predmeti; prijavljeni kupec ne vidi obrazca. */}
+          {status === "unauthenticated" && items.length > 0 && (
+            <Card className="border-border/50 shadow-sm">
+              <CardHeader className="border-border/50 bg-muted/30 border-b">
+                <CardTitle className="text-lg">Vaši kontaktni podatki</CardTitle>
+                <p className="text-muted-foreground text-sm">
+                  Račun ni obvezen — naročilo oddate z imenom in e-pošto ali
+                  telefonom.
+                </p>
+              </CardHeader>
+              <CardContent className="grid gap-4 p-6 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="guest-name">Ime in priimek *</Label>
+                  <Input
+                    id="guest-name"
+                    autoComplete="name"
+                    value={contact.name}
+                    onChange={(e) =>
+                      setContact((c) => ({ ...c, name: e.target.value }))
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="guest-email">E-pošta</Label>
+                  <Input
+                    id="guest-email"
+                    type="email"
+                    autoComplete="email"
+                    placeholder="ime@primer.si"
+                    value={contact.email}
+                    onChange={(e) =>
+                      setContact((c) => ({ ...c, email: e.target.value }))
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="guest-phone">Telefon</Label>
+                  <Input
+                    id="guest-phone"
+                    type="tel"
+                    autoComplete="tel"
+                    placeholder="+386 40 123 456"
+                    value={contact.phone}
+                    onChange={(e) =>
+                      setContact((c) => ({ ...c, phone: e.target.value }))
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="guest-address">Dostavni naslov (neobvezno)</Label>
+                  <Input
+                    id="guest-address"
+                    autoComplete="street-address"
+                    value={contact.address}
+                    onChange={(e) =>
+                      setContact((c) => ({ ...c, address: e.target.value }))
+                    }
+                  />
+                </div>
+                <p className="text-muted-foreground text-sm sm:col-span-2">
+                  Že imate račun?{" "}
+                  <Link
+                    href={loginUrl}
+                    className="text-primary-text font-medium hover:underline"
+                  >
+                    Prijava
+                  </Link>{" "}
+                  ali{" "}
+                  <Link
+                    href={registerUrl}
+                    className="text-primary-text font-medium hover:underline"
+                  >
+                    Registracija
+                  </Link>
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Order Summary */}
@@ -250,27 +450,6 @@ export function CartContent() {
               </div>
             </CardContent>
             <CardFooter className="flex flex-col gap-3 p-6 pt-0">
-              {/* P1 #38: anonimni obiskovalec vidi obvestilo PRED klikom —
-                  brez tihega skoka na prijavni zid. */}
-              {status === "unauthenticated" && items.length > 0 && (
-                <div className="bg-accent/10 border-accent/30 w-full rounded-lg border p-3 text-sm">
-                  <p className="text-foreground font-medium">
-                    Za zaključek nakupa se prijavite ali ustvarite račun.
-                  </p>
-                  <p className="text-muted-foreground mt-1 text-xs">
-                    Košarica ostane ohranjena — po prijavi se zaključek nakupa
-                    samodejno nadaljuje.
-                  </p>
-                  <div className="mt-2 flex gap-2">
-                    <Button size="sm" variant="outline" asChild>
-                      <Link href={loginUrl}>Prijava</Link>
-                    </Button>
-                    <Button size="sm" variant="ghost" asChild>
-                      <Link href={registerUrl}>Registracija</Link>
-                    </Button>
-                  </div>
-                </div>
-              )}
               <Button
                 className="w-full shadow-md"
                 size="lg"

@@ -126,6 +126,13 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                         <span className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${statusColors[order.status]}`}>
                           {t.orders.statusLabels[order.status] ?? order.status}
                         </span>
+                        {/* P1 #65: brez Stripe narejena naročila — lastnik vidi,
+                            da gre za plačilo ob prevzemu (demand je zabeležen). */}
+                        {(order as { paymentMethod?: string }).paymentMethod === "offline" && (
+                          <span className="bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 ml-1.5 inline-flex rounded-full px-2 py-1 text-xs font-medium">
+                            {t.orders.offlineBadge}
+                          </span>
+                        )}
                       </td>
                       <td className="py-4 text-sm">
                         {new Date(order.createdAt).toLocaleDateString()}

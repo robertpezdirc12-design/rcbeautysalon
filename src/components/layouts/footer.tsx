@@ -25,8 +25,12 @@ const legalLinks = [
  * prominent login entry on the salon's customer-facing site. Staff, owners
  * and returning customers reach /login through this single discreet footer
  * link (same visual weight as the legal links).
+ * P2 #68: the link CARRIES the tenant (`/login?org=<slug>`) — the header
+ * alone cannot (auth is platform-level, #53), and without it the login
+ * fell back to the oldest tenant's brand. Bare /login stays valid.
  */
-const staffLoginLink = { href: "/login", label: "Prijava" }
+const staffLoginHref = (slug: string | null) =>
+  slug ? `/login?org=${encodeURIComponent(slug)}` : "/login"
 
 /**
  * #53: legal pages are tenant-scoped (canonical /s/{slug}/privacy|terms|cookies)
@@ -34,9 +38,13 @@ const staffLoginLink = { href: "/login", label: "Prijava" }
  * content routes) and renders the DEFAULT tenant's chrome, i.e. the customer
  * of tenant B reads tenant A's name/contact in a GDPR document. Everything
  * except the platform-level login link goes through orgPath().
+ * P2 #68: the login link keeps its explicit `?org=` context (platform auth
+ * surface) — never tenant-prefixed, never stripped of its context.
  */
+const isPlatformAuthHref = (href: string): boolean =>
+  href === "/login" || href.startsWith("/login?")
 const tenantScopedHref = (slug: string | null, href: string): string =>
-  href === staffLoginLink.href ? href : orgPath(slug, href)
+  isPlatformAuthHref(href) ? href : orgPath(slug, href)
 
 const Footer = async () => {
   const session = await auth()
@@ -331,7 +339,7 @@ const Footer = async () => {
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
             {(session
               ? legalLinks
-              : [...legalLinks, staffLoginLink]
+              : [...legalLinks, { href: staffLoginHref(slug), label: "Prijava" }]
             ).map((link) => (
               <Link
                 key={link.label}

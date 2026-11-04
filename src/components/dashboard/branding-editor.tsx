@@ -56,6 +56,7 @@ import {
 import { ArrowDown, ArrowUp, Rocket, Undo2 } from "lucide-react"
 import {
   getOrgBranding,
+  previewVerticalSwitch,
   revertSiteContentToPublished,
   updateOrgLogo,
   updateOrgPalette,
@@ -413,6 +414,13 @@ export function BrandingEditor() {
   // window.confirm left the previous trade's hero/about/CTA live.
   const [verticalDialogOpen, setVerticalDialogOpen] = useState(false)
   const [contentMode, setContentMode] = useState<"reseed" | "keep">("reseed")
+  // P1 #69: what the switch will do to forms/workflows (read-only preview).
+  const [assetPreview, setAssetPreview] = useState<{
+    formsAdded: number
+    workflowsAdded: number
+    formsDeactivated: number
+    workflowsDeactivated: number
+  } | null>(null)
 
   // P3 #49: namig hero/CTA gumba sledi načinu CTA profila — prodajni
   // profil vodi v trgovino, povpraševalni na obrazec (prej je namig
@@ -549,9 +557,13 @@ export function BrandingEditor() {
 
   const handleVertical = async () => {
     if (!org || savingVertical) return
-    // P1 #58: the dialog owns the decision — opening it IS the explicit
-    // confirmation flow (published impact, content mode, catalog note).
+    // P1 #69: the dialog owns the decision — opening it IS the explicit
+    // confirmation flow (published impact, content mode, catalog note,
+    // forms/workflows preview).
+    setAssetPreview(null)
     setVerticalDialogOpen(true)
+    const res = await previewVerticalSwitch(vertical)
+    if (res.success && res.assets) setAssetPreview(res.assets)
   }
 
   const confirmVertical = async () => {
@@ -584,6 +596,20 @@ export function BrandingEditor() {
         })
       } else {
         toast.success(b.vertical.changed)
+      }
+      if (res.assets) {
+        const { formsAdded, workflowsAdded, formsDeactivated, workflowsDeactivated } = res.assets
+        if (formsDeactivated + workflowsDeactivated > 0) {
+          toast.info(
+            b.vertical.assetsReplaced(formsDeactivated, workflowsDeactivated),
+            {
+              description:
+                formsAdded + workflowsAdded > 0
+                  ? b.vertical.assetsAdded(formsAdded, workflowsAdded)
+                  : undefined,
+            }
+          )
+        }
       }
       setVerticalDialogOpen(false)
       router.refresh()
@@ -1513,6 +1539,19 @@ export function BrandingEditor() {
                       <p className="text-muted-foreground flex items-start gap-2 text-xs">
                         <WarningCircleIcon size={14} className="mt-0.5 shrink-0" />
                         {b.vertical.catalogNote}
+                      </p>
+                    )}
+                    {assetPreview && (assetPreview.formsDeactivated + assetPreview.workflowsDeactivated > 0 || assetPreview.formsAdded + assetPreview.workflowsAdded > 0) && (
+                      <p className="text-muted-foreground flex items-start gap-2 text-xs">
+                        <WarningCircleIcon size={14} className="mt-0.5 shrink-0" />
+                        {[
+                          assetPreview.formsDeactivated + assetPreview.workflowsDeactivated > 0
+                            ? b.vertical.assetsReplaced(assetPreview.formsDeactivated, assetPreview.workflowsDeactivated)
+                            : null,
+                          assetPreview.formsAdded + assetPreview.workflowsAdded > 0
+                            ? b.vertical.assetsAdded(assetPreview.formsAdded, assetPreview.workflowsAdded)
+                            : null,
+                        ].filter(Boolean).join(" ")}
                       </p>
                     )}
                     {publication?.state === "PUBLISHED" && (

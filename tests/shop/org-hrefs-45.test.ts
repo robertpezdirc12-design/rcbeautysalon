@@ -132,8 +132,9 @@ describe("#45 — no bare tenant-public hrefs in shop/account components", () =>
       "utf8"
     )
     expect(cart).toContain("href={`${orgPrefix}/shop`}")
-    // both occurrences: empty-state "Raziščite izdelke" + "Nadaljuj z nakupovanjem"
-    expect(cart.match(/href=\{`\$\{orgPrefix\}\/shop`\}/g)?.length).toBe(2)
+    // three occurrences: empty-state "Raziščite izdelke", "Nadaljuj z
+    // nakupovanjem" + the offline-confirmation screen (#65)
+    expect(cart.match(/href=\{`\$\{orgPrefix\}\/shop`\}/g)?.length).toBe(3)
   })
 
   it("orders + appointments summaries are prefixed too", () => {
@@ -160,8 +161,10 @@ describe("#45 — no bare tenant-public hrefs in shop/account components", () =>
     // rendered href must be wrapped, never the bare constant
     expect(footer).toContain("href={tenantScopedHref(slug, link.href)}")
     expect(footer).not.toMatch(/href="\/(privacy|terms|cookies)"/)
-    // the only deliberately unprefixed link is the platform login
-    expect(footer).toContain('href === staffLoginLink.href ? href : orgPath(slug, href)')
+    // the only deliberately unprefixed link is the platform login —
+    // which now CARRIES the tenant context (#68: /login?org=<slug>)
+    expect(footer).toContain("isPlatformAuthHref(href) ? href : orgPath(slug, href)")
+    expect(footer).toContain("/login?org=${encodeURIComponent(slug)}")
   })
 
   it("navbar account links (my-*) are prefixed on desktop and mobile", () => {

@@ -757,6 +757,11 @@ model Order {
 
   status OrderStatus @default(PENDING)
 
+  // P1 #65: how the order is meant to be paid — "online" (Stripe hosted
+  // checkout) or "offline" (created without Stripe: owner collects payment
+  // on pickup/delivery). Orders default to "online" (all pre-#65 rows).
+  paymentMethod String @default("online")
+
   // Payment
   stripePaymentIntentId String?
 
@@ -818,6 +823,9 @@ model FormDefinition {
   version        Int     @default(1)
   isActive       Boolean @default(true)
   fields         Json // ProfileFieldDef[] — validated server-side on read/write
+  // P1 #69: provenance — profile id when materialized from the registry,
+  // NULL when owner-created (never deactivated by an activity switch).
+  sourceProfile  String?
 
   organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   submissions  FormSubmission[]
@@ -866,6 +874,8 @@ model WorkflowDefinition {
   entity         String // "order" | "appointment" | custom entity key
   version        Int     @default(1)
   isActive       Boolean @default(true)
+  // P1 #69: provenance — profile id when materialized, NULL = owner-created.
+  sourceProfile  String?
 
   organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   stages       WorkflowStage[]

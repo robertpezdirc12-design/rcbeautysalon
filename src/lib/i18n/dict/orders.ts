@@ -50,6 +50,7 @@ export const ordersSl = {
     date: "Datum",
   },
   guest: "Gost",
+  offlineBadge: "Po povzetju",
   itemsCount: itemsCountSl,
   statusLabels: {
     PENDING: "V čakanju",
@@ -100,6 +101,7 @@ export const ordersEn: OrdersDict = {
     date: "Date",
   },
   guest: "Guest",
+  offlineBadge: "Pay on pickup",
   itemsCount: itemsCountEn,
   statusLabels: {
     PENDING: "Pending",

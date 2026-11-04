@@ -4,17 +4,44 @@ import {
   getPublicFeaturedProducts,
   getPublicFeaturedStaff,
   getPublicTestimonials,
+  redirectBareToTenant,
 } from "@/lib/public-site"
 import { HomeContent } from "@/components/landing/home-content"
+import { PlatformLanding } from "@/components/landing/platform-landing"
 import { resolveCtaLinks, resolveCtaSectionHref } from "@/lib/public-cta"
 import { resolveEffectiveProfile } from "@/lib/profiles/resolve"
 import { sectionsForProfile } from "@/lib/home-sections"
 import { prisma } from "@/lib/prisma"
-import { redirectBareToTenant } from "@/lib/public-site"
+import { headers } from "next/headers"
+import { auth } from "@/lib/auth/auth"
+import { ORG_HEADER } from "@/lib/tenant"
+import { hostFromHostHeader, isPlatformHost } from "@/lib/domains/normalize"
+import { getPlatformHosts } from "@/lib/domains/provider"
 
 export default async function HomePage() {
-  // P1 #39-5: goli "/" servira ISTO vsebino kot /s/{slug} — preusmeri na
-  // kanonično najemniško pot (pod najemnikom se ne zgodi nič).
+  // P1 #66: the PLATFORM ROOT is the product landing, not a tenant.
+  //  - tenant context (/s/[slug] rewrite or custom domain) → tenant home
+  //  - platform root + logged-in owner → their own site (unchanged)
+  //  - platform root + anonymous/customer → PRODUCT LANDING
+  const h = await headers()
+  const slugHeader = h.get(ORG_HEADER)
+  const requestHost = hostFromHostHeader(h.get("host"))
+  const isTenantContext =
+    !!slugHeader ||
+    (!!requestHost && !isPlatformHost(requestHost, getPlatformHosts()))
+
+  if (!isTenantContext) {
+    const session = await auth()
+    if (session?.user?.role === "ADMIN" || session?.user?.role === "STAFF") {
+      // Logged-in staff/owner: bare "/" keeps its existing behavior —
+      // redirect to their own (or the default) tenant site.
+      await redirectBareToTenant("/")
+    }
+    return <PlatformLanding />
+  }
+
+  // P1 #39-5: goli "/" (fail-open preostanek, ko proxy ni preusmeril)
+  // servira ISTO vsebino kot /s/{slug} — preusmeri na kanonično pot.
   await redirectBareToTenant("/")
 
   const site = await getPublicSiteData()

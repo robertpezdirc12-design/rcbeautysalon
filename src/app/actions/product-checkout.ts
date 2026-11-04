@@ -13,9 +13,28 @@ import type { CartItem } from "@/store/cart-store"
 const FREE_SHIPPING_THRESHOLD = 50
 const SHIPPING_COST = 5.99
 
+/**
+ * P1 #65 — guest checkout contact. An account is an OFFER, not a
+ * precondition: a buyer of a €9 honey jar must not have to register.
+ * Name + (email OR phone) required; address optional (delivery notes).
+ */
+export interface CheckoutContact {
+  name: string
+  email?: string
+  phone?: string
+  address?: string
+}
+
 interface CheckoutResult {
   success: boolean
   checkoutUrl?: string
+  /** P1 #65: true when the order was recorded WITHOUT online payment. */
+  offline?: boolean
+  /** Short human-readable code the customer sees on the confirmation. */
+  orderNumber?: string
+  /** Tenant contact for the "salon will contact you" screen (clickable). */
+  contactPhone?: string | null
+  contactEmail?: string | null
   error?: string
   stockErrors?: Array<{
     productId: string
@@ -25,18 +44,78 @@ interface CheckoutResult {
   }>
 }
 
+/** Tolerant contact validation (server-side — the client form is a hint). */
+function validateContact(
+  contact: CheckoutContact | undefined
+): { ok: false; error: string } | { ok: true } {
+  if (!contact) {
+    return { ok: false, error: "Za zaključek nakupa izpolnite svoje kontaktne podatke." }
+  }
+  const name = contact.name?.trim() ?? ""
+  const email = contact.email?.trim() ?? ""
+  const phone = contact.phone?.trim() ?? ""
+  if (name.length < 2) {
+    return { ok: false, error: "Vnesite ime in priimek." }
+  }
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)
+  if (!email && !phone) {
+    return { ok: false, error: "Vnesite e-pošto ali telefonsko številko." }
+  }
+  if (email && !emailOk) {
+    return { ok: false, error: "E-poštni naslov ni veljaven." }
+  }
+  return { ok: true }
+}
+
+/** Find-or-create a tenant customer from guest contact details (org-scoped). */
+async function findOrCreateGuestCustomer(
+  orgId: string,
+  contact: CheckoutContact
+): Promise<string | null> {
+  const email = contact.email?.trim().toLowerCase() || null
+  const phone = contact.phone?.trim() || null
+  if (!email && !phone) return null
+
+  const orConditions: Array<Record<string, string>> = []
+  if (email) orConditions.push({ email })
+  if (phone) orConditions.push({ phone })
+  const existing = await prisma.customer.findFirst({
+    where: { organizationId: orgId, OR: orConditions },
+    select: { id: true },
+  })
+  if (existing) return existing.id
+
+  const created = await prisma.customer.create({
+    data: {
+      name: contact.name.trim(),
+      email,
+      phone,
+      organizationId: orgId,
+    },
+    select: { id: true },
+  })
+  return created.id
+}
+
 export async function createProductCheckoutSession(
-  items: CartItem[]
+  items: CartItem[],
+  contact?: CheckoutContact
 ): Promise<CheckoutResult> {
   try {
-    // Get current session
+    // Get current session — OPTIONAL since #65: guests can order with
+    // contact details; an account is offered, never required.
     const session = await auth()
 
-    if (!session?.user) {
+    const guest = !session?.user
+    if (guest && !contact) {
       return {
         success: false,
-        error: "Za zaključek nakupa morate biti prijavljeni",
+        error: "Za zaključek nakupa izpolnite svoje kontaktne podatke.",
       }
+    }
+    if (guest) {
+      const check = validateContact(contact)
+      if (!check.ok) return { success: false, error: check.error }
     }
 
     // Resolve the tenant organization for this checkout
@@ -45,18 +124,6 @@ export async function createProductCheckoutSession(
       return {
         success: false,
         error: "Trgovina trenutno ni na voljo. Poskusite znova kasneje.",
-      }
-    }
-
-    // Payments are an optional, salon-owned integration — the key comes
-    // ONLY from the organization (Settings → Plačila). The platform never
-    // holds a key (E4-3b): no env fallback exists.
-    const stripeClient = getStripeForOrg(org)
-    if (!stripeClient) {
-      return {
-        success: false,
-        error:
-          "Spletna plačila še niso nastavljena. Za oddajo naročila kontaktirajte salon.",
       }
     }
 
@@ -126,23 +193,27 @@ export async function createProductCheckoutSession(
 
     // Get or create customer
     let customerId: string | null = null
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      include: { customer: true },
-    })
-
-    if (user?.customer) {
-      customerId = user.customer.id
-    } else if (user) {
-      const customer = await prisma.customer.create({
-        data: {
-          name: user.name || "Customer",
-          email: user.email,
-          userId: user.id,
-          organizationId: org.id,
-        },
+    if (!guest && session) {
+      const user = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        include: { customer: true },
       })
-      customerId = customer.id
+
+      if (user?.customer) {
+        customerId = user.customer.id
+      } else if (user) {
+        const customer = await prisma.customer.create({
+          data: {
+            name: user.name || "Customer",
+            email: user.email,
+            userId: user.id,
+            organizationId: org.id,
+          },
+        })
+        customerId = customer.id
+      }
+    } else if (contact) {
+      customerId = await findOrCreateGuestCustomer(org.id, contact)
     }
 
     // MONTHLY ORDERS LIMIT (E3-7): entitlements are enforced server-side
@@ -159,6 +230,64 @@ export async function createProductCheckoutSession(
         success: false,
         error:
           "Trgovina trenutno ne sprejema novih naročil. Kontaktirajte salon in poskusite znova kasneje.",
+      }
+    }
+
+    // Payments are an optional, tenant-owned integration — the key comes
+    // ONLY from the organization (Settings → Plačila). The platform never
+    // holds a key (E4-3b): no env fallback exists.
+    const stripeClient = getStripeForOrg(org)
+
+    // ------------------------------------------------------------
+    // P1 #65 — NO STRIPE: the demand is still RECORDED. The old behavior
+    // returned a toast and created NOTHING — a tenant without Stripe
+    // (the default state of every new shop) could not sell, and lost
+    // demand was invisible. Now: order with paymentMethod "offline"
+    // (owner collects on pickup/delivery), visible in the dashboard.
+    // ------------------------------------------------------------
+    if (!stripeClient) {
+      const guestContact = guest && contact ? contact : null
+      const order = await prisma.order.create({
+        data: {
+          organizationId: org.id,
+          customerId,
+          subtotal,
+          tax,
+          total,
+          status: "PENDING",
+          paymentMethod: "offline",
+          notes: guestContact?.address?.trim()
+            ? `Naročilo brez spletnega plačila — plačilo ob prevzemu. Dostavni naslov: ${guestContact.address.trim()}`
+            : "Naročilo brez spletnega plačila — plačilo ob prevzemu.",
+          ...(guestContact
+            ? {
+                guestName: guestContact.name.trim(),
+                guestEmail: guestContact.email?.trim().toLowerCase() || null,
+                guestPhone: guestContact.phone?.trim() || null,
+              }
+            : {}),
+          items: {
+            create: pricedItems.map((item) => ({
+              productId: item.productId,
+              quantity: item.quantity,
+              price: item.price,
+            })),
+          },
+        },
+      })
+
+      const shopConfig = await prisma.salonConfig.findFirst({
+        where: { organizationId: org.id },
+        select: { phone: true, email: true },
+      })
+
+      return {
+        success: true,
+        offline: true,
+        // Short code the customer can quote; the dashboard shows the order.
+        orderNumber: order.id.slice(-8).toUpperCase(),
+        contactPhone: shopConfig?.phone ?? null,
+        contactEmail: shopConfig?.email ?? null,
       }
     }
 
@@ -220,22 +349,28 @@ export async function createProductCheckoutSession(
             name: "Dostava",
             images: [],
           },
-          unit_amount: Math.round(shipping * 100),
+          unit_amount: Math.round(shipping * 100), // Convert to cents
         },
         quantity: 1,
       })
     }
 
+    // P1 #65: guests with Stripe go through the SAME hosted payment page —
+    // registration is never a precondition for paying.
+    const customerEmail = guest
+      ? contact?.email?.trim() || undefined
+      : session?.user?.email || undefined
+
     // Create Stripe Checkout session
     const checkoutSession = await stripeClient.checkout.sessions.create({
       payment_method_types: ["card"],
       mode: "payment",
-      customer_email: session.user.email || undefined,
+      customer_email: customerEmail,
       line_items: lineItems,
       automatic_tax: { enabled: false }, // We calculate tax ourselves
       metadata: {
         orderId: order.id,
-        userId: session.user.id,
+        userId: session?.user?.id ?? "guest",
         type: "product_order",
         orgId: org.id,
       },
@@ -259,15 +394,10 @@ export async function createProductCheckoutSession(
 // Verify payment and update order status
 export async function verifyProductOrder(sessionId: string) {
   try {
-    // Only authenticated users can checkout, so require a session here too
+    // Online checkout may now be GUEST checkout (#65) — the verification
+    // itself is keyed by the Stripe session, not by a login. The tenant +
+    // customer checks below still scope what a caller may mark paid.
     const session = await auth()
-
-    if (!session?.user) {
-      return {
-        success: false,
-        error: "Za preverjanje naročila morate biti prijavljeni",
-      }
-    }
 
     // The checkout session can only be retrieved from the Stripe account that
     // created it. Try candidates: the salon's own key first, then every org
@@ -357,19 +487,27 @@ export async function verifyProductOrder(sessionId: string) {
       }
     }
 
-    // SECURITY: the order must belong to the current user
-    const userWithCustomer = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { customer: { select: { id: true } } },
-    })
+    // SECURITY: the order must belong to the current user — OR be a guest
+    // order placed from THIS tenant (#65): the Stripe session id is the
+    // capability (it can only come from the paying session), and the order
+    // carries the guest contact that matches the checkout email.
+    if (session?.user) {
+      const userWithCustomer = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { customer: { select: { id: true } } },
+      })
 
-    if (
-      existingOrder.customerId &&
-      existingOrder.customerId !== userWithCustomer?.customer?.id
-    ) {
-      return {
-        success: false,
-        error: "Nimate dovoljenja za ogled tega naročila",
+      const ownsCustomer =
+        existingOrder.customerId &&
+        existingOrder.customerId !== userWithCustomer?.customer?.id
+
+      const isGuestOrder = !existingOrder.customerId && !!existingOrder.guestEmail
+
+      if (ownsCustomer && !isGuestOrder) {
+        return {
+          success: false,
+          error: "Nimate dovoljenja za ogled tega naročila",
+        }
       }
     }
 
@@ -436,5 +574,3 @@ export async function verifyProductOrder(sessionId: string) {
     }
   }
 }
-
-
