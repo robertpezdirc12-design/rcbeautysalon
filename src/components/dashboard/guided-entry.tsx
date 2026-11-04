@@ -130,6 +130,10 @@ export function GuidedEntryBody({
                 onClick={() => setSelected(profile.id)}
                 className={cn(
                   "relative rounded-xl border p-4 text-left transition-all",
+                  // #94 §F: značka »Trenutna dejavnost« je abs. pozicionirana
+                  // (right-2 top-2) — brez dodatnega odmika prekriva naslov
+                  // kartice. Rezerviraj prostor zgoraj, ko je značka prisotna.
+                  isCurrent && "pt-10",
                   isSelected
                     ? "border-primary bg-primary/5 shadow-md ring-2 ring-primary/30"
                     : "hover:border-primary/40 hover:bg-muted/50"
