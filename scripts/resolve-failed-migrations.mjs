@@ -33,7 +33,13 @@ import { execFileSync } from "node:child_process"
 
 // Names of migrations known to have failed mid-apply on production and
 // safe to roll back + retry because their SQL is idempotent.
-const RESOLVABLE = ["20261105000000_onboarding_answers"]
+const RESOLVABLE = [
+  "20261105000000_onboarding_answers",
+  // P2 #59: first attempt used an invalid UPDATE ... FROM (target-table
+  // reference inside a FROM-join ON clause) and failed on production.
+  // The SQL is now valid + fully idempotent (IF NOT EXISTS everywhere).
+  "20261126000000_p59_preset_seed_provenance",
+]
 
 function runPrisma(args, { input } = {}) {
   return execFileSync("npx", ["prisma", ...args], {
