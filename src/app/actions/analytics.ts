@@ -272,8 +272,8 @@ export async function getRevenueChartData(period: PeriodType = "30d"): Promise<R
     dateFormat = "LLL yyyy"
   }
 
-  // Obtener todos los appointments y orders en el rango
-  const [appointments, orders] = await Promise.all([
+  // Obtener todos los appointments y orders en el rango (+ #80 prepaid)
+  const [appointments, orders, prepaidSales, redemptions] = await Promise.all([
     prisma.appointment.findMany({
       where: {
         organizationId: org.id,
@@ -295,7 +295,25 @@ export async function getRevenueChartData(period: PeriodType = "30d"): Promise<R
         createdAt: true,
         total: true
       }
-    })
+    }),
+    // #80: prodaje vnaprej (darilni boni + paketi) — prihodek ob prodaji.
+    prisma.prepaidPurchase.findMany({
+      where: {
+        organizationId: org.id,
+        status: { in: ["ACTIVE", "EXHAUSTED"] },
+        purchasedAt: { gte: startDate, lte: endDate },
+        prepaidProduct: { kind: { in: ["GIFT_CARD", "PACKAGE"] } },
+      },
+      select: { purchasedAt: true, prepaidProduct: { select: { price: true } } },
+    }),
+    // #80: unovčitve — LOČENA vrstica (ne prihodek; prepreči dvojno štetje).
+    prisma.prepaidRedemption.findMany({
+      where: {
+        prepaidPurchase: { organizationId: org.id },
+        createdAt: { gte: startDate, lte: endDate },
+      },
+      select: { createdAt: true, amount: true, sessions: true },
+    }),
   ])
 
   // Agrupar por intervalo
@@ -322,10 +340,23 @@ export async function getRevenueChartData(period: PeriodType = "30d"): Promise<R
       .filter(o => o.createdAt >= intervalStart && o.createdAt <= intervalEnd)
       .reduce((sum, o) => sum + (o.total?.toNumber() ?? 0), 0)
 
+    // #80: prodaje vnaprej v tem intervalu (cena produkta, ne face value).
+    const prepaidRevenue = prepaidSales
+      .filter(p => p.purchasedAt >= intervalStart && p.purchasedAt <= intervalEnd)
+      .reduce((sum, p) => sum + (p.prepaidProduct.price?.toNumber() ?? 0), 0)
+
+    // #80: unovčitve v tem intervalu — denar iz bonov (seanse šteje
+    // lastništvo preko liability kartice, ne preko prihodkov).
+    const redeemedAmount = redemptions
+      .filter(r => r.createdAt >= intervalStart && r.createdAt <= intervalEnd)
+      .reduce((sum, r) => sum + (r.amount?.toNumber() ?? 0), 0)
+
     return {
       date: format(intervalStart, dateFormat, { locale: sl }),
       appointments: Math.round(appointmentRevenue * 100) / 100,
-      products: Math.round(productRevenue * 100) / 100
+      products: Math.round(productRevenue * 100) / 100,
+      prepaid: Math.round(prepaidRevenue * 100) / 100,
+      redemptions: Math.round(redeemedAmount * 100) / 100,
     }
   })
 

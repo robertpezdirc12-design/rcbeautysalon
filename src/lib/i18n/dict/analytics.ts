@@ -25,6 +25,8 @@ export const analyticsSl = {
     description: "Spremljajte prihodke od terminov in prodaje izdelkov",
     legendAppointments: "Termini",
     legendProducts: "Izdelki",
+    // #80: ločena vrstica za prodaje vnaprej (boni + paketi)
+    legendPrepaid: "Vnaprej",
     noData: "Za to obdobje ni podatkov o prihodkih",
   },
   topServices: {
@@ -103,6 +105,8 @@ export const analyticsEn: AnalyticsDict = {
     description: "Track your income from appointments and product sales",
     legendAppointments: "Appointments",
     legendProducts: "Products",
+    // #80: separate prepaid sales line
+    legendPrepaid: "Prepaid",
     noData: "No revenue data available for this period",
   },
   topServices: {

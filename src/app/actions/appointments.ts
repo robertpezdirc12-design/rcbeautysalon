@@ -560,15 +560,17 @@ export async function createAppointment(
 
     // #79: polog je PRAVILO (per storitev), ne ena globalna številka.
     // 15 € manikura z org pologom 50 € zahteva 15 €, ne 50 €. Employee
-    // termini ostanejo brez pologa.
-    const depositAmount = isEmployeeBooking
+    // termini ostanejo brez pologa. (let — #80: paket lahko zniža na 0.)
+    let depositAmount = isEmployeeBooking
       ? 0
       : resolveDepositForServices(services, {
           bookingDeposit: config.bookingDeposit,
           bookingDepositType: config.bookingDepositType ?? "FIXED",
         })
-    const depositPaid = isEmployeeBooking ? true : false // Employees don't need to pay deposit
-    const appointmentStatus = isEmployeeBooking ? "CONFIRMED" : "PENDING"
+    let depositPaid = isEmployeeBooking ? true : false // Employees don't need to pay deposit
+    let appointmentStatus: "PENDING" | "CONFIRMED" = isEmployeeBooking
+      ? "CONFIRMED"
+      : "PENDING"
 
     // Verify the requested time slot is available
     const slots = await getAvailableTimeSlots(
@@ -702,6 +704,63 @@ export async function createAppointment(
       return { success: false, error: "Neveljavna izbira specialista" }
     }
 
+    // ------------------------------------------------------------
+    // #80: PAKETNE SEANSE — če kupec (customer ali guest e-pošta) ima
+    // AKTIVEN paket, ki pokriva eno izmed izbranih storitev, se ena
+    // seansa ATOMSKO porabi (updateMany z sessionsLeft > 0 — dvojni
+    // klik ne more odšteti dveh, negativno stanje ni možno) in polog
+    // NI več potreben (storitev je že plačana).
+    // ------------------------------------------------------------
+    let prepaidPurchaseId: string | null = null
+    if (!isEmployeeBooking) {
+      const now = new Date()
+      const candidates = await prisma.prepaidPurchase.findMany({
+        where: {
+          organizationId: org.id,
+          status: "ACTIVE",
+          sessionsLeft: { gt: 0 },
+          prepaidProduct: { kind: "PACKAGE" },
+          OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+          ...(customerId
+            ? { customerId }
+            : data.guestEmail
+              ? { guestEmail: data.guestEmail.toLowerCase() }
+              : { id: "__none__" }),
+        },
+        include: {
+          prepaidProduct: {
+            select: { name: true, items: { select: { serviceId: true } } },
+          },
+        },
+        orderBy: { purchasedAt: "asc" }, // najstarejši paket porabi se prvi
+        take: 5,
+      })
+      const serviceIdSet = new Set(services.map((s) => s.id))
+      const matching = candidates.find((p) =>
+        p.prepaidProduct.items.some(
+          (item) => item.serviceId && serviceIdSet.has(item.serviceId)
+        )
+      )
+
+      if (matching) {
+        const consumed = await prisma.prepaidPurchase.updateMany({
+          where: {
+            id: matching.id,
+            status: "ACTIVE",
+            sessionsLeft: { gt: 0 }, // atomska varovalka proti dvojemu porabu
+          },
+          data: { sessionsLeft: { decrement: 1 } },
+        })
+        if (consumed.count === 1) {
+          prepaidPurchaseId = matching.id
+          // Storitev pokrita s paketom: brez pologa, termin POTRJEN.
+          depositAmount = 0
+          depositPaid = true
+          appointmentStatus = "CONFIRMED"
+        }
+      }
+    }
+
     // Create the appointment with associated services
     const appointment = await prisma.appointment.create({
       data: {
@@ -733,6 +792,36 @@ export async function createAppointment(
         },
       },
     })
+
+    // #80: zapiši unovčitev seanse po uspešni kreaciji termina.
+    // Unikatni indeks [prepaidPurchaseId, appointmentId] onemogoči
+    // dvojno unovčitev ISTEGA termina na ravni baze.
+    if (prepaidPurchaseId) {
+      await prisma.prepaidRedemption
+        .create({
+          data: {
+            prepaidPurchaseId,
+            appointmentId: appointment.id,
+            sessions: 1,
+          },
+        })
+        .catch((e) => {
+          // P2002 ( že unovčeno) je uspeh idempotentnosti; kaj drugega
+          // logiramo, ampak termin ostane — seansa je že odšteta.
+          console.error("[prepaid] redemption create failed:", e)
+        })
+      // Stanje paketa: pri 0 → EXHAUSTED.
+      const updated = await prisma.prepaidPurchase.findUnique({
+        where: { id: prepaidPurchaseId },
+        select: { sessionsLeft: true },
+      })
+      if (updated?.sessionsLeft === 0) {
+        await prisma.prepaidPurchase.update({
+          where: { id: prepaidPurchaseId },
+          data: { status: "EXHAUSTED" },
+        })
+      }
+    }
 
     // Send confirmation email to customer
     // If admin is creating for a customer, use guest info; otherwise use session user info

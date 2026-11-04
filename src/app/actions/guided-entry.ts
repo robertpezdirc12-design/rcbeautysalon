@@ -134,7 +134,7 @@ export async function completeGuidedEntry(input: GuidedEntryInput): Promise<Guid
           // No business data references the catalog — safe to replace the
           // SAMPLE catalog so the workspace truly "switches to mehanik".
           // Package items cascade away with their services/products.
-          await prisma.package.deleteMany({ where: { organizationId: org.id } })
+          await prisma.prepaidProduct.deleteMany({ where: { organizationId: org.id } })
           await prisma.service.deleteMany({ where: { organizationId: org.id } })
           await prisma.product.deleteMany({ where: { organizationId: org.id } })
           await prisma.category.deleteMany({ where: { organizationId: org.id } })

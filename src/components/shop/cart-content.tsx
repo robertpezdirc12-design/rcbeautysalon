@@ -1,7 +1,7 @@
 "use client"
 import { useFormatPrice } from "@/lib/currency"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, useTransition } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useSession } from "next-auth/react"
@@ -32,6 +32,7 @@ import { useCartStore } from "@/store/cart-store"
 import { CartItem } from "@/components/shop/cart-item"
 import { toast } from "sonner"
 import { createProductCheckoutSession } from "@/app/actions/product-checkout"
+import { validateGiftCard } from "@/app/actions/prepaid"
 import { useOrgPrefix } from "@/lib/org-path-hooks"
 import { SI_VAT_RATE, vatFromGross, vatLabel } from "@/lib/vat"
 
@@ -47,6 +48,8 @@ interface OfflineConfirmation {
   orderNumber: string
   contactPhone: string | null
   contactEmail: string | null
+  /** #80: order fully paid with a gift card. */
+  giftCardPaid?: boolean
 }
 
 export function CartContent() {
@@ -68,6 +71,40 @@ export function CartContent() {
     phone: "",
     address: "",
   })
+  // #80: darilni bon pri checkoutu.
+  const [giftCardCode, setGiftCardCode] = useState("")
+  const [giftCardState, setGiftCardState] = useState<
+    { ok: boolean; balance?: number; message: string } | null
+  >(null)
+  const [isCheckingCard, startCardCheck] = useTransition()
+
+  const handleCheckGiftCard = () => {
+    if (!giftCardCode.trim()) return
+    startCardCheck(async () => {
+      const result = await validateGiftCard(giftCardCode)
+      if (result.ok) {
+        setGiftCardState({
+          ok: true,
+          balance: result.balance,
+          message: `Bon veljaven — stanje ${fmt(result.balance ?? 0)}`,
+        })
+      } else {
+        const messages: Record<string, string> = {
+          NOT_FOUND: "Darilni bon s to kodo ne obstaja.",
+          FOREIGN_TENANT:
+            "Ta darilni bon ni iz te trgovine in ga tukaj ni mogoče unovčiti.",
+          PENDING: "Ta darilni bon še ni plačan.",
+          EXPIRED: "Ta darilni bon je potekel.",
+          EXHAUSTED: "Ta darilni bon je že porabljen.",
+          REFUNDED: "Ta darilni bon je preklican.",
+        }
+        setGiftCardState({
+          ok: false,
+          message: messages[result.rejection ?? "NOT_FOUND"],
+        })
+      }
+    })
+  }
   const [confirmation, setConfirmation] = useState<OfflineConfirmation | null>(
     null
   )
@@ -137,7 +174,8 @@ export function CartContent() {
               phone: contact.phone || undefined,
               address: contact.address || undefined,
             }
-          : undefined
+          : undefined,
+        giftCardCode.trim() || undefined
       )
 
       if (!result.success) {
@@ -151,13 +189,15 @@ export function CartContent() {
         return
       }
 
-      if (result.offline) {
+      if (result.offline || result.giftCardPaid) {
         // P1 #65: a real confirmation screen with an order number — not a
         // toast that disappears. The demand is recorded; the owner sees it.
+        // #80: giftCardPaid — plačano z bonom, isti zaslon z oznako.
         setConfirmation({
           orderNumber: result.orderNumber ?? "",
           contactPhone: result.contactPhone ?? null,
           contactEmail: result.contactEmail ?? null,
+          giftCardPaid: result.giftCardPaid,
         })
         clearCart()
         window.scrollTo({ top: 0, behavior: "smooth" })
@@ -423,6 +463,45 @@ export function CartContent() {
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Vmesna vsota</span>
                 <span className="font-medium">{fmt(totalPrice)}</span>
+              </div>
+              {/* #80: darilni bon — preveri kodo pred zaključkom. */}
+              <div className="space-y-2 rounded-lg border p-3">
+                <Label htmlFor="gift-card-code" className="text-sm">
+                  🎁 Darilni bon
+                </Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="gift-card-code"
+                    value={giftCardCode}
+                    onChange={(e) => {
+                      setGiftCardCode(e.target.value)
+                      setGiftCardState(null)
+                    }}
+                    placeholder="RC-XXXX-XXXX"
+                    className="uppercase"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCheckGiftCard}
+                    disabled={isCheckingCard || !giftCardCode.trim()}
+                  >
+                    {isCheckingCard ? "…" : "Preveri"}
+                  </Button>
+                </div>
+                {giftCardState && (
+                  <p
+                    className={`text-xs ${
+                      giftCardState.ok
+                        ? "text-green-600 dark:text-green-400"
+                        : "text-destructive"
+                    }`}
+                    role="status"
+                  >
+                    {giftCardState.message}
+                  </p>
+                )}
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Dostava</span>

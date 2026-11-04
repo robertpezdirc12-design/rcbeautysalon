@@ -237,6 +237,12 @@ export interface PackageInfo {
   /** Sum of underlying item prices × quantity (before package discount). */
   listValue: number
   createdAt: string
+  // #80: prepaid value fields
+  kind: "GIFT_CARD" | "PACKAGE" | "MEMBERSHIP"
+  faceValue: number | null
+  sessionCount: number | null
+  validityDays: number | null
+  serviceIds: string[]
 }
 
 export interface PackagesOverview {
@@ -252,7 +258,7 @@ export async function getPackagesOverview(): Promise<PackagesOverview> {
   const { org } = await requirePermissionOrg("products.manage")
 
   const [packages, services, products] = await Promise.all([
-    prisma.package.findMany({
+    prisma.prepaidProduct.findMany({
       where: { organizationId: org.id },
       include: {
         items: {
@@ -301,6 +307,12 @@ export async function getPackagesOverview(): Promise<PackagesOverview> {
       items,
       listValue: items.reduce((sum, it) => sum + it.unitPrice * it.quantity, 0),
       createdAt: p.createdAt.toISOString(),
+      // #80: prepaid value fields
+      kind: p.kind,
+      faceValue: p.faceValue ? p.faceValue.toNumber() : null,
+      sessionCount: p.sessionCount,
+      validityDays: p.validityDays,
+      serviceIds: p.serviceIds ?? [],
     }
   })
 
@@ -333,6 +345,13 @@ export interface CreatePackageInput {
   price: number
   compareAtPrice?: number | null
   items: PackageLineInput[]
+  // #80: prepaid value — GIFT_CARD needs no items, PACKAGE derives
+  // sessionCount from the items (unless given explicitly).
+  kind?: "GIFT_CARD" | "PACKAGE" | "MEMBERSHIP"
+  faceValue?: number | null
+  sessionCount?: number | null
+  validityDays?: number | null
+  serviceIds?: string[]
 }
 
 export interface PackageActionResult {
@@ -342,8 +361,11 @@ export interface PackageActionResult {
 }
 
 function validateLines(
-  items: PackageLineInput[] | undefined
+  items: PackageLineInput[] | undefined,
+  kind: "GIFT_CARD" | "PACKAGE" | "MEMBERSHIP" = "PACKAGE"
 ): { ok: true } | { ok: false; error: string } {
+  // #80: gift cards are pure money — no item lines required.
+  if (kind === "GIFT_CARD") return { ok: true }
   if (!items || items.length === 0) return { ok: false, error: "NO_ITEMS" }
   for (const it of items) {
     if (!it.refId) return { ok: false, error: "NO_ITEMS" }
@@ -351,6 +373,16 @@ function validateLines(
       return { ok: false, error: "INVALID_QUANTITY" }
   }
   return { ok: true }
+}
+
+const PREPAID_KINDS = ["GIFT_CARD", "PACKAGE", "MEMBERSHIP"] as const
+
+type PrepaidKindValue = (typeof PREPAID_KINDS)[number]
+
+function parseKind(kind: unknown): PrepaidKindValue {
+  return PREPAID_KINDS.includes(kind as PrepaidKindValue)
+    ? (kind as PrepaidKindValue)
+    : "PACKAGE"
 }
 
 export async function createPackage(
@@ -361,25 +393,46 @@ export async function createPackage(
   if (!name) return { ok: false, error: "MISSING_NAME" }
   if (!Number.isFinite(input.price) || input.price < 0)
     return { ok: false, error: "INVALID_PRICE" }
-  const lines = validateLines(input.items)
+  // #80: memberships are NOT in this PR (they land with the scheduler).
+  const kind = parseKind(input.kind)
+  if (kind === "MEMBERSHIP") return { ok: false, error: "MEMBERSHIP_NOT_AVAILABLE" }
+  if (kind === "GIFT_CARD" && input.faceValue != null && input.faceValue < input.price)
+    return { ok: false, error: "INVALID_FACE_VALUE" }
+  const lines = validateLines(input.items, kind)
   if (!lines.ok) return { ok: false, error: lines.error }
 
-  const created = await prisma.package.create({
+  // PACKAGE: session count derives from the items unless given explicitly.
+  const sessionCount =
+    kind === "PACKAGE"
+      ? (input.sessionCount ??
+        input.items.reduce((sum, it) => sum + Math.max(1, Math.round(it.quantity)), 0))
+      : null
+
+  const created = await prisma.prepaidProduct.create({
     data: {
       organizationId: org.id,
+      kind,
       name,
       description: input.description?.trim() || null,
       price: input.price,
       compareAtPrice: input.compareAtPrice ?? null,
-      items: {
-        create: input.items.map((it, i) => ({
-          itemType: it.itemType,
-          serviceId: it.itemType === "service" ? it.refId : null,
-          productId: it.itemType === "product" ? it.refId : null,
-          quantity: Math.max(1, Math.round(it.quantity)),
-          position: i + 1,
-        })),
-      },
+      faceValue:
+        kind === "GIFT_CARD" ? (input.faceValue ?? input.price) : null,
+      sessionCount,
+      validityDays: input.validityDays ?? null,
+      serviceIds: kind === "PACKAGE" ? (input.serviceIds ?? []) : [],
+      items:
+        kind === "PACKAGE"
+          ? {
+              create: input.items.map((it, i) => ({
+                itemType: it.itemType,
+                serviceId: it.itemType === "service" ? it.refId : null,
+                productId: it.itemType === "product" ? it.refId : null,
+                quantity: Math.max(1, Math.round(it.quantity)),
+                position: i + 1,
+              })),
+            }
+          : undefined,
     },
   })
 
@@ -393,7 +446,7 @@ export async function updatePackage(
   input: CreatePackageInput
 ): Promise<PackageActionResult> {
   const { org } = await requirePermissionOrg("products.manage")
-  const existing = await prisma.package.findFirst({
+  const existing = await prisma.prepaidProduct.findFirst({
     where: { id, organizationId: org.id },
     select: { id: true },
   })
@@ -403,27 +456,46 @@ export async function updatePackage(
   if (!name) return { ok: false, error: "MISSING_NAME" }
   if (!Number.isFinite(input.price) || input.price < 0)
     return { ok: false, error: "INVALID_PRICE" }
-  const lines = validateLines(input.items)
+  const kind = parseKind(input.kind)
+  if (kind === "MEMBERSHIP") return { ok: false, error: "MEMBERSHIP_NOT_AVAILABLE" }
+  if (kind === "GIFT_CARD" && input.faceValue != null && input.faceValue < input.price)
+    return { ok: false, error: "INVALID_FACE_VALUE" }
+  const lines = validateLines(input.items, kind)
   if (!lines.ok) return { ok: false, error: lines.error }
+
+  const sessionCount =
+    kind === "PACKAGE"
+      ? (input.sessionCount ??
+        input.items.reduce((sum, it) => sum + Math.max(1, Math.round(it.quantity)), 0))
+      : null
 
   await prisma.$transaction(async (tx) => {
     await tx.packageItem.deleteMany({ where: { packageId: id } })
-    await tx.package.update({
+    await tx.prepaidProduct.update({
       where: { id },
       data: {
+        kind,
         name,
         description: input.description?.trim() || null,
         price: input.price,
         compareAtPrice: input.compareAtPrice ?? null,
-        items: {
-          create: input.items.map((it, i) => ({
-            itemType: it.itemType,
-            serviceId: it.itemType === "service" ? it.refId : null,
-            productId: it.itemType === "product" ? it.refId : null,
-            quantity: Math.max(1, Math.round(it.quantity)),
-            position: i + 1,
-          })),
-        },
+        faceValue:
+          kind === "GIFT_CARD" ? (input.faceValue ?? input.price) : null,
+        sessionCount,
+        validityDays: input.validityDays ?? null,
+        serviceIds: kind === "PACKAGE" ? (input.serviceIds ?? []) : [],
+        items:
+          kind === "PACKAGE"
+            ? {
+                create: input.items.map((it, i) => ({
+                  itemType: it.itemType,
+                  serviceId: it.itemType === "service" ? it.refId : null,
+                  productId: it.itemType === "product" ? it.refId : null,
+                  quantity: Math.max(1, Math.round(it.quantity)),
+                  position: i + 1,
+                })),
+              }
+            : undefined,
       },
     })
   })
@@ -437,13 +509,13 @@ export async function togglePackage(
   isActive: boolean
 ): Promise<PackageActionResult> {
   const { org } = await requirePermissionOrg("products.manage")
-  const existing = await prisma.package.findFirst({
+  const existing = await prisma.prepaidProduct.findFirst({
     where: { id, organizationId: org.id },
     select: { id: true },
   })
   if (!existing) return { ok: false, error: "NOT_FOUND" }
 
-  await prisma.package.update({ where: { id }, data: { isActive } })
+  await prisma.prepaidProduct.update({ where: { id }, data: { isActive } })
   revalidatePath("/dashboard/packages")
   return { ok: true, id }
 }
@@ -452,13 +524,13 @@ export async function deletePackage(
   id: string
 ): Promise<PackageActionResult> {
   const { org } = await requirePermissionOrg("products.manage")
-  const existing = await prisma.package.findFirst({
+  const existing = await prisma.prepaidProduct.findFirst({
     where: { id, organizationId: org.id },
     select: { id: true },
   })
   if (!existing) return { ok: false, error: "NOT_FOUND" }
 
-  await prisma.package.delete({ where: { id } })
+  await prisma.prepaidProduct.delete({ where: { id } })
   revalidatePath("/dashboard/packages")
   return { ok: true, id }
 }

@@ -10,6 +10,8 @@ import { checkPlanLimit, monthStartUtc } from "@/lib/plans/types"
 import { SI_VAT_RATE, vatFromGross } from "@/lib/vat"
 import { guestIdentityMatches } from "@/lib/checkout/guest-identity"
 import type { CartItem } from "@/store/cart-store"
+// #80: unovčitev darilnega bona (deljena z webhookom — idempotentna).
+import { redeemGiftCardForOrder } from "./prepaid"
 
 const FREE_SHIPPING_THRESHOLD = 50
 const SHIPPING_COST = 5.99
@@ -36,6 +38,8 @@ interface CheckoutResult {
   /** Tenant contact for the "salon will contact you" screen (clickable). */
   contactPhone?: string | null
   contactEmail?: string | null
+  // #80: order fully paid with a gift card (no Stripe needed).
+  giftCardPaid?: boolean
   error?: string
   stockErrors?: Array<{
     productId: string
@@ -124,7 +128,8 @@ async function resolveGuestCustomerId(
 
 export async function createProductCheckoutSession(
   items: CartItem[],
-  contact?: CheckoutContact
+  contact?: CheckoutContact,
+  giftCardCode?: string
 ): Promise<CheckoutResult> {
   try {
     // Get current session — OPTIONAL since #65: guests can order with
@@ -229,6 +234,76 @@ export async function createProductCheckoutSession(
     }, vatFromGross(shipping, SI_VAT_RATE))
     const total = subtotal + shipping
 
+    // ------------------------------------------------------------
+    // #80: DARILNI BON pri checkoutu. Validacija je strogo org-scoped
+    // (koda je globalno unikatna → tuj bon je zavrnjen kot
+    // FOREIGN_TENANT, ne tiho sprejet). Dve poti:
+    //   A) balance >= total → naročilo PLAČANO z bonom (brez Stripe):
+    //      order PAID + unovčitev + zaloge v ENI transakciji.
+    //   B) balance < total → Stripe zaračuna OSTANEK (ena vrstica);
+    //      unovčitev se zgodi ob potrditvi plačila (webhook/verify).
+    // ------------------------------------------------------------
+    let giftCard: {
+      code: string
+      purchaseId: string
+      balance: number
+      applied: number
+      fullCoverage: boolean
+    } | null = null
+
+    if (giftCardCode && giftCardCode.trim()) {
+      const code = giftCardCode.trim().toUpperCase()
+      const purchase = await prisma.prepaidPurchase.findUnique({
+        where: { code },
+        include: { prepaidProduct: { select: { kind: true } } },
+      })
+      if (!purchase || purchase.prepaidProduct.kind !== "GIFT_CARD") {
+        return { success: false, error: "Darilni bon s to kodo ne obstaja." }
+      }
+      if (purchase.organizationId !== org.id) {
+        // Bon iz DRUGEGA salona — zavrnjen z jasnim sporočilom.
+        return {
+          success: false,
+          error:
+            "Ta darilni bon ni iz te trgovine in ga tukaj ni mogoče unovčiti.",
+        }
+      }
+      if (purchase.status === "PENDING") {
+        return {
+          success: false,
+          error:
+            "Ta darilni bon še ni plačan. Plačilo mora biti zaključeno, preden bon unovčite.",
+        }
+      }
+      if (purchase.status === "EXHAUSTED") {
+        return {
+          success: false,
+          error: "Ta darilni bon je že porabljen (stanje 0 €).",
+        }
+      }
+      if (purchase.status === "REFUNDED") {
+        return { success: false, error: "Ta darilni bon je preklican." }
+      }
+      if (purchase.expiresAt && purchase.expiresAt.getTime() < Date.now()) {
+        return {
+          success: false,
+          error: "Ta darilni bon je potekel in ga ni več mogoče unovčiti.",
+        }
+      }
+      const balance = purchase.balance.toNumber()
+      if (balance <= 0) {
+        return { success: false, error: "Ta darilni bon je že porabljen." }
+      }
+
+      giftCard = {
+        code,
+        purchaseId: purchase.id,
+        balance,
+        applied: Math.min(balance, total),
+        fullCoverage: balance >= total,
+      }
+    }
+
     // Get or create customer
     let customerId: string | null = null
     if (!guest && session) {
@@ -275,6 +350,99 @@ export async function createProductCheckoutSession(
     // ONLY from the organization (Settings → Plačila). The platform never
     // holds a key (E4-3b): no env fallback exists.
     const stripeClient = getStripeForOrg(org)
+
+    // ------------------------------------------------------------
+    // #80: FULL GIFT-CARD COVERAGE — the order is PAID by the gift card,
+    // no Stripe involved. One transaction: order PAID + redemption +
+    // balance decrement (+ EXHAUSTED at 0) + stock decrement +
+    // StockMovement OUT rows (the same guarantees as the webhook path).
+    // Runs BEFORE the Stripe check: a salon without Stripe can honor
+    // gift cards, and full coverage never needs the key.
+    // ------------------------------------------------------------
+    if (giftCard?.fullCoverage) {
+      // Naravnanost za TS (closure ne ohrani narrowinga `let`).
+      const gc = giftCard
+      const guestContact = guest && contact ? contact : null
+      const paidOrder = await prisma.$transaction(async (tx) => {
+        const order = await tx.order.create({
+          data: {
+            organizationId: org.id,
+            customerId,
+            subtotal,
+            tax,
+            total,
+            status: "PAID",
+            paymentMethod: "giftcard",
+            notes: `Plačilo z darilnim bonom ${gc.code} (pokritih ${gc.applied.toFixed(2)} €).${guestContact?.address?.trim() ? ` Dostavni naslov: ${guestContact.address.trim()}` : ""}`,
+            ...(guestContact
+              ? {
+                  guestName: guestContact.name.trim(),
+                  guestEmail: guestContact.email?.trim().toLowerCase() || null,
+                  guestPhone: guestContact.phone?.trim() || null,
+                }
+              : {}),
+            items: {
+              create: pricedItems.map((item) => ({
+                productId: item.productId,
+                quantity: item.quantity,
+                price: item.price,
+              })),
+            },
+          },
+        })
+
+        // Redemption — unique [purchaseId, orderId] makes double-submit safe.
+        await tx.prepaidRedemption.create({
+          data: {
+            prepaidPurchaseId: gc.purchaseId,
+            orderId: order.id,
+            amount: gc.applied.toFixed(2),
+          },
+        })
+        const nextBalance =
+          Math.round((gc.balance - gc.applied) * 100) / 100
+        await tx.prepaidPurchase.update({
+          where: { id: gc.purchaseId },
+          data: {
+            balance: nextBalance.toFixed(2),
+            ...(nextBalance <= 0 ? { status: "EXHAUSTED" } : {}),
+          },
+        })
+
+        // Stock: the same ledger guarantees as the paid webhook path.
+        for (const item of pricedItems) {
+          await tx.product.update({
+            where: { id: item.productId },
+            data: { stockQuantity: { decrement: item.quantity } },
+          })
+          await tx.stockMovement.create({
+            data: {
+              organizationId: org.id,
+              productId: item.productId,
+              direction: "OUT",
+              quantity: item.quantity,
+              source: "ORDER",
+              orderId: order.id,
+            },
+          })
+        }
+
+        return order
+      })
+
+      const shopConfig2 = await prisma.salonConfig.findFirst({
+        where: { organizationId: org.id },
+        select: { phone: true, email: true },
+      })
+
+      return {
+        success: true,
+        giftCardPaid: true,
+        orderNumber: paidOrder.id.slice(-8).toUpperCase(),
+        contactPhone: shopConfig2?.phone ?? null,
+        contactEmail: shopConfig2?.email ?? null,
+      }
+    }
 
     // ------------------------------------------------------------
     // P1 #65 — NO STRIPE: the demand is still RECORDED. The old behavior
@@ -365,21 +533,39 @@ export async function createProductCheckoutSession(
     })
     const currency = (shopConfig?.currency || "EUR").toLowerCase()
 
-    // Create Stripe line items from trusted prices
-    const lineItems = pricedItems.map((item) => ({
-      price_data: {
-        currency,
-        product_data: {
-          name: item.name,
-          images: item.image ? [item.image] : [],
-        },
-        unit_amount: Math.round(item.price * 100), // Convert to cents
-      },
-      quantity: item.quantity,
-    }))
+    // Create Stripe line items from trusted prices.
+    // #80: z delno pokritostjo darilnega bona Stripe NE sme zaračunati
+    // polnega zneska — košara se strne v ENO vrstico za OSTANEK
+    // (Stripe ne podpira negativnih vrstic za popust).
+    const lineItems =
+      giftCard
+        ? [
+            {
+              price_data: {
+                currency,
+                product_data: {
+                  name: `Naročilo (darilni bon ${giftCard.code} pokrije ${giftCard.applied.toFixed(2)} €)`,
+                  images: [],
+                },
+                unit_amount: Math.round((total - giftCard.applied) * 100),
+              },
+              quantity: 1 as const,
+            },
+          ]
+        : pricedItems.map((item) => ({
+            price_data: {
+              currency,
+              product_data: {
+                name: item.name,
+                images: item.image ? [item.image] : [],
+              },
+              unit_amount: Math.round(item.price * 100), // Convert to cents
+            },
+            quantity: item.quantity,
+          }))
 
     // Add shipping as line item if applicable
-    if (shipping > 0) {
+    if (shipping > 0 && !giftCard) {
       lineItems.push({
         price_data: {
           currency,
@@ -411,6 +597,14 @@ export async function createProductCheckoutSession(
         userId: session?.user?.id ?? "guest",
         type: "product_order",
         orgId: org.id,
+        // #80: darilni bon se unovči ŠELE ob potrjenem plačilu
+        // (webhook/verify) — nikoli pred tem.
+        ...(giftCard
+          ? {
+              giftCardCode: giftCard.code,
+              giftCardRedemption: giftCard.applied.toFixed(2),
+            }
+          : {}),
       },
       success_url: `${baseUrl}${tenantPrefix}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}${tenantPrefix}/checkout/cancel`,
@@ -598,6 +792,24 @@ export async function verifyProductOrder(sessionId: string) {
         }
       }
     })
+
+    // #80: darilni bon se unovči ŠELE zdaj (naročilo plačano).
+    // Idempotentno — unikatni [purchaseId, orderId] in preverba obstoječe
+    // redempcije; webhook in ta fallback si ne moreta delati dvojnosti.
+    // Znesek potuje iz checkout metadata (točno toliko, kolikor je bilo
+    // prikazano stranki); varovalka = min(znesek, total naročila).
+    const gcMeta = checkoutSession.metadata?.giftCardCode
+    if (gcMeta && (existingOrder.organizationId ?? org?.id)) {
+      const gcAmount =
+        parseFloat(checkoutSession.metadata?.giftCardRedemption || "0") ||
+        existingOrder.total.toNumber()
+      await redeemGiftCardForOrder(
+        existingOrder.organizationId ?? org!.id,
+        gcMeta,
+        existingOrder.id,
+        Math.min(gcAmount, existingOrder.total.toNumber())
+      ).catch(() => undefined)
+    }
 
     return {
       success: true,

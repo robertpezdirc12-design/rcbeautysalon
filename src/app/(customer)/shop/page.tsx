@@ -15,6 +15,8 @@ import { SearchInput } from "@/components/shop/search-input"
 import { PackageIcon } from "@/components/icons"
 import { AddToCartButton } from "@/components/shop/add-to-cart-button"
 import { getPublicSiteData, getPublicShopProducts, redirectBareToTenant } from "@/lib/public-site"
+import { getPublicGiftCards } from "@/app/actions/prepaid"
+import { GiftCardSection } from "@/components/shop/gift-card-section"
 import { canonicalMetadata } from "@/lib/seo"
 import { getLocaleFromCookies } from "@/lib/i18n/server"
 import { orgPath } from "@/lib/org-path"
@@ -62,6 +64,8 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
   const pageTitle = locale === "en" ? "Shop" : "Trgovina"
   const gridTitle = locale === "en" ? "All products" : "Vsi izdelki"
   const allProducts = await getPublicShopProducts(org.id)
+  // #80: darilni boni — ločena sekcija nad izdelki (samo če obstajajo).
+  const giftCards = await getPublicGiftCards()
 
   // Filter products based on search query
   const products = search
@@ -103,6 +107,19 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
 
       {/* Products Grid */}
       <div className="container mx-auto px-4 py-8">
+        {/* #80: DARILNI BONI — denar vnaprej, najvišja marža na svetu. */}
+        {giftCards.length > 0 && !search && (
+          <section className="mb-10" aria-labelledby="gift-cards-title">
+            <h2
+              id="gift-cards-title"
+              className="mb-4 text-xl font-semibold tracking-tight"
+            >
+              🎁 {locale === "en" ? "Gift cards" : "Darilni boni"}
+            </h2>
+            <GiftCardSection giftCards={giftCards} />
+          </section>
+        )}
+
         {/* P3 #51: h2 med h1 in karticami — sicer axe heading-order javi
             preskok (h1 → nadaljnji h2/h3 v nogi brez vmesnega h2). */}
         <h2 className="mb-4 text-xl font-semibold tracking-tight">

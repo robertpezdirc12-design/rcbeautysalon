@@ -21,6 +21,8 @@ export function RevenueChart({ data }: RevenueChartProps) {
   const fmt = useFormatPrice()
   const totalAppointments = data.reduce((sum, d) => sum + d.appointments, 0)
   const totalProducts = data.reduce((sum, d) => sum + d.products, 0)
+  // #80: prodaje vnaprej (darilni boni + paketi) — ločena vrstica.
+  const totalPrepaid = data.reduce((sum, d) => sum + (d.prepaid ?? 0), 0)
 
   return (
     <Card>
@@ -50,6 +52,13 @@ export function RevenueChart({ data }: RevenueChartProps) {
                 {t.analytics.revenue.legendProducts}: <span className="font-semibold text-foreground">{fmt(totalProducts)}</span>
               </span>
             </div>
+            {/* #80: prodaje vnaprej — LOČENA vrstica prihodka. */}
+            <div className="flex items-center gap-2">
+              <div className="h-3 w-3 rounded-full bg-emerald-500" />
+              <span className="text-muted-foreground">
+                {t.analytics.revenue.legendPrepaid}: <span className="font-semibold text-foreground">{fmt(totalPrepaid)}</span>
+              </span>
+            </div>
           </div>
         </div>
       </CardHeader>
@@ -60,8 +69,8 @@ export function RevenueChart({ data }: RevenueChartProps) {
               className="h-72"
               data={data}
               index="date"
-              categories={["appointments", "products"]}
-              colors={["rose", "amber"]}
+              categories={["appointments", "products", "prepaid"]}
+              colors={["rose", "amber", "emerald"]}
               valueFormatter={(value) => fmt(value)}
               showLegend={false}
               showAnimation

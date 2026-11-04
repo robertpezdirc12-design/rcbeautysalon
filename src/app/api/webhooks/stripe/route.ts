@@ -1,5 +1,6 @@
 import { headers } from "next/headers"
 import { NextResponse } from "next/server"
+import { redeemGiftCardForOrder, activatePrepaidPurchase } from "@/app/actions/prepaid"
 import { constructWebhookEvent } from "@/lib/stripe"
 import { prisma } from "@/lib/prisma"
 import { addMinutes } from "date-fns"
@@ -86,6 +87,26 @@ export async function POST(req: Request) {
       return NextResponse.json({ received: true })
     }
 
+    // #80: DARILNI BON nakup — aktivacija PENDING nakupa (idempotentna).
+    if (metadata.type === "prepaid_purchase" && metadata.purchaseId) {
+      try {
+        const result = await activatePrepaidPurchase(session.id)
+        if (!result.ok) {
+          console.error(
+            `Webhook: prepaid purchase for session ${session.id} not found`
+          )
+        } else if (result.activated) {
+          console.log(
+            `Webhook: prepaid purchase ${result.purchaseId} activated (code emailed)`
+          )
+        }
+        return NextResponse.json({ received: true })
+      } catch (error) {
+        console.error("Webhook: error activating prepaid purchase:", error)
+        return NextResponse.json({ received: true })
+      }
+    }
+
     // Handle product orders (e-commerce checkout)
     if (metadata.type === "product_order" && metadata.orderId) {
       try {
@@ -135,6 +156,21 @@ export async function POST(req: Request) {
             })
           }
         })
+
+        // #80: darilni bon se unovči ŠELE ob potrjenem plačilu.
+        // redeemGiftCardForOrder je idempotentna (unikatni [purchaseId,
+        // orderId]) — ponovljen webhook ne odšteje dvakrat.
+        if (metadata.giftCardCode && (order.organizationId ?? metadata.orgId)) {
+          await redeemGiftCardForOrder(
+            order.organizationId ?? metadata.orgId,
+            metadata.giftCardCode,
+            order.id,
+            parseFloat(metadata.giftCardRedemption || "0") ||
+              order.total.toNumber()
+          ).catch((e) =>
+            console.error("Webhook: gift card redemption failed:", e)
+          )
+        }
 
         // NOTE: no order confirmation email template exists in the codebase yet
         console.log(`Webhook: order ${order.id} marked as PAID`)

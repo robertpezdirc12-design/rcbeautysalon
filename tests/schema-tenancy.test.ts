@@ -62,7 +62,9 @@ describe("prisma schema tenant isolation invariants (§3)", () => {
     "FormDefinition",
     "FormSubmission",
     "WorkflowDefinition",
-    "Package",
+    // #80: Package evolved into PrepaidProduct (same table via @@map).
+    "PrepaidProduct",
+    "PrepaidPurchase",
     "Document",
     "ProductVariant",
     "ExtensionRecord",

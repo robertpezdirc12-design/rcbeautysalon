@@ -44,13 +44,16 @@ import {
   type PackageInfo,
   type PackageLineInput,
 } from "@/app/actions/catalog"
+import { sellPrepaid } from "@/app/actions/prepaid"
 import type { CatalogDocsDict } from "@/lib/i18n/dict/catalog-docs"
 import { formatCurrency } from "@/lib/utils/format"
 
 // ============================================================
 // PACKAGES MANAGER (client) — §11 universal catalog.
-// Create/edit bundles of services and products at one price;
-// the list value shows the implied discount of the package.
+// #80: ONE prepaid primitive — kind PAKET SEANS (items → sessions)
+// or DARILNI BON (face value, no items); "Prodaj" records an offline
+// sale as a PrepaidPurchase (sessionsLeft/balance). Memberships are
+// deliberately NOT offered in this PR (they land with the scheduler).
 // ============================================================
 
 type Labels = CatalogDocsDict["packages"]
@@ -67,6 +70,7 @@ interface PackagesClientProps {
     services: CatalogEntry[]
     products: CatalogEntry[]
   }
+  customers?: { id: string; name: string; email: string | null }[]
   labels: Labels
 }
 
@@ -82,6 +86,10 @@ const emptyForm = {
   price: "",
   compareAtPrice: "",
   lines: [] as LineDraft[],
+  kind: "PACKAGE" as "PACKAGE" | "GIFT_CARD",
+  faceValue: "",
+  validityDays: "",
+  sessionCount: "",
 }
 
 function money(n: number): string {
@@ -89,12 +97,17 @@ function money(n: number): string {
   return formatCurrency(n)
 }
 
-export function PackagesClient({ packages, catalog, labels }: PackagesClientProps) {
+export function PackagesClient({ packages, catalog, customers = [], labels }: PackagesClientProps) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
   const [form, setForm] = useState(emptyForm)
+  // #80: prodaja v salonu
+  const [selling, setSelling] = useState<PackageInfo | null>(null)
+  const [sellCustomerId, setSellCustomerId] = useState("none")
+  const [sellGuestEmail, setSellGuestEmail] = useState("")
+  const [sellNote, setSellNote] = useState("")
 
   const linesValue = form.lines.reduce((sum, l) => {
     const pool = l.itemType === "service" ? catalog.services : catalog.products
@@ -129,6 +142,10 @@ export function PackagesClient({ packages, catalog, labels }: PackagesClientProp
         refId: it.refId,
         quantity: it.quantity,
       })),
+      kind: p.kind === "GIFT_CARD" ? "GIFT_CARD" : "PACKAGE",
+      faceValue: p.faceValue !== null ? String(p.faceValue) : "",
+      validityDays: p.validityDays !== null ? String(p.validityDays) : "",
+      sessionCount: p.sessionCount !== null ? String(p.sessionCount) : "",
     })
     setOpen(true)
   }
@@ -153,15 +170,24 @@ export function PackagesClient({ packages, catalog, labels }: PackagesClientProp
       toast.error(labels.errors.INVALID_PRICE)
       return
     }
-    const items: PackageLineInput[] = form.lines
-      .filter((l) => l.refId)
-      .map((l) => ({
-        itemType: l.itemType,
-        refId: l.refId,
-        quantity: Math.max(1, Math.round(Number(l.quantity) || 1)),
-      }))
-    if (items.length === 0) {
+    // #80: darilni bon NE potrebuje postavk.
+    const items: PackageLineInput[] =
+      form.kind === "GIFT_CARD"
+        ? []
+        : form.lines
+            .filter((l) => l.refId)
+            .map((l) => ({
+              itemType: l.itemType,
+              refId: l.refId,
+              quantity: Math.max(1, Math.round(Number(l.quantity) || 1)),
+            }))
+    if (items.length === 0 && form.kind === "PACKAGE") {
       toast.error(labels.errors.NO_ITEMS)
+      return
+    }
+    const faceValue = form.faceValue !== "" ? Number(form.faceValue) : null
+    if (form.kind === "GIFT_CARD" && faceValue !== null && faceValue < price) {
+      toast.error(labels.errors.INVALID_FACE_VALUE)
       return
     }
 
@@ -171,6 +197,17 @@ export function PackagesClient({ packages, catalog, labels }: PackagesClientProp
       price,
       compareAtPrice: form.compareAtPrice !== "" ? Number(form.compareAtPrice) : null,
       items,
+      // #80: prepaid value
+      kind: form.kind,
+      faceValue,
+      validityDays: form.validityDays !== "" ? Number(form.validityDays) : null,
+      sessionCount:
+        form.kind === "PACKAGE" && form.sessionCount !== ""
+          ? Number(form.sessionCount)
+          : null,
+      serviceIds: form.kind === "PACKAGE"
+        ? items.filter((it) => it.itemType === "service").map((it) => it.refId)
+        : [],
     }
 
     startTransition(async () => {
@@ -195,6 +232,9 @@ export function PackagesClient({ packages, catalog, labels }: PackagesClientProp
       NO_ITEMS: labels.errors.NO_ITEMS,
       INVALID_QUANTITY: labels.errors.INVALID_QUANTITY,
       NOT_FOUND: labels.errors.NOT_FOUND,
+      INVALID_FACE_VALUE: labels.errors.INVALID_FACE_VALUE,
+      BUYER_REQUIRED: labels.sellFailed,
+      MEMBERSHIP_NOT_AVAILABLE: labels.errors.GENERIC,
     }
     return (code && map[code]) || labels.errors.GENERIC
   }
@@ -213,6 +253,32 @@ export function PackagesClient({ packages, catalog, labels }: PackagesClientProp
       const result = await deletePackage(p.id)
       if (result.ok) {
         toast.success(labels.deleted)
+        router.refresh()
+      } else {
+        toast.error(errorText(result.error))
+      }
+    })
+  }
+
+  const handleSell = () => {
+    if (!selling) return
+    if (sellCustomerId === "none" && !sellGuestEmail.trim()) {
+      toast.error(labels.sellFailed)
+      return
+    }
+    startTransition(async () => {
+      const result = await sellPrepaid({
+        prepaidProductId: selling.id,
+        customerId: sellCustomerId === "none" ? null : sellCustomerId,
+        guestEmail: sellCustomerId === "none" ? sellGuestEmail.trim() : null,
+        note: sellNote.trim() || undefined,
+      })
+      if (result.ok && result.code) {
+        toast.success(labels.sellSuccess(result.code))
+        setSelling(null)
+        setSellCustomerId("none")
+        setSellGuestEmail("")
+        setSellNote("")
         router.refresh()
       } else {
         toast.error(errorText(result.error))
@@ -271,6 +337,32 @@ export function PackagesClient({ packages, catalog, labels }: PackagesClientProp
                 />
               </div>
 
+              {/* #80: vrsta vnaprej plačane vrednosti. */}
+              <div className="space-y-1.5">
+                <Label htmlFor="pkg-kind">{labels.kindLabel}</Label>
+                <Select
+                  value={form.kind}
+                  onValueChange={(v) =>
+                    setForm((f) => ({
+                      ...f,
+                      kind: v === "GIFT_CARD" ? "GIFT_CARD" : "PACKAGE",
+                    }))
+                  }
+                  disabled={pending || !!editingId}
+                >
+                  <SelectTrigger id="pkg-kind">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="PACKAGE">{labels.kindPackage}</SelectItem>
+                    <SelectItem value="GIFT_CARD">{labels.kindGiftCard}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-muted-foreground text-xs">
+                  {form.kind === "GIFT_CARD" ? labels.kindGiftCardHint : labels.kindPackageHint}
+                </p>
+              </div>
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="pkg-price">{labels.price} *</Label>
@@ -299,7 +391,53 @@ export function PackagesClient({ packages, catalog, labels }: PackagesClientProp
                 </div>
               </div>
 
-              {/* Items */}
+              {/* #80: darilni bon — vrednost (faceValue) mora biti ≥ cena. */}
+              {form.kind === "GIFT_CARD" && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="pkg-face">{labels.faceValue}</Label>
+                  <Input
+                    id="pkg-face"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={form.faceValue}
+                    onChange={(e) => setForm((f) => ({ ...f, faceValue: e.target.value }))}
+                    placeholder={form.price || "50.00"}
+                  />
+                  <p className="text-muted-foreground text-xs">{labels.faceValueHint}</p>
+                </div>
+              )}
+
+              {/* #80: veljavnost (obe vrsti). */}
+              <div className="space-y-1.5">
+                <Label htmlFor="pkg-validity">{labels.validityDays}</Label>
+                <Input
+                  id="pkg-validity"
+                  type="number"
+                  min="1"
+                  value={form.validityDays}
+                  onChange={(e) => setForm((f) => ({ ...f, validityDays: e.target.value }))}
+                  placeholder="365"
+                />
+              </div>
+
+              {/* #80: število seans (paket) — privzeto iz vsote količin. */}
+              {form.kind === "PACKAGE" && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="pkg-sessions">{labels.sessionCountLabel}</Label>
+                  <Input
+                    id="pkg-sessions"
+                    type="number"
+                    min="1"
+                    value={form.sessionCount}
+                    onChange={(e) => setForm((f) => ({ ...f, sessionCount: e.target.value }))}
+                    placeholder={String(form.lines.reduce((s, l) => s + (Number(l.quantity) || 1), 0) || "5")}
+                  />
+                </div>
+              )}
+
+              {/* Items — samo PAKET (darilni bon je čisti denar). */}
+              {form.kind === "PACKAGE" && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label>{labels.items} *</Label>
@@ -414,6 +552,7 @@ export function PackagesClient({ packages, catalog, labels }: PackagesClientProp
                   </div>
                 )}
               </div>
+              )}
 
               <DialogFooter>
                 <Button
@@ -431,6 +570,68 @@ export function PackagesClient({ packages, catalog, labels }: PackagesClientProp
                 </Button>
               </DialogFooter>
             </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* #80: Prodaja v salonu — dialog nad kartico. */}
+        <Dialog open={!!selling} onOpenChange={(o) => !o && setSelling(null)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>
+                {labels.sellTitle}
+                {selling ? `: ${selling.name}` : ""}
+              </DialogTitle>
+              <DialogDescription>{labels.sellDesc}</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              {customers.length > 0 && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="sell-customer">{labels.sellCustomer}</Label>
+                  <Select value={sellCustomerId} onValueChange={setSellCustomerId}>
+                    <SelectTrigger id="sell-customer">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">—</SelectItem>
+                      {customers.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
+                          {c.email ? ` (${c.email})` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {sellCustomerId === "none" && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="sell-email">{labels.sellGuestEmail}</Label>
+                  <Input
+                    id="sell-email"
+                    type="email"
+                    value={sellGuestEmail}
+                    onChange={(e) => setSellGuestEmail(e.target.value)}
+                    placeholder="kunde@example.com"
+                  />
+                </div>
+              )}
+              <div className="space-y-1.5">
+                <Label htmlFor="sell-note">{labels.sellNote}</Label>
+                <Input
+                  id="sell-note"
+                  value={sellNote}
+                  onChange={(e) => setSellNote(e.target.value)}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setSelling(null)} disabled={pending}>
+                Prekliči
+              </Button>
+              <Button onClick={handleSell} disabled={pending}>
+                {labels.sellSubmit}
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </CardHeader>
@@ -453,6 +654,16 @@ export function PackagesClient({ packages, catalog, labels }: PackagesClientProp
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <h3 className="truncate font-semibold">{p.name}</h3>
+                      {/* #80: vrsta vnaprej plačane vrednosti. */}
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                          p.kind === "GIFT_CARD"
+                            ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
+                            : "bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-400"
+                        }`}
+                      >
+                        {p.kind === "GIFT_CARD" ? labels.badgeGiftCard : labels.badgePackage}
+                      </span>
                       <span
                         className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                           p.isActive
@@ -479,32 +690,53 @@ export function PackagesClient({ packages, catalog, labels }: PackagesClientProp
                   </div>
                 </div>
 
-                <ul className="mt-3 space-y-1">
-                  {p.items.map((it) => (
-                    <li key={it.id} className="text-muted-foreground flex justify-between text-xs">
-                      <span className="truncate">
-                        <span className="bg-secondary text-secondary-foreground mr-1.5 rounded px-1 py-0.5 font-medium">
-                          {it.itemType === "service"
-                            ? labels.itemType.service
-                            : labels.itemType.product}
-                        </span>
-                        {it.quantity}× {it.name}
-                      </span>
-                      <span>{money(it.unitPrice * it.quantity)}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                {p.listValue > 0 && p.price < p.listValue && (
-                  <div className="text-emerald-600 dark:text-emerald-400 mt-2 text-xs font-medium">
-                    {labels.discount}: {money(p.listValue - p.price)}
+                {p.kind === "GIFT_CARD" ? (
+                  <div className="text-muted-foreground mt-3 text-sm">
+                    {labels.faceValue}: <span className="text-foreground font-semibold">{money(p.faceValue ?? p.price)}</span>
                   </div>
+                ) : (
+                  <>
+                    <ul className="mt-3 space-y-1">
+                      {p.items.map((it) => (
+                        <li key={it.id} className="text-muted-foreground flex justify-between text-xs">
+                          <span className="truncate">
+                            <span className="bg-secondary text-secondary-foreground mr-1.5 rounded px-1 py-0.5 font-medium">
+                              {it.itemType === "service"
+                                ? labels.itemType.service
+                                : labels.itemType.product}
+                            </span>
+                            {it.quantity}× {it.name}
+                          </span>
+                          <span>{money(it.unitPrice * it.quantity)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    {p.listValue > 0 && p.price < p.listValue && (
+                      <div className="text-emerald-600 dark:text-emerald-400 mt-2 text-xs font-medium">
+                        {labels.discount}: {money(p.listValue - p.price)}
+                      </div>
+                    )}
+                  </>
                 )}
 
                 <div className="mt-3 flex items-center gap-2 border-t pt-3">
                   <Button variant="outline" size="sm" onClick={() => openEdit(p)}>
                     <PencilIcon size={14} className="mr-1" />
                     {labels.edit}
+                  </Button>
+                  {/* #80: Prodaj — zabeleži offline prodajo (PrepaidPurchase). */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSelling(p)
+                      setSellCustomerId("none")
+                      setSellGuestEmail("")
+                      setSellNote("")
+                    }}
+                    disabled={!p.isActive}
+                  >
+                    {labels.sell}
                   </Button>
                   <Button variant="outline" size="sm" onClick={() => toggle(p)}>
                     <span className="text-xs">{p.isActive ? labels.inactive : labels.active}</span>

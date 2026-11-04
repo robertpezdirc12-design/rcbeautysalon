@@ -21,6 +21,11 @@ export interface RevenueDataPoint {
   date: string // Format: "Jan 1", "Jan 2", etc.
   appointments: number // Revenue from appointments
   products: number // Revenue from product sales
+  // #80: prepaid sales ARE revenue at the moment of sale; redemptions
+  // are shown as their OWN series so prepaid is never counted twice
+  // (redemption delivers the liability, it does not earn again).
+  prepaid: number // Revenue from gift cards + packages sold
+  redemptions: number // Value redeemed (separate line, not revenue)
 }
 
 export interface TopService {

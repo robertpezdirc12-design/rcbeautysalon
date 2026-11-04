@@ -128,7 +128,10 @@ model Organization {
   formSubmissions      FormSubmission[]
   workflowDefinitions  WorkflowDefinition[]
   workOrders           WorkOrder[]
-  packages             Package[]
+  // #80: prepaid value — the EVOLVED Package table (@@map "Package"),
+  // one primitive for gift cards + session packages.
+  prepaidProducts      PrepaidProduct[]
+  prepaidPurchases     PrepaidPurchase[]
   documents            Document[]
   productVariants      ProductVariant[]
   extensionRecords     ExtensionRecord[]
@@ -353,7 +356,7 @@ model CustomRole {
   description String?
   // JSON array of PermissionKey strings — validated against the
   // catalog on every write (never trusted from the client raw).
-  permissions Json     @default("[]")
+  permissions Json    @default("[]")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -412,17 +415,17 @@ model SalonConfig {
   locale   String @default("sl")
 
   // Booking settings
-  bookingDeposit     Decimal @default(50.00) @db.Decimal(10, 2)
-  depositRefundable  Boolean @default(false)
+  bookingDeposit      Decimal     @default(50.00) @db.Decimal(10, 2)
+  depositRefundable   Boolean     @default(false)
   // #79: the org-level deposit RULE (FIXED amount or PERCENT of service).
-  bookingDepositType DepositType @default(FIXED)
+  bookingDepositType  DepositType @default(FIXED)
   // #78: org-level low-stock threshold. Product.reorderPoint overrides it
   // per product; resolved through src/lib/inventory/low-stock.ts (ONE helper
   // for the stats card, the table colour and the dashboard widget).
-  defaultReorderPoint Int     @default(10)
-  minBookingAdvance  Int     @default(24) // hours
-  maxBookingAdvance  Int     @default(30) // days
-  cancellationPolicy String? @db.Text
+  defaultReorderPoint Int         @default(10)
+  minBookingAdvance   Int         @default(24) // hours
+  maxBookingAdvance   Int         @default(30) // days
+  cancellationPolicy  String?     @db.Text
 
   // EPIC #4 E4-2b: optional per-tenant analytics integration (GA4).
   // Null/empty = NO analytics script is ever injected (honest default:
@@ -644,6 +647,8 @@ model Customer {
 
   appointments     Appointment[]
   orders           Order[]
+  // #80: sold prepaid products (gift cards / packages) owned by the customer.
+  prepaidPurchases PrepaidPurchase[]
   formSubmissions  FormSubmission[]
   workOrders       WorkOrder[]
   documents        Document[]
@@ -687,7 +692,7 @@ model Appointment {
 
   // #79: tips are revenue the salon collects but must NOT count as service
   // revenue; commission is frozen at completion (null = not yet computed).
-  tipAmount        Decimal @default(0) @db.Decimal(10, 2)
+  tipAmount        Decimal  @default(0) @db.Decimal(10, 2)
   tipMethod        String? // "cash" | "card"
   commissionAmount Decimal? @db.Decimal(10, 2) // written once on COMPLETED
 
@@ -701,10 +706,12 @@ model Appointment {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  staff    Staff                @relation(fields: [staffId], references: [id], onDelete: Restrict)
-  customer Customer?            @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  resource ExtensionRecord?     @relation("AppointmentResource", fields: [resourceRecordId], references: [id], onDelete: SetNull)
-  services AppointmentService[]
+  staff              Staff                @relation(fields: [staffId], references: [id], onDelete: Restrict)
+  customer           Customer?            @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  resource           ExtensionRecord?     @relation("AppointmentResource", fields: [resourceRecordId], references: [id], onDelete: SetNull)
+  // #80: package sessions redeemed with this appointment.
+  prepaidRedemptions PrepaidRedemption[]
+  services           AppointmentService[]
 
   @@index([staffId])
   @@index([customerId])
@@ -779,7 +786,7 @@ model Product {
   reorderPoint Int? // per-product low-stock threshold (null = org default)
 
   // P2 #59: provenance of sample rows (preset id) — NULL = owner-created.
-  presetSeed     String?
+  presetSeed String?
 
   // Images
   images String[]
@@ -796,10 +803,10 @@ model Product {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  category     Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  orderItems   OrderItem[]
-  variants     ProductVariant[]
-  packageItems PackageItem[]
+  category       Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  orderItems     OrderItem[]
+  variants       ProductVariant[]
+  packageItems   PackageItem[]
   stockMovements StockMovement[]
 
   @@unique([organizationId, sku])
@@ -848,9 +855,11 @@ model Order {
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  customer Customer?   @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  items    OrderItem[]
-  stockMovements StockMovement[]
+  customer           Customer?           @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  items              OrderItem[]
+  stockMovements     StockMovement[]
+  // #80: gift-card redemption applied to this order (null = none).
+  prepaidRedemptions PrepaidRedemption[]
 
   @@index([customerId])
   @@index([organizationId])
@@ -1088,14 +1097,14 @@ model ExtensionRecord {
   stockMovementsAsSupplier StockMovement[] @relation("StockMovementSupplier")
   stockMovementsAsBatch    StockMovement[] @relation("StockMovementBatch")
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  // E2-7 (G7): appointments booked into this workspace resource.
+  resourceAppointments Appointment[] @relation("AppointmentResource")
 
   @@index([organizationId])
   @@index([organizationId, entityKey])
   @@index([customerId])
-  // E2-7 (G7): appointments booked into this workspace resource.
-  resourceAppointments Appointment[] @relation("AppointmentResource")
 }
 
 // ============================================================
@@ -1121,8 +1130,8 @@ model ProductVariant {
   isActive       Boolean  @default(true)
   position       Int      @default(0)
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  product      Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  product        Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
   stockMovements StockMovement[]
 
   createdAt DateTime @default(now())
@@ -1133,24 +1142,107 @@ model ProductVariant {
   @@index([productId])
 }
 
-/// Sellable package/bundle of services and/or products.
-model Package {
-  id             String   @id @default(cuid())
-  organizationId String
-  name           String
-  description    String?  @db.Text
-  price          Decimal  @db.Decimal(10, 2)
-  compareAtPrice Decimal? @db.Decimal(10, 2)
-  isActive       Boolean  @default(true)
+/// Sellable PREPAID VALUE (#80) — one primitive for gift cards,
+/// session packages and (later) memberships. The DB table stays
+/// "Package" (@@map) so every existing id/row survives the evolution
+/// from "bundle definition" to "sellable prepaid product".
+/// kind GIFT_CARD = money up front (faceValue, balance);
+/// kind PACKAGE = prepaid sessions (sessionCount, session tracking);
+/// kind MEMBERSHIP = reserved for the scheduler issue — NOT in this PR.
+enum PrepaidKind {
+  GIFT_CARD
+  PACKAGE
+  MEMBERSHIP
+}
 
-  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+model PrepaidProduct {
+  id             String      @id @default(cuid())
+  organizationId String
+  kind           PrepaidKind @default(PACKAGE)
+  name           String
+  description    String?     @db.Text
+  price          Decimal     @db.Decimal(10, 2) // what the customer pays
+  compareAtPrice Decimal?    @db.Decimal(10, 2)
+  // GIFT_CARD: redeemable amount (>= price allowed); null = same as price.
+  faceValue      Decimal?    @db.Decimal(10, 2)
+  // PACKAGE: number of visits the buyer is entitled to.
+  sessionCount   Int?
+  // Days from purchase until the purchase expires; null = never expires.
+  validityDays   Int?
+  // Which services a PACKAGE/MEMBERSHIP covers (gift cards ignore it).
+  serviceIds     String[]
+  isActive       Boolean     @default(true)
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   items        PackageItem[]
+  purchases    PrepaidPurchase[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([organizationId])
+  @@index([organizationId, kind])
   @@index([isActive])
+  // #80: the table name STAYS "Package" — every existing row/id survives
+  // the evolution from "bundle definition" to "sellable prepaid product",
+  // with zero data migration (new columns only, all backfilled by defaults).
+  @@map("Package")
+}
+
+/// One SOLD instance of a prepaid product — the liability the owner owes.
+/// GIFT_CARD: balance = money left; PACKAGE: sessionsLeft = visits left.
+/// status PENDING = awaiting online payment; ACTIVE = redeemable.
+model PrepaidPurchase {
+  id               String    @id @default(cuid())
+  organizationId   String
+  prepaidProductId String
+  customerId       String?
+  guestEmail       String?
+  // GIFT_CARD redeemable code — globally unique (a code from salon A is
+  // unambiguous, never matches salon B's balance lookup).
+  code             String    @unique
+  purchasedAt      DateTime  @default(now())
+  expiresAt        DateTime?
+  balance          Decimal   @default(0) @db.Decimal(10, 2) // GIFT_CARD money left
+  sessionsLeft     Int? // PACKAGE visits left
+  status           String    @default("PENDING") // PENDING | ACTIVE | EXHAUSTED | EXPIRED | REFUNDED
+  // How it was paid: Stripe session id (online sale, idempotent activation)
+  stripeSessionId  String?
+  note             String?   @db.Text
+
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  prepaidProduct PrepaidProduct      @relation(fields: [prepaidProductId], references: [id], onDelete: Cascade)
+  customer       Customer?           @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  redemptions    PrepaidRedemption[]
+
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([prepaidProductId])
+  @@index([customerId])
+}
+
+/// One redemption event: money off an order or one visit of a package.
+/// @@unique([prepaidPurchaseId, orderId]) and ([prepaidPurchaseId,
+/// appointmentId]) make double-redemption of the SAME order/appointment
+/// impossible at the database level.
+model PrepaidRedemption {
+  id                String   @id @default(cuid())
+  prepaidPurchaseId String
+  appointmentId     String?
+  orderId           String?
+  amount            Decimal? @db.Decimal(10, 2) // GIFT_CARD money used
+  sessions          Int      @default(0) // PACKAGE visits consumed
+  createdAt         DateTime @default(now())
+
+  prepaidPurchase PrepaidPurchase @relation(fields: [prepaidPurchaseId], references: [id], onDelete: Cascade)
+  appointment     Appointment?    @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  order           Order?          @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@unique([prepaidPurchaseId, orderId])
+  @@unique([prepaidPurchaseId, appointmentId])
+  @@index([prepaidPurchaseId])
+  @@index([orderId])
+  @@index([appointmentId])
 }
 
 /// One line of a package: either a service or a product with quantity.
@@ -1163,9 +1255,10 @@ model PackageItem {
   quantity  Int     @default(1)
   position  Int     @default(0)
 
-  package Package  @relation(fields: [packageId], references: [id], onDelete: Cascade)
-  service Service? @relation(fields: [serviceId], references: [id], onDelete: Cascade)
-  product Product? @relation(fields: [productId], references: [id], onDelete: Cascade)
+  // #80: the package's product side — table name kept via @@map on PrepaidProduct.
+  package PrepaidProduct @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  service Service?       @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  product Product?       @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@index([packageId])
   @@index([serviceId])
@@ -1373,10 +1466,10 @@ model Project {
 
   createdById String?
 
-  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  customer     Customer?      @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  workOrder    WorkOrder?     @relation(fields: [workOrderId], references: [id], onDelete: SetNull)
-  createdBy    User?          @relation("ProjectCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer     Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  workOrder    WorkOrder?    @relation(fields: [workOrderId], references: [id], onDelete: SetNull)
+  createdBy    User?         @relation("ProjectCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   tasks        ProjectTask[]
 
   createdAt DateTime @default(now())
