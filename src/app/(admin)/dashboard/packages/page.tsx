@@ -117,7 +117,6 @@ export default async function PackagesPage() {
         packages={overview.packages}
         catalog={overview.catalog}
         customers={customers}
-        labels={p}
       />
 
       {/* #80: prodane instance — kode, stanje, ostanki. */}

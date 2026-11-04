@@ -46,7 +46,6 @@ export default async function StocktakePage() {
           unit: p.unit,
           stockQuantity: p.stockQuantity,
         }))}
-        labels={t.products}
       />
     </div>
   )

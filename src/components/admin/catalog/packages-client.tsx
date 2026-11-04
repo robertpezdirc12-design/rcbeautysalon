@@ -45,6 +45,7 @@ import {
   type PackageLineInput,
 } from "@/app/actions/catalog"
 import { sellPrepaid } from "@/app/actions/prepaid"
+import { useI18n } from "@/lib/i18n/provider"
 import type { CatalogDocsDict } from "@/lib/i18n/dict/catalog-docs"
 import { formatCurrency } from "@/lib/utils/format"
 
@@ -54,6 +55,8 @@ import { formatCurrency } from "@/lib/utils/format"
 // or DARILNI BON (face value, no items); "Prodaj" records an offline
 // sale as a PrepaidPurchase (sessionsLeft/balance). Memberships are
 // deliberately NOT offered in this PR (they land with the scheduler).
+// Oznake: useI18n() (client bundle) — slovar z funkcijami (sellSuccess…)
+// NI serijalizabilen čez RSC mejo kot props.
 // ============================================================
 
 type Labels = CatalogDocsDict["packages"]
@@ -71,7 +74,6 @@ interface PackagesClientProps {
     products: CatalogEntry[]
   }
   customers?: { id: string; name: string; email: string | null }[]
-  labels: Labels
 }
 
 interface LineDraft {
@@ -97,8 +99,10 @@ function money(n: number): string {
   return formatCurrency(n)
 }
 
-export function PackagesClient({ packages, catalog, customers = [], labels }: PackagesClientProps) {
+export function PackagesClient({ packages, catalog, customers = [] }: PackagesClientProps) {
   const router = useRouter()
+  // Oznake iz client bundle-a (funkcije v slovarju niso props-serijalizabilne).
+  const labels: Labels = useI18n().t.catalogDocs.packages
   const [open, setOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()

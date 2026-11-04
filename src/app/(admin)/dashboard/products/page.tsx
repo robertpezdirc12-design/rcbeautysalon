@@ -131,7 +131,6 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
           <DeliveryDialogButton
             products={trackedProducts}
             suppliers={linkOptions.suppliers}
-            labels={t.products}
           />
           <Link href="/dashboard/products/stocktake">
             <Button variant="outline">{t.products.stocktakeLink}</Button>

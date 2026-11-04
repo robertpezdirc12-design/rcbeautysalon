@@ -15,12 +15,14 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { SpinnerIcon } from "@/components/icons/spinner-icon"
 import { submitStockTake } from "@/app/actions/inventory"
-import type { ProductsDict } from "@/lib/i18n/dict/products"
+import { useI18n } from "@/lib/i18n/provider"
 
 // ============================================================
 // INVENTURA (#78, client) — prešteto vs. sistem, živa razlika.
 // Submit pošlje VSAKA vnesena polje; akcija zapiše SAMO neničelne
 // razlike kot STOCKTAKE premike (v eni transakciji).
+// Oznake: useI18n() (client bundle) — funkcije v slovarju niso
+// serijalizabilne čez RSC mejo.
 // ============================================================
 
 interface StocktakeProduct {
@@ -33,11 +35,12 @@ interface StocktakeProduct {
 
 interface StocktakeClientProps {
   products: StocktakeProduct[]
-  labels: ProductsDict
 }
 
-export function StocktakeClient({ products, labels: t }: StocktakeClientProps) {
+export function StocktakeClient({ products }: StocktakeClientProps) {
   const router = useRouter()
+  const { t } = useI18n()
+  const labels = t.products
   const [isPending, startTransition] = useTransition()
   const [note, setNote] = useState("")
   const [counted, setCounted] = useState<Record<string, string>>({})
@@ -64,7 +67,7 @@ export function StocktakeClient({ products, labels: t }: StocktakeClientProps) {
       .map((p) => ({ productId: p.id, counted: Number(counted[p.id]) }))
 
     if (lines.length === 0) {
-      toast.error(t.stocktakeEmpty)
+      toast.error(labels.stocktakeEmpty)
       return
     }
 
@@ -73,15 +76,15 @@ export function StocktakeClient({ products, labels: t }: StocktakeClientProps) {
       if (result.ok) {
         const adjusted = result.adjusted?.length ?? 0
         if (adjusted === 0) {
-          toast.info(t.stocktakeNoDeltas)
+          toast.info(labels.stocktakeNoDeltas)
         } else {
-          toast.success(t.stocktakeSuccess(adjusted))
+          toast.success(labels.stocktakeSuccess(adjusted))
         }
         setCounted({})
         setNote("")
         router.refresh()
       } else {
-        toast.error(t.stocktakeSubmit)
+        toast.error(labels.stocktakeSubmit)
       }
     })
   }
@@ -90,7 +93,7 @@ export function StocktakeClient({ products, labels: t }: StocktakeClientProps) {
     return (
       <Card>
         <CardContent className="py-12 text-center">
-          <p className="text-muted-foreground">{t.stocktakeEmpty}</p>
+          <p className="text-muted-foreground">{labels.stocktakeEmpty}</p>
         </CardContent>
       </Card>
     )
@@ -100,9 +103,9 @@ export function StocktakeClient({ products, labels: t }: StocktakeClientProps) {
     <Card>
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 space-y-0">
         <div>
-          <CardTitle>{t.stocktakeTitle}</CardTitle>
+          <CardTitle>{labels.stocktakeTitle}</CardTitle>
           <CardDescription>
-            {t.totalProductsCount(products.length)}
+            {labels.totalProductsCount(products.length)}
           </CardDescription>
         </div>
         <div className="flex items-center gap-2">
@@ -112,18 +115,18 @@ export function StocktakeClient({ products, labels: t }: StocktakeClientProps) {
             onClick={() => window.print()}
             className="no-print"
           >
-            {t.stocktakePrint}
+            {labels.stocktakePrint}
           </Button>
           <Button onClick={handleSubmit} disabled={isPending || filledCount === 0}>
             {isPending && <SpinnerIcon size={16} className="mr-2 animate-spin" />}
-            {t.stocktakeSubmit}
+            {labels.stocktakeSubmit}
           </Button>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="stocktake-note" className="no-print">
-            {t.stocktakeNoteLabel}
+            {labels.stocktakeNoteLabel}
           </Label>
           <Input
             id="stocktake-note"
@@ -136,14 +139,14 @@ export function StocktakeClient({ products, labels: t }: StocktakeClientProps) {
           <table className="w-full">
             <thead>
               <tr className="border-b text-left text-sm text-muted-foreground">
-                <th className="pb-3 font-medium">{t.colProduct ?? "Izdelek"}</th>
-                <th className="pb-3 font-medium">{t.colSku ?? "SKU"}</th>
-                <th className="pb-3 text-right font-medium">{t.stocktakeSystemLabel}</th>
+                <th className="pb-3 font-medium">{labels.colProduct}</th>
+                <th className="pb-3 font-medium">{labels.colSku}</th>
+                <th className="pb-3 text-right font-medium">{labels.stocktakeSystemLabel}</th>
                 <th className="no-print pb-3 text-right font-medium">
-                  {t.stocktakeCountedLabel}
+                  {labels.stocktakeCountedLabel}
                 </th>
                 <th className="no-print pb-3 text-right font-medium">
-                  {t.stocktakeDeltaLabel}
+                  {labels.stocktakeDeltaLabel}
                 </th>
               </tr>
             </thead>
@@ -164,7 +167,7 @@ export function StocktakeClient({ products, labels: t }: StocktakeClientProps) {
                         type="number"
                         min="0"
                         inputMode="numeric"
-                        aria-label={`${t.stocktakeCountedLabel}: ${p.name}`}
+                        aria-label={`${labels.stocktakeCountedLabel}: ${p.name}`}
                         value={counted[p.id] ?? ""}
                         onChange={(e) =>
                           setCounted((prev) => ({ ...prev, [p.id]: e.target.value }))

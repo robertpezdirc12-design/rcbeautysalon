@@ -25,7 +25,6 @@ import { PlusIcon, TrashIcon } from "@/components/icons"
 import { SpinnerIcon } from "@/components/icons/spinner-icon"
 import { recordDelivery } from "@/app/actions/inventory"
 import { useI18n } from "@/lib/i18n/provider"
-import type { ProductsDict } from "@/lib/i18n/dict/products"
 
 // ============================================================
 // PREJEM BLAGA (#78) — "prejeli smo dobavo" dialog.
@@ -33,6 +32,9 @@ import type { ProductsDict } from "@/lib/i18n/dict/products"
 // virom DELIVERY in skupno referenco (številka dobavnice), zaloga
 // pa se poveča v isti transakciji. Dobavitelj je opcijski in samo,
 // kadar profil omogoča suppliers extensijo (action varovalka).
+//
+// NOTE: oznake pridejo iz useI18n() (client bundle) — slovar z
+// funkcijami NI serijalizabilen čez RSC mejo kot props.
 // ============================================================
 
 interface DeliveryDialogProps {
@@ -40,7 +42,6 @@ interface DeliveryDialogProps {
   onOpenChange: (open: boolean) => void
   products: { id: string; name: string; stockQuantity: number }[]
   suppliers: { id: string; title: string }[]
-  labels: ProductsDict
 }
 
 interface Line {
@@ -53,10 +54,10 @@ export function DeliveryDialog({
   onOpenChange,
   products,
   suppliers,
-  labels: t,
 }: DeliveryDialogProps) {
   const router = useRouter()
   const { t: tc } = useI18n()
+  const t = tc.products
   const [isPending, startTransition] = useTransition()
   const [documentNumber, setDocumentNumber] = useState("")
   const [supplierRecordId, setSupplierRecordId] = useState("none")
