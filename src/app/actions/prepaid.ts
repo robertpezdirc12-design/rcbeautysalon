@@ -196,8 +196,11 @@ export async function createGiftCardCheckoutSession(
         orgId: org.id,
         purchaseId: purchase.id,
       },
-      success_url: `${baseUrl}/shop/gift/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${baseUrl}/shop`,
+      // #80: najemniški prefiks — uspeh MORA vrniti kupca na ISTO najemniško
+      // stran (/s/[slug]/shop/gift/success), sicer bi goli path pristal na
+      // privzetem najemniku (isti vzorec kot product-checkout tenantPrefix).
+      success_url: `${baseUrl}/s/${org.slug}/shop/gift/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${baseUrl}/s/${org.slug}/shop`,
     })
 
     await prisma.prepaidPurchase.update({
