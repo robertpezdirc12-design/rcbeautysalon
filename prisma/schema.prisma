@@ -761,7 +761,12 @@ model Appointment {
   totalPrice      Decimal @db.Decimal(10, 2)
   depositAmount   Decimal @default(50.00) @db.Decimal(10, 2)
   depositPaid     Boolean @default(false)
-  stripePaymentId String?
+  // #93: unikaten — webhook in /booking/success verify pot ustvarjata
+  // termin iz istega plačila; brez constrainta je check-then-act dirka
+  // lahko ustvari DVA CONFIRMED termina iz enega paymentIntentId.
+  // Postgres unique index dopušča poljubno mnogo NULL (termini brez
+  // Stripe plačila ostanejo veljavni).
+  stripePaymentId String? @unique
 
   // #79: tips are revenue the salon collects but must NOT count as service
   // revenue; commission is frozen at completion (null = not yet computed).

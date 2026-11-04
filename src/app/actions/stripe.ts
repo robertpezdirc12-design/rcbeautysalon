@@ -8,6 +8,8 @@ import { after } from "next/server"
 import { getServicesForBooking, getSalonConfig, getOrgTimezone } from "./appointments"
 // #79: polog kot pravilo — isti helper kot booking in webhook.
 import { resolveDepositForServices } from "@/lib/booking/deposit"
+import { acquireBookingLocks, bookingLockKeys } from "@/lib/booking/locking"
+import { Prisma } from "@prisma/client"
 import { instantFromParts, formatSalonTime } from "@/lib/booking-time"
 import { getPublicOrg, getSessionOrg, getOrgById } from "@/lib/tenant"
 import { CreateCheckoutSessionData, CreateCheckoutSessionResult } from "@/lib/interfaces"
@@ -468,31 +470,83 @@ export async function verifyAndCreateAppointment(sessionId: string) {
       }
     }
 
-    // Create the appointment
-    const appointment = await prisma.appointment.create({
-      data: {
-        organizationId: org.id,
-        staffId,
-          resourceRecordId,
-        customerId,
-        guestName: !customerId ? guestName : null,
-        guestEmail: !customerId ? guestEmail : null,
-        guestPhone: !customerId ? guestPhone : null,
-        startTime,
-        endTime,
-        status: "CONFIRMED",
-        notes,
-        totalPrice,
-        depositAmount: bookingDeposit,
-        depositPaid: true,
-        stripePaymentId: paymentIntentId,
-        services: {
-          create: serviceIds.map((serviceId: string) => ({
-            serviceId,
-          })),
-        },
-      },
-    })
+    // Create the appointment — #93: pod advisory ključavnico + v
+    // transakciji z avtoritativnim overlap checkom (zgornji count je
+    // hitra pot; dirko z webhookom/drugo instanco rešita ključavnica
+    // in unique constraint na stripePaymentId).
+    let appointment: { id: string } | null
+    try {
+      appointment = await prisma.$transaction(async (tx) => {
+        await acquireBookingLocks(tx, bookingLockKeys(org.id, staffId, resourceRecordId))
+
+        const overlapping = await tx.appointment.count({
+          where: {
+            staffId,
+            organizationId: org.id,
+            status: { in: ["PENDING", "CONFIRMED"] },
+            startTime: { lt: endTime },
+            endTime: { gt: startTime },
+          },
+        })
+        if (overlapping > 0) {
+          return null // occupied slot — handled below (localized message)
+        }
+
+        return tx.appointment.create({
+          data: {
+            organizationId: org.id,
+            staffId,
+            resourceRecordId,
+            customerId,
+            guestName: !customerId ? guestName : null,
+            guestEmail: !customerId ? guestEmail : null,
+            guestPhone: !customerId ? guestPhone : null,
+            startTime,
+            endTime,
+            status: "CONFIRMED",
+            notes,
+            totalPrice,
+            depositAmount: bookingDeposit,
+            depositPaid: true,
+            stripePaymentId: paymentIntentId,
+            services: {
+              create: serviceIds.map((serviceId: string) => ({
+                serviceId,
+              })),
+            },
+          },
+        })
+      })
+    } catch (error) {
+      // #93: P2002 na stripePaymentId = webhook je že ustvaril termin
+      // za to plačilo — idempotentno uspeh (dobi obstoječi termin).
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        const existing = await prisma.appointment.findFirst({
+          where: { stripePaymentId: paymentIntentId },
+          select: { id: true },
+        })
+        if (existing) {
+          return {
+            success: true,
+            appointmentId: existing.id,
+            alreadyExists: true,
+            customerEmail: checkoutSession.customer_email,
+          }
+        }
+      }
+      throw error
+    }
+
+    if (!appointment) {
+      return {
+        success: false,
+        error:
+          "Ta termin ni več prost. Kontaktirajte salon za prestavitev rezervacije ali vračilo plačila.",
+      }
+    }
 
     // Send confirmation email in background (non-blocking)
     const customerEmail = guestEmail || checkoutSession.customer_email

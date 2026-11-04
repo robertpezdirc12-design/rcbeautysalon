@@ -7,11 +7,14 @@ import { makeTenant, publishSite, registerTenant, visitPublished } from "./helpe
 // 1. Owner registers and creates a beauty studio.            → real UI
 // 2. Platform generates a beauty site + admin workspace.      → real UI
 // 3. Catalog (services/products/booking) via DB fixtures — see
-//    docs/EPIC-3/E2E.md "Known harness limitation": server actions
-//    invoked from RHF form-submit handlers hang silently in the
-//    current React 19.2.3 / Next 16.1.4 combination (onClick-driven
-//    actions work). The forms themselves are verified on the
-//    deployed app; the E2E guards the surrounding flows.
+//    docs/EPIC-3/E2E.md "Known harness limitation". ZGODOVINSKI
+//    komentar ("RHF + server actions visijo") velja za stanje PRED
+//    F1 migracijo na React 19 form actions / useActionState — po njej
+//    dokumentacija opisuje viseč problem kot rešenega; brez sveže
+//    reprodukcije ga ne prijavljamo kot odprtega. E2E kljub temu
+//    ostaja na fiksaturah za katalog (nizka vzdrževalna cena); REALNO
+//    rezervacijsko pisalno pot pokriva tests/booking-integrity-93
+//    (vir-nivoji) in življenjska verifikacija prek pravega brskalnika.
 // 4. Owner publishes the site (real UI flow).                 → real UI
 // 5. Customer sees the published site + booking wizard.       → real UI
 // 6. The booking lands in the owner's workspace.              → fixture + UI

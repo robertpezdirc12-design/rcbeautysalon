@@ -8,6 +8,8 @@ import { after } from "next/server"
 import { sendAppointmentConfirmationEmail } from "@/lib/email/appointment-confirmation"
 import { getOrgById, getPublicOrg } from "@/lib/tenant"
 import { formatSalonTime, safeTimezone } from "@/lib/booking-time"
+import { acquireBookingLocks, bookingLockKeys } from "@/lib/booking/locking"
+import { Prisma } from "@prisma/client"
 import Stripe from "stripe"
 
 /**
@@ -428,37 +430,80 @@ export async function POST(req: Request) {
         }
       }
 
-      // Create the appointment
-      const appointment = await prisma.appointment.create({
-        data: {
-          organizationId: org.id,
-          staffId,
-          customerId,
-          resourceRecordId,
-          guestName: !customerId ? guestName : null,
-          guestEmail: !customerId ? guestEmail : null,
-          guestPhone: !customerId ? guestPhone : null,
-          startTime,
-          endTime,
-          status: "CONFIRMED", // Confirmed because payment was successful
-          notes,
-          totalPrice: totalPrice + addonPrice,
-          depositAmount,
-          depositPaid: true, // Payment was successful
-          stripePaymentId: paymentIntentId,
-          addons: selectedAddons.length > 0 ? selectedAddons : undefined,
-          services: {
-            create: serviceIds.map((serviceId: string) => ({
-              serviceId,
-            })),
-          },
-        },
-        include: {
-          services: {
-            include: { service: true },
-          },
-        },
-      })
+      // Create the appointment — #93: pod advisory ključavnico + v
+      // transakciji z AVTORITATIVNIM staff-overlap checkom (zgornji
+      // hitri check je samo hitra pot; dirka z drugo instanco rešuje
+      // ključavnica). Duplikat plačila zadrži unique constraint na
+      // stripePaymentId (P2002 = termin že obstaja → samo logiraj).
+      const appointment = await prisma
+        .$transaction(async (tx) => {
+          await acquireBookingLocks(tx, bookingLockKeys(org.id, staffId, resourceRecordId))
+
+          const overlapping = await tx.appointment.count({
+            where: {
+              staffId,
+              organizationId: org.id,
+              status: { in: ["PENDING", "CONFIRMED"] },
+              startTime: { lt: endTime },
+              endTime: { gt: startTime },
+            },
+          })
+          if (overlapping > 0) {
+            throw new Error(
+              `Webhook: PAID booking for an occupied slot! staff=${staffId} start=${startTime.toISOString()} payment=${paymentIntentId} — manual refund required`
+            )
+          }
+
+          return tx.appointment.create({
+            data: {
+              organizationId: org.id,
+              staffId,
+              customerId,
+              resourceRecordId,
+              guestName: !customerId ? guestName : null,
+              guestEmail: !customerId ? guestEmail : null,
+              guestPhone: !customerId ? guestPhone : null,
+              startTime,
+              endTime,
+              status: "CONFIRMED", // Confirmed because payment was successful
+              notes,
+              totalPrice: totalPrice + addonPrice,
+              depositAmount,
+              depositPaid: true, // Payment was successful
+              stripePaymentId: paymentIntentId,
+              addons: selectedAddons.length > 0 ? selectedAddons : undefined,
+              services: {
+                create: serviceIds.map((serviceId: string) => ({
+                  serviceId,
+                })),
+              },
+            },
+            include: {
+              services: {
+                include: { service: true },
+              },
+            },
+          })
+        })
+        .catch((error) => {
+          // #93: P2002 na stripePaymentId = verify path je že ustvaril
+          // termin za to plačilo (ali ponovljen webhook) — idempotentno
+          // uspeh, NE napaka (sicer bi Stripe večno ponavljal).
+          if (
+            error instanceof Prisma.PrismaClientKnownRequestError &&
+            error.code === "P2002"
+          ) {
+            console.log(
+              `Webhook: appointment for payment ${paymentIntentId} already exists (unique stripePaymentId) — idempotent skip`
+            )
+            return null
+          }
+          throw error
+        })
+
+      if (!appointment) {
+        return NextResponse.json({ received: true })
+      }
 
       // Send confirmation email (non-blocking, never fails the webhook)
       const customerEmail = guestEmail || session.customer_email

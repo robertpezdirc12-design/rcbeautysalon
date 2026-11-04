@@ -26,6 +26,7 @@ import {
 } from "@/lib/booking-time"
 import { sendAppointmentConfirmationEmail } from "@/lib/email/appointment-confirmation"
 import { resolveAddonSelection, computeAddonTotals, type AddonLike } from "@/lib/booking/addons"
+import { acquireBookingLocks, bookingLockKeys } from "@/lib/booking/locking"
 import { Prisma } from "@prisma/client"
 import { AppointmentStatus } from "@/lib/types"
 import { AdminAppointmentsFilter } from "@/lib/interfaces"
@@ -59,6 +60,12 @@ async function resolveRequestOrg() {
   // cross-tenant leakage when a signed-in admin browses another salon.
   return getResolvedOrg()
 }
+
+// ------------------------------------------------------------
+// #93 — sentinel za izgubljeno rezervacijsko dirko: rollback
+// transakcije, klient dobi LOKALIZIRANO sporočilo (nikoli DB izjemo).
+// ------------------------------------------------------------
+class BookingConflictError extends Error {}
 
 // ------------------------------------------------------------
 // Workspace resources (E2-7, G7) — optional physical differentiator
@@ -661,8 +668,9 @@ export async function createAppointment(
       }
     }
 
-    // E2-7 (G7): optional workspace resource — validate org-scoped record and
-    // re-check the resource conflict server-side (one booking per resource).
+    // E2-7 (G7): optional workspace resource — validate org-scoped record.
+    // #93: konflikt-check za vir se izvede ZNOTRAJ transakcije (pod
+    // ključavnico), ne tukaj — sicer je tudi ta pot check-then-act.
     let resourceRecordId: string | null = null
     if (data.resourceRecordId) {
       // Gate against the REQUEST org's effective profile (guest bookings have
@@ -685,23 +693,6 @@ export async function createAppointment(
         })
         if (!resourceRecord) {
           return { success: false, error: "Izbrani prostor/vir ni več na voljo." }
-        }
-        const resourceBusy = await prisma.appointment.findMany({
-          where: {
-            resourceRecordId: resourceRecord.id,
-            organizationId: org.id,
-            startTime: { lt: endTime },
-            endTime: { gt: startInstant },
-            status: { in: ["PENDING", "CONFIRMED"] },
-          },
-          select: { startTime: true, endTime: true },
-        })
-        if (hasResourceConflict(resourceBusy, startInstant, endTime)) {
-          return {
-            success: false,
-            error:
-              "Izbrani prostor/vir je v tem času že zaseden. Izberite drugi termin ali prostor.",
-          }
         }
         resourceRecordId = resourceRecord.id
       }
@@ -776,132 +767,190 @@ export async function createAppointment(
     }
 
     // ------------------------------------------------------------
-    // #80: PAKETNE SEANSE — če kupec (customer ali guest e-pošta) ima
-    // AKTIVEN paket, ki pokriva eno izmed izbranih storitev, se ena
-    // seansa ATOMSKO porabi (updateMany z sessionsLeft > 0 — dvojni
-    // klik ne more odšteti dveh, negativno stanje ni možno) in polog
-    // NI več potreben (storitev je že plačana).
+    // #93 — KRITIČNA SEKCIJA: konflikt-check + prepaid + zapis v ENI
+    // transakciji pod advisory ključavnico (deluje čez vse instance).
+    // Zmagovalna transakcija commita; izgubnik dobi lokalizirano
+    // sporočilo. Rollback povrne morebitno porabljeno seanso — noben
+    // delčen zapis ni možen (dekrement brez termina, seansa brez
+    // redemption ipd.).
+    // Sosledni termini (end == start) ostanejo veljavni (strogi mejniki).
     // ------------------------------------------------------------
     let prepaidPurchaseId: string | null = null
-    if (!isEmployeeBooking) {
-      const now = new Date()
-      const candidates = await prisma.prepaidPurchase.findMany({
-        where: {
-          organizationId: org.id,
-          status: "ACTIVE",
-          sessionsLeft: { gt: 0 },
-          prepaidProduct: { kind: "PACKAGE" },
-          OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
-          ...(customerId
-            ? { customerId }
-            : data.guestEmail
-              ? { guestEmail: data.guestEmail.toLowerCase() }
-              : { id: "__none__" }),
-        },
-        include: {
-          prepaidProduct: {
-            select: { name: true, items: { select: { serviceId: true } } },
-          },
-        },
-        orderBy: { purchasedAt: "asc" }, // najstarejši paket porabi se prvi
-        take: 5,
-      })
-      const serviceIdSet = new Set(services.map((s) => s.id))
-      const matching = candidates.find((p) =>
-        p.prepaidProduct.items.some(
-          (item) => item.serviceId && serviceIdSet.has(item.serviceId)
-        )
+    let appointment: { id: string }
+    try {
+      appointment = await prisma.$transaction(async (tx) => {
+      // Ključavnici: (najemnik, osebje) + (najemnik, vir) — urejen vrstni
+      // red proti deadlocku. Ključavnica živi do commit/rollback.
+      await acquireBookingLocks(
+        tx,
+        bookingLockKeys(org.id, data.staffId, resourceRecordId)
       )
 
-      if (matching) {
-        const consumed = await prisma.prepaidPurchase.updateMany({
+      // Avtoritativni staff-slot konflikt check (isti pogoji kot
+      // getAvailableTimeSlots: PENDING/CONFIRMED, strogi mejniki).
+      const conflicts = await tx.appointment.count({
+        where: {
+          staffId: data.staffId,
+          organizationId: org.id,
+          status: { in: ["PENDING", "CONFIRMED"] },
+          startTime: { lt: endTime },
+          endTime: { gt: startInstant },
+        },
+      })
+      if (conflicts > 0) {
+        throw new BookingConflictError(
+          "Izbrani termin ni več prost. Izberite drugi termin."
+        )
+      }
+
+      // Vir/prostor: ena rezervacija na vir v istem oknu (org-scoped).
+      if (resourceRecordId) {
+        const resourceBusy = await tx.appointment.count({
           where: {
-            id: matching.id,
-            status: "ACTIVE",
-            sessionsLeft: { gt: 0 }, // atomska varovalka proti dvojemu porabu
+            resourceRecordId,
+            organizationId: org.id,
+            startTime: { lt: endTime },
+            endTime: { gt: startInstant },
+            status: { in: ["PENDING", "CONFIRMED"] },
           },
-          data: { sessionsLeft: { decrement: 1 } },
         })
-        if (consumed.count === 1) {
-          prepaidPurchaseId = matching.id
-          // Storitev pokrita s paketom: brez pologa, termin POTRJEN.
-          depositAmount = 0
-          depositPaid = true
-          appointmentStatus = "CONFIRMED"
+        if (resourceBusy > 0) {
+          throw new BookingConflictError(
+            "Izbrani prostor/vir je v tem času že zaseden. Izberite drugi termin ali prostor."
+          )
         }
       }
-    }
 
-    // Create the appointment with associated services
-    const appointment = await prisma.appointment.create({
-      data: {
-        organizationId: org.id,
-        staffId: data.staffId,
-        customerId,
-        resourceRecordId,
-        // Guest info only used for non-authenticated bookings
-        guestName: !customerId ? data.guestName : null,
-        guestEmail: !customerId ? data.guestEmail : null,
-        guestPhone: !customerId ? data.guestPhone : null,
-        startTime: startInstant,
-        endTime,
-        status: appointmentStatus,
-        notes: data.notes,
-        totalPrice,
-        depositAmount,
-        depositPaid,
-        // #92: snapshot izbranih dodatkov (cene iz DB ob rezervaciji —
-        // kasnejša sprememba kataloga ne prepiše zgodovine termina).
-        addons:
-          selectedAddons.length > 0
-            ? selectedAddons.map((a) => ({
-                name: a.name,
-                price: a.price,
-                durationMin: a.durationMin,
-              }))
-            : undefined,
-        // Create appointment-service relationships
-        services: {
-          create: data.serviceIds.map((serviceId) => ({
-            serviceId,
-          })),
-        },
-      },
-      include: {
-        services: {
-          include: { service: true },
-        },
-      },
-    })
+      // ------------------------------------------------------------
+      // #80: PAKETNE SEANSE — pogojni dekrement ZNOTRAJ transakcije
+      // (updateMany z sessionsLeft > 0 — dvojni klik ne more odšteti
+      // dveh, negativno stanje ni možno). Re-validacija pogojev poteka
+      // NA TRENUTEK pisanja, ne le ob iskanju kandidatov.
+      // ------------------------------------------------------------
+      if (!isEmployeeBooking) {
+        const now = new Date()
+        const candidates = await tx.prepaidPurchase.findMany({
+          where: {
+            organizationId: org.id,
+            status: "ACTIVE",
+            sessionsLeft: { gt: 0 },
+            prepaidProduct: { kind: "PACKAGE" },
+            OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+            ...(customerId
+              ? { customerId }
+              : data.guestEmail
+                ? { guestEmail: data.guestEmail.toLowerCase() }
+                : { id: "__none__" }),
+          },
+          include: {
+            prepaidProduct: {
+              select: { name: true, items: { select: { serviceId: true } } },
+            },
+          },
+          orderBy: { purchasedAt: "asc" }, // najstarejši paket porabi se prvi
+          take: 5,
+        })
+        const serviceIdSet = new Set(services.map((s) => s.id))
+        const matching = candidates.find((p) =>
+          p.prepaidProduct.items.some(
+            (item) => item.serviceId && serviceIdSet.has(item.serviceId)
+          )
+        )
 
-    // #80: zapiši unovčitev seanse po uspešni kreaciji termina.
-    // Unikatni indeks [prepaidPurchaseId, appointmentId] onemogoči
-    // dvojno unovčitev ISTEGA termina na ravni baze.
-    if (prepaidPurchaseId) {
-      await prisma.prepaidRedemption
-        .create({
+        if (matching) {
+          const consumed = await tx.prepaidPurchase.updateMany({
+            where: {
+              id: matching.id,
+              status: "ACTIVE",
+              sessionsLeft: { gt: 0 }, // atomska varovalka proti dvojemu porabu
+            },
+            data: { sessionsLeft: { decrement: 1 } },
+          })
+          if (consumed.count === 1) {
+            prepaidPurchaseId = matching.id
+            // Storitev pokrita s paketom: brez pologa, termin POTRJEN.
+            depositAmount = 0
+            depositPaid = true
+            appointmentStatus = "CONFIRMED"
+          }
+        }
+      }
+
+      // Create the appointment with associated services
+      const created = await tx.appointment.create({
+        data: {
+          organizationId: org.id,
+          staffId: data.staffId,
+          customerId,
+          resourceRecordId,
+          // Guest info only used for non-authenticated bookings
+          guestName: !customerId ? data.guestName : null,
+          guestEmail: !customerId ? data.guestEmail : null,
+          guestPhone: !customerId ? data.guestPhone : null,
+          startTime: startInstant,
+          endTime,
+          status: appointmentStatus,
+          notes: data.notes,
+          totalPrice,
+          depositAmount,
+          depositPaid,
+          // #92: snapshot izbranih dodatkov (cene iz DB ob rezervaciji —
+          // kasnejša sprememba kataloga ne prepiše zgodovine termina).
+          addons:
+            selectedAddons.length > 0
+              ? selectedAddons.map((a) => ({
+                  name: a.name,
+                  price: a.price,
+                  durationMin: a.durationMin,
+                }))
+              : undefined,
+          // Create appointment-service relationships
+          services: {
+            create: data.serviceIds.map((serviceId) => ({
+              serviceId,
+            })),
+          },
+        },
+        include: {
+          services: {
+            include: { service: true },
+          },
+        },
+      })
+
+      // #80/#93: redemption v ISTI transakciji — padec = rollback
+      // (seansa povrnjena). Swallowana napaka odpade; unikatni indeks
+      // [prepaidPurchaseId, appointmentId] ostane dodaten varoval.
+      if (prepaidPurchaseId) {
+        await tx.prepaidRedemption.create({
           data: {
             prepaidPurchaseId,
-            appointmentId: appointment.id,
+            appointmentId: created.id,
             sessions: 1,
           },
         })
-        .catch((e) => {
-          // P2002 ( že unovčeno) je uspeh idempotentnosti; kaj drugega
-          // logiramo, ampak termin ostane — seansa je že odšteta.
-          console.error("[prepaid] redemption create failed:", e)
-        })
-      // Stanje paketa: pri 0 → EXHAUSTED.
-      const updated = await prisma.prepaidPurchase.findUnique({
-        where: { id: prepaidPurchaseId },
-        select: { sessionsLeft: true },
-      })
-      if (updated?.sessionsLeft === 0) {
-        await prisma.prepaidPurchase.update({
+        // Stanje paketa: pri 0 → EXHAUSTED (v isti transakciji).
+        const updated = await tx.prepaidPurchase.findUnique({
           where: { id: prepaidPurchaseId },
-          data: { status: "EXHAUSTED" },
+          select: { sessionsLeft: true },
         })
+        if (updated?.sessionsLeft === 0) {
+          await tx.prepaidPurchase.update({
+            where: { id: prepaidPurchaseId },
+            data: { status: "EXHAUSTED" },
+          })
+        }
       }
+
+      return created
+      })
+    } catch (error) {
+      if (error instanceof BookingConflictError) {
+        // Izgubljena dirka — lokalizirano sporočilo; rollback je že
+        // povrnil morebitno porabljeno seanso.
+        return { success: false, error: error.message }
+      }
+      throw error
     }
 
     // Send confirmation email to customer
@@ -1652,13 +1701,44 @@ export async function rescheduleAppointment(
     }
   }
 
-  await prisma.appointment.update({
-    where: { id: appointmentId },
-    data: {
-      startTime: targetInstant,
-      endTime: newEndTime,
-    },
-  })
+  // #93: zapis premika pod ključavnico + z avtoritativnim conflict
+  // checkom, ki IZKLJUČI premikanani termin (njegov stari čas sicer
+  // lažno ovira nove kandidate v istem dnevu). Check-then-act brez
+  // ključavnice bi dopuščal vzporedna premika v isti termin.
+  try {
+    await prisma.$transaction(async (tx) => {
+      await acquireBookingLocks(tx, bookingLockKeys(org.id, appointment.staffId))
+
+      const conflicts = await tx.appointment.count({
+        where: {
+          staffId: appointment.staffId,
+          organizationId: appointment.organizationId,
+          id: { not: appointmentId }, // izključi premikanani termin
+          status: { in: ["PENDING", "CONFIRMED"] },
+          startTime: { lt: newEndTime },
+          endTime: { gt: targetInstant },
+        },
+      })
+      if (conflicts > 0) {
+        throw new BookingConflictError(
+          "Izbrani termin ni več prost. Izberite drugi termin."
+        )
+      }
+
+      await tx.appointment.update({
+        where: { id: appointmentId },
+        data: {
+          startTime: targetInstant,
+          endTime: newEndTime,
+        },
+      })
+    })
+  } catch (error) {
+    if (error instanceof BookingConflictError) {
+      return { success: false, error: error.message }
+    }
+    throw error
+  }
 
   revalidatePath("/my-appointments")
   revalidatePath("/dashboard/appointments")
