@@ -1,2 +1,10 @@
 minimumReleaseAgeExclude:
   - lucide-react@1.65.0
+
+onlyBuiltDependencies:
+  - '@prisma/client'
+  - '@prisma/engines'
+  - esbuild
+  - prisma
+  - sharp
+  - unrs-resolver
