@@ -81,6 +81,9 @@ interface ServiceData {
   isActive: boolean
   isFeatured: boolean
   staffServices?: { staffId: string }[]
+  // #79: deposit rule
+  depositType?: "INHERIT" | "NONE" | "FIXED" | "PERCENT"
+  depositValue?: number | null
 }
 
 interface ServiceFormProps {
@@ -164,6 +167,9 @@ export function ServiceForm({
       isActive: service?.isActive ?? true,
       isFeatured: service?.isFeatured ?? false,
       staffIds: service?.staffServices?.map((s) => s.staffId) || [],
+      // #79: pravilo pologa
+      depositType: service?.depositType ?? "INHERIT",
+      depositValue: service?.depositValue ?? undefined,
     },
   })
 
@@ -175,6 +181,9 @@ export function ServiceForm({
   const watchCategoryId = watch("categoryId")
   const watchIsActive = watch("isActive")
   const watchIsFeatured = watch("isFeatured")
+  // #79: pravilo pologa
+  const watchDepositType = watch("depositType")
+  const watchDepositValue = watch("depositValue")
 
   // All text/number fields are CONTROLLED — the React 19 `action={}`
   // pathway resets uncontrolled inputs after every action submission,
@@ -333,6 +342,13 @@ export function ServiceForm({
         isActive: fdBool(formData, "isActive"),
         isFeatured: fdBool(formData, "isFeatured"),
         staffIds: fdStrList(formData, "staffIds"),
+        // #79: pravilo pologa (hidden mirror nosi tip, vrednost iz FormData)
+        depositType: (fdStr(formData, "depositType") || "INHERIT") as
+          | "INHERIT"
+          | "NONE"
+          | "FIXED"
+          | "PERCENT",
+        depositValue: fdNum(formData, "depositValue") ?? null,
       }
 
       const schema = isEditMode ? updateServiceSchema : createServiceSchema
@@ -545,6 +561,69 @@ export function ServiceForm({
                 </div>
               </div>
 
+              {/* #79: pravilo pologa — vrsta ( sledi org / brez / fiksno / odstotek )
+                  in vrednost (samo FIXED/PERCENT). Razreši ga EN helper na
+                  strežniku; tu je samo UI. */}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="depositType">{t.services.depositTypeLabel}</Label>
+                  <Select
+                    value={watchDepositType ?? "INHERIT"}
+                    onValueChange={(v) =>
+                      setValue("depositType", v as "INHERIT" | "NONE" | "FIXED" | "PERCENT")
+                    }
+                    disabled={isPending}
+                  >
+                    <SelectTrigger id="depositType">
+                      <SelectValue placeholder={t.services.depositTypeLabel} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="INHERIT">{t.services.depositInherit}</SelectItem>
+                      <SelectItem value="NONE">{t.services.depositNone}</SelectItem>
+                      <SelectItem value="FIXED">{t.services.depositFixed}</SelectItem>
+                      <SelectItem value="PERCENT">{t.services.depositPercent}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {(watchDepositType === "FIXED" || watchDepositType === "PERCENT") && (
+                  <div className="space-y-2">
+                    <Label htmlFor="depositValue">
+                      {watchDepositType === "PERCENT"
+                        ? t.services.depositValuePercent
+                        : t.services.depositValueFixed}
+                    </Label>
+                    <Input
+                      id="depositValue"
+                      name="depositValue"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max={watchDepositType === "PERCENT" ? "100" : undefined}
+                      placeholder={watchDepositType === "PERCENT" ? "20.00" : "15.00"}
+                      value={watchDepositValue ?? ""}
+                      onChange={(e) => {
+                        setValue(
+                          "depositValue",
+                          numberValue(e.target.value) as unknown as number
+                        )
+                        clearErrors("depositValue")
+                      }}
+                      disabled={isPending}
+                    />
+                    {watchDepositType === "FIXED" && (
+                      <p className="text-xs text-muted-foreground">
+                        {t.services.depositCapHelp}
+                      </p>
+                    )}
+                    {errors.depositValue && (
+                      <p className="text-destructive text-sm">
+                        {errors.depositValue.message}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="category">{t.services.categoryLabel}</Label>
                 {/* P3 #52: 0 kategorij → razloženo prazno stanje + dejanje. */}
@@ -659,6 +738,8 @@ export function ServiceForm({
           <input type="hidden" name="categoryId" value={watchCategoryId ?? ""} />
           <input type="hidden" name="isActive" value={String(watchIsActive)} />
           <input type="hidden" name="isFeatured" value={String(watchIsFeatured)} />
+          {/* #79: deposit type mirror — shadcn Select nima DOM inputa. */}
+          <input type="hidden" name="depositType" value={watchDepositType ?? "INHERIT"} />
           {imageUrl && <input type="hidden" name="imageUrl" value={imageUrl} />}
           {selectedStaff.map((id) => (
             <input key={id} type="hidden" name="staffIds" value={id} />

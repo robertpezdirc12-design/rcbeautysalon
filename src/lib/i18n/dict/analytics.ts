@@ -64,9 +64,12 @@ export const analyticsSl = {
     title: "Uspešnost",
     titleAccent: "osebja",
     description: "Zaključeni termini in prihodki po posameznem članu osebja",
-    categories: ["Termini", "Prihodki"] as [string, string],
+    categories: ["Termini", "Prihodki", "Napitnine", "Provizije"] as [string, string, string, string],
     totalAppointments: (n: number) => `Skupaj: ${n} ${n === 1 ? "termin" : n === 2 ? "termina" : "terminov"}`,
     totalRevenue: "Prihodek",
+    // #79: ločene vsote (NE del "prihodka od storitev")
+    totalTips: "Napitnine",
+    totalCommission: "Provizije",
     noData: "Ni podatkov o uspešnosti osebja",
   },
 }
@@ -139,9 +142,12 @@ export const analyticsEn: AnalyticsDict = {
     title: "Staff",
     titleAccent: "Performance",
     description: "Completed appointments and revenue by staff member",
-    categories: ["Appointments", "Revenue"] as [string, string],
+    categories: ["Appointments", "Revenue", "Tips", "Commission"] as [string, string, string, string],
     totalAppointments: (n: number) => `Total: ${n} appointments`,
     totalRevenue: "Revenue",
+    // #79: separate totals (NOT part of service revenue)
+    totalTips: "Tips",
+    totalCommission: "Commissions",
     noData: "No staff performance data available",
   },
 }

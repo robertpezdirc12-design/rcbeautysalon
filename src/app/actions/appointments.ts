@@ -28,6 +28,8 @@ import { sendAppointmentConfirmationEmail } from "@/lib/email/appointment-confir
 import { Prisma } from "@prisma/client"
 import { AppointmentStatus } from "@/lib/types"
 import { AdminAppointmentsFilter } from "@/lib/interfaces"
+// #79: polog kot pravilo — EN helper za booking, Stripe in zapis.
+import { resolveDepositForServices, computeCommission } from "@/lib/booking/deposit"
 import { sendNoShowNotificationEmail } from "@/lib/email/no-show-notification"
 import { sendAppointmentCompletedEmail } from "@/lib/email/appointment-completed"
 import { sendAppointmentCancelledEmail } from "@/lib/email/appointment-cancelled"
@@ -143,6 +145,7 @@ export const getSalonConfig = cache(async () => {
         where: { organizationId: org.id },
         select: {
           bookingDeposit: true,
+          bookingDepositType: true,
           depositRefundable: true,
           minBookingAdvance: true,
           maxBookingAdvance: true,
@@ -155,6 +158,7 @@ export const getSalonConfig = cache(async () => {
   if (!config) {
     return {
       bookingDeposit: 50,
+      bookingDepositType: "FIXED" as const,
       depositRefundable: false,
       minBookingAdvance: 0,
       maxBookingAdvance: 30,
@@ -220,6 +224,9 @@ export async function getStaffForBooking(staffId: string) {
               price: true,
               duration: true,
               imageUrl: true,
+              // #79: pravilo pologa.
+              depositType: true,
+              depositValue: true,
               category: {
                 select: {
                   id: true,
@@ -247,6 +254,9 @@ export async function getStaffForBooking(staffId: string) {
     services: staff.services.map((s) => ({
       ...s.service,
       price: Number(s.service.price),
+      depositValue: s.service.depositValue
+        ? Number(s.service.depositValue)
+        : null,
     })),
   }
 }
@@ -407,6 +417,9 @@ export async function getServiceForBooking(serviceSlug: string) {
       price: true,
       duration: true,
       imageUrl: true,
+      // #79: pravilo pologa — prikaže se pravi znesek že v povzetku.
+      depositType: true,
+      depositValue: true,
       category: {
         select: { id: true, name: true, slug: true },
       },
@@ -422,6 +435,7 @@ export async function getServiceForBooking(serviceSlug: string) {
   return {
     ...service,
     price: service.price.toNumber(),
+    depositValue: service.depositValue ? service.depositValue.toNumber() : null,
   }
 }
 
@@ -442,6 +456,9 @@ export async function getServicesForBooking(serviceIds: string[]) {
       name: true,
       price: true,
       duration: true,
+      // #79: pravilo pologa na storitvi — razreši ga EN helper.
+      depositType: true,
+      depositValue: true,
     },
   })
 
@@ -449,6 +466,7 @@ export async function getServicesForBooking(serviceIds: string[]) {
   return services.map((s) => ({
     ...s,
     price: s.price.toNumber(),
+    depositValue: s.depositValue ? s.depositValue.toNumber() : null,
   }))
 }
 
@@ -540,8 +558,15 @@ export async function createAppointment(
     // Get salon configuration for deposit amount
     const config = await getSalonConfig()
 
-    // Employee bookings don't require deposit
-    const depositAmount = isEmployeeBooking ? 0 : config.bookingDeposit
+    // #79: polog je PRAVILO (per storitev), ne ena globalna številka.
+    // 15 € manikura z org pologom 50 € zahteva 15 €, ne 50 €. Employee
+    // termini ostanejo brez pologa.
+    const depositAmount = isEmployeeBooking
+      ? 0
+      : resolveDepositForServices(services, {
+          bookingDeposit: config.bookingDeposit,
+          bookingDepositType: config.bookingDepositType ?? "FIXED",
+        })
     const depositPaid = isEmployeeBooking ? true : false // Employees don't need to pay deposit
     const appointmentStatus = isEmployeeBooking ? "CONFIRMED" : "PENDING"
 
@@ -732,7 +757,7 @@ export async function createAppointment(
           appointmentTime: formatSalonTime(startInstant, tz),
           duration: totalDuration,
           totalPrice,
-          depositAmount: config.bookingDeposit,
+          depositAmount, // #79: izračunan polog, ne globalna številka
           appointmentId: appointment.id,
         })
         // P1 #76 — evidence: napiši confirmationSentAt PO uspešnem pošiljanju
@@ -1082,6 +1107,11 @@ export const getAppointmentById = cache(async (id: string) => {
     ...appointment,
     totalPrice: appointment.totalPrice.toNumber(),
     depositAmount: appointment.depositAmount.toNumber(),
+    // #79: tip + frozen commission za detail kartico (null = še ne izračunana)
+    tipAmount: appointment.tipAmount.toNumber(),
+    commissionAmount: appointment.commissionAmount
+      ? appointment.commissionAmount.toNumber()
+      : null,
   }
 })
 
@@ -1173,9 +1203,46 @@ export async function updateAppointmentStatus(
   }
 
   // Update appointment status
+  // #79: COMPLETED zamrzne provizijo — izračuna se ENKRAT (samo kadar
+  // commissionAmount še ni zapisan) iz pravila osebe; kasnejša sprememba
+  // pravila ne prepiše zgodovine.
+  let commissionFreeze: number | undefined = undefined
+  if (
+    status === "COMPLETED" &&
+    appointmentDetails.commissionAmount === null
+  ) {
+    const staffRule = await prisma.staff.findUnique({
+      where: { id: appointmentDetails.staffId },
+      select: {
+        commissionType: true,
+        commissionValue: true,
+        commissionBasis: true,
+      },
+    })
+    if (staffRule) {
+      // "service" osnova = storitveni promet termina. "service+product"
+      // prišteva prodajo izdelkov, ko ta dobi atribucijo osebe (za zdaj
+      // ista osnova — polje je pripravljeno, dokumentirano v #79).
+      commissionFreeze = computeCommission(
+        {
+          commissionType: staffRule.commissionType,
+          commissionValue: staffRule.commissionValue
+            ? staffRule.commissionValue.toNumber()
+            : null,
+        },
+        appointmentDetails.totalPrice.toNumber()
+      )
+    }
+  }
+
   const appointment = await prisma.appointment.update({
     where: { id },
-    data: { status },
+    data: {
+      status,
+      ...(status === "COMPLETED" && appointmentDetails.commissionAmount === null
+        ? { commissionAmount: commissionFreeze ?? 0 }
+        : {}),
+    },
   })
 
   // Send email notification based on new status
@@ -1451,5 +1518,73 @@ export async function rescheduleAppointment(
 
   return {
     success: true,
+  }
+}
+
+// ============================================================
+// #79: NAPITNINA (tip) — zabeleži napitnino na terminu (gotovina
+// ali kartica). Napitnina je LOČENA vrstica prihodka — ne sme
+// napihovati "prihodka od storitev"; analytics jo agregira posebej.
+// Dovoljenja kot updateAppointmentStatus: ADMIN (appointments.manage)
+// ali STAFF za svoje termine.
+// ============================================================
+export async function recordAppointmentTip(
+  id: string,
+  input: { amount: number; method?: "cash" | "card" | null }
+): Promise<{ success: boolean; error?: string }> {
+  const session = await auth()
+  if (!session?.user || !["ADMIN", "STAFF"].includes(session.user.role)) {
+    throw new UnauthorizedError("Unauthorized")
+  }
+  if (session.user.role === "ADMIN") {
+    const perms = await getEffectivePermissions(session.user.id)
+    if (!hasPermission(perms, "appointments.manage")) {
+      throw new UnauthorizedError(
+        "You do not have permission to perform this action"
+      )
+    }
+  }
+  const org = await getSessionOrg()
+  if (!org) {
+    throw new UnauthorizedError("Unauthorized")
+  }
+
+  const amount = input.amount
+  if (!Number.isFinite(amount) || amount < 0 || amount > 10_000) {
+    return { success: false, error: "Neveljaven znesek napitnine" }
+  }
+
+  const existing = await prisma.appointment.findFirst({
+    where: { id, organizationId: org.id },
+    select: { id: true, staffId: true },
+  })
+  if (!existing) {
+    return { success: false, error: "Termin ni bil najden" }
+  }
+
+  if (session.user.role === "STAFF") {
+    const ownStaff = await prisma.staff.findUnique({
+      where: { userId: session.user.id },
+      select: { id: true },
+    })
+    if (!ownStaff || existing.staffId !== ownStaff.id) {
+      throw new Error("Unauthorized")
+    }
+  }
+
+  try {
+    await prisma.appointment.update({
+      where: { id },
+      data: {
+        tipAmount: new Prisma.Decimal(amount.toFixed(2)),
+        tipMethod: input.method ?? null,
+      },
+    })
+    revalidatePath("/dashboard/appointments")
+    revalidatePath(`/dashboard/appointments/${id}`)
+    return { success: true }
+  } catch (error) {
+    console.error("Error recording appointment tip:", error)
+    return { success: false, error: "Napaka pri zapisu napitnine" }
   }
 }

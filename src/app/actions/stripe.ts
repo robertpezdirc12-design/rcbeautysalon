@@ -6,6 +6,8 @@ import { prisma } from "@/lib/prisma"
 import { addMinutes } from "date-fns"
 import { after } from "next/server"
 import { getServicesForBooking, getSalonConfig, getOrgTimezone } from "./appointments"
+// #79: polog kot pravilo — isti helper kot booking in webhook.
+import { resolveDepositForServices } from "@/lib/booking/deposit"
 import { instantFromParts, formatSalonTime } from "@/lib/booking-time"
 import { getPublicOrg, getSessionOrg, getOrgById } from "@/lib/tenant"
 import { CreateCheckoutSessionData, CreateCheckoutSessionResult } from "@/lib/interfaces"
@@ -85,6 +87,17 @@ export async function createCheckoutSession(
 
     // Get salon config for deposit amount
     const config = await getSalonConfig()
+    // #79: FIX — getSalonConfig reads the SESSION/request org; this action
+    // resolves org explicitly (staff may pay inside their session org, guests
+    // inside the public tenant). Fetch the deposit rule for THAT org.
+    const orgRule = await prisma.salonConfig.findFirst({
+      where: { organizationId: org.id },
+      select: { bookingDeposit: true, bookingDepositType: true },
+    })
+    const depositRule = {
+      bookingDeposit: orgRule?.bookingDeposit.toNumber() ?? config.bookingDeposit,
+      bookingDepositType: orgRule?.bookingDepositType ?? "FIXED",
+    } as const
 
     // Create service names string
     const serviceNames = services.map((s) => s.name).join(", ")
@@ -97,17 +110,23 @@ export async function createCheckoutSession(
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
 
     // SECURITY: employee discount is derived server-side from the session role,
-    // never trusted from client arguments.
+    // never trusted from client arguments. Same rule as createAppointment:
+    // an ADMIN creating for a GUEST (guestName present) is NOT an employee
+    // booking — prej bi dobil zaposlenski popust (#79 ugotovljena
+    // inkonsistentnost z appointments.ts, tukaj poravnana).
     const isEmployeeBooking =
       !!session?.user &&
-      ["STAFF", "ADMIN"].includes(session.user.role)
+      ["STAFF", "ADMIN"].includes(session.user.role) &&
+      !data.guestName
 
-    // Calculate deposit with employee discount (20% off)
+    // #79: polog je PRAVILO iz istega helperja kot booking in zapis —
+    // 15 € storitev z org pologom 50 € plača 15 €, ne 50 %. Employee
+    // booking obdrži 20 % popust na izračunani polog.
+    const resolvedDeposit = resolveDepositForServices(services, depositRule)
     const employeeDiscountRate = 0.20
-    const originalDeposit = config.bookingDeposit
     const depositAmount = isEmployeeBooking
-      ? originalDeposit * (1 - employeeDiscountRate)
-      : originalDeposit
+      ? Math.round(resolvedDeposit * (1 - employeeDiscountRate) * 100) / 100
+      : resolvedDeposit
 
     // Build product description
     const depositDescription = isEmployeeBooking
@@ -145,6 +164,10 @@ export async function createCheckoutSession(
         userId: session?.user?.id || "",
         customerName,
         isEmployee: isEmployeeBooking ? "true" : "false",
+        // #79: izračunani polog potuje s sejo — verify in webhook zapišeta
+        // TOČNO ta znesek, ne ponovno izračunan (en helper, en rezultat,
+        // ni drifta med plačilom in zapisom).
+        depositAmount: depositAmount.toFixed(2),
         // E2-7 (G7): optional workspace resource — validated + conflict-
         // checked again in the webhook before the appointment is created.
         resourceRecordId: data.resourceRecordId || "",
@@ -368,7 +391,17 @@ export async function verifyAndCreateAppointment(sessionId: string) {
     const config = await prisma.salonConfig.findFirst({
       where: { organizationId: org.id },
     })
-    const bookingDeposit = config?.bookingDeposit.toNumber() ?? 50
+    // #79: polog potuje s sejo (metadata.depositAmount, izračunan v
+    // createCheckoutSession iz per-storitvenih pravil). Fallback na org
+    // konfiguracijo pokrije stare seje, ustvarjene pred #79.
+    const metaDeposit =
+      typeof metadata.depositAmount === "string" && metadata.depositAmount
+        ? parseFloat(metadata.depositAmount)
+        : null
+    const bookingDeposit =
+      metaDeposit !== null && Number.isFinite(metaDeposit) && metaDeposit >= 0
+        ? metaDeposit
+        : (config?.bookingDeposit.toNumber() ?? 50)
 
     // Handle customer creation/retrieval
     let customerId: string | null = null

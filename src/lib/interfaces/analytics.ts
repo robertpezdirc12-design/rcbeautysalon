@@ -50,6 +50,10 @@ export interface StaffPerformance {
   name: string
   appointments: number
   revenue: number
+  // #79: payroll — tips collected and the FROZEN commission sum for the period.
+  // Separate lines, never merged into service revenue.
+  tips: number
+  commission: number
 }
 
 export interface RevenueByCategory {

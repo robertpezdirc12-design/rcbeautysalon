@@ -294,6 +294,9 @@ export interface ServiceListItem {
   duration: number
   price: number
   imageUrl: string | null
+  // #79: deposit rule — the summary shows the REAL deposit, not a flat org number.
+  depositType?: "INHERIT" | "NONE" | "FIXED" | "PERCENT"
+  depositValue?: number | null
   category: {
     id: string
     name: string
@@ -313,6 +316,9 @@ export interface CreateServiceInput {
   isFeatured?: boolean
   order?: number
   staffIds?: string[]
+  // #79: deposit rule (INHERIT | NONE | FIXED | PERCENT + value)
+  depositType?: "INHERIT" | "NONE" | "FIXED" | "PERCENT"
+  depositValue?: number | null
 }
 
 export interface ServicesListProps {
@@ -410,6 +416,11 @@ export interface CreateStaffInput {
   bio?: string
   image?: string
   isActive?: boolean
+  // #79: payroll — default tip suggestion + commission rule.
+  defaultTipPercent?: number | null
+  commissionType?: "NONE" | "PERCENT" | "FIXED"
+  commissionValue?: number | null
+  commissionBasis?: string
 }
 
 export interface SalonSettingsInput {
@@ -429,6 +440,9 @@ export interface SalonSettingsInput {
   currency?: string
   locale?: string
   bookingDeposit?: number
+  // #79: the deposit RULE — FIXED interprets bookingDeposit as €,
+  // PERCENT as % of the service price.
+  bookingDepositType?: "INHERIT" | "NONE" | "FIXED" | "PERCENT"
   depositRefundable?: boolean
   minBookingAdvance?: number
   maxBookingAdvance?: number
@@ -603,6 +617,8 @@ export interface ResetPasswordFormProps {
 // Salon config for booking
 export interface BookingSalonConfig {
   bookingDeposit: number
+  // #79: the org deposit RULE (FIXED amount or PERCENT of service).
+  bookingDepositType?: "INHERIT" | "NONE" | "FIXED" | "PERCENT"
   depositRefundable: boolean
   maxBookingAdvance: number
 }

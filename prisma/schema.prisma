@@ -414,6 +414,8 @@ model SalonConfig {
   // Booking settings
   bookingDeposit     Decimal @default(50.00) @db.Decimal(10, 2)
   depositRefundable  Boolean @default(false)
+  // #79: the org-level deposit RULE (FIXED amount or PERCENT of service).
+  bookingDepositType DepositType @default(FIXED)
   // #78: org-level low-stock threshold. Product.reorderPoint overrides it
   // per product; resolved through src/lib/inventory/low-stock.ts (ONE helper
   // for the stats card, the table colour and the dashboard widget).
@@ -470,6 +472,14 @@ model Service {
   isActive    Boolean @default(true)
   isFeatured  Boolean @default(false) // Display on landing page
   order       Int     @default(0) // Order of featured services (lower = first)
+
+  // #79: deposit as a RULE, not one global number. INHERIT follows the
+  // org setting; NONE exempts the service; FIXED is currency; PERCENT is
+  // 0–100 of the service price. Resolution lives in ONE pure helper
+  // (src/lib/booking/deposit.ts) so booking, Stripe and the record can
+  // never disagree.
+  depositType  DepositType @default(INHERIT)
+  depositValue Decimal?    @db.Decimal(10, 2) // currency (FIXED) or 0–100 (PERCENT)
 
   categoryId String?
 
@@ -558,6 +568,15 @@ model Staff {
   bio      String? @db.Text
   image    String?
   isActive Boolean @default(true)
+
+  // #79: payroll layer — default tip rate (checkout suggestion) and the
+  // commission rule. commissionAmount is computed ONCE when an appointment
+  // completes and stored on the appointment, so a later rate change never
+  // rewrites history.
+  defaultTipPercent Decimal?       @db.Decimal(5, 2) // 0–100, checkout suggestion
+  commissionType    CommissionType @default(NONE)
+  commissionValue   Decimal?       @db.Decimal(10, 2) // percent (PERCENT) or currency (FIXED)
+  commissionBasis   String         @default("service") // "service" | "service+product"
 
   // REQUIRED one-to-one relationship with User (all staff can login)
   userId String @unique
@@ -666,6 +685,12 @@ model Appointment {
   depositPaid     Boolean @default(false)
   stripePaymentId String?
 
+  // #79: tips are revenue the salon collects but must NOT count as service
+  // revenue; commission is frozen at completion (null = not yet computed).
+  tipAmount        Decimal @default(0) @db.Decimal(10, 2)
+  tipMethod        String? // "cash" | "card"
+  commissionAmount Decimal? @db.Decimal(10, 2) // written once on COMPLETED
+
   // Notifications
   reminderSentAt     DateTime?
   confirmationSentAt DateTime?
@@ -708,6 +733,22 @@ enum AppointmentStatus {
   COMPLETED
   CANCELLED
   NO_SHOW
+}
+
+// #79: deposit as a rule — service level (INHERIT resolves the org one)
+// and the org-level default live in this one vocabulary.
+enum DepositType {
+  INHERIT
+  NONE
+  FIXED
+  PERCENT
+}
+
+// #79: commission rules per staff member.
+enum CommissionType {
+  NONE
+  PERCENT
+  FIXED
 }
 
 model Product {
@@ -784,6 +825,10 @@ model Order {
   subtotal Decimal @db.Decimal(10, 2)
   tax      Decimal @default(0) @db.Decimal(10, 2)
   total    Decimal @db.Decimal(10, 2)
+
+  // #79: tip on a product order (cash or card), separate from item prices.
+  tipAmount Decimal @default(0) @db.Decimal(10, 2)
+  tipMethod String? // "cash" | "card"
 
   status OrderStatus @default(PENDING)
 

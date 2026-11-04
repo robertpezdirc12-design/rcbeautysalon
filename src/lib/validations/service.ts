@@ -24,6 +24,15 @@ const serviceBaseSchema = z.object({
   isActive: z.boolean(),
   isFeatured: z.boolean(),
   staffIds: z.array(z.string()).optional(),
+  // #79: deposit rule — INHERIT sledi org nastavitvi; FIXED = €, PERCENT = %.
+  depositType: z
+    .enum(["INHERIT", "NONE", "FIXED", "PERCENT"])
+    .optional(),
+  depositValue: z
+    .number()
+    .min(0, "Deposit value must be positive")
+    .optional()
+    .nullable(),
 })
 
 // Schema for creating services

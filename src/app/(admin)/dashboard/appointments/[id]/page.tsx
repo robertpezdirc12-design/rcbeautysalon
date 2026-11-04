@@ -14,6 +14,7 @@ import {
   EnvelopeIcon,
 } from "@/components/icons"
 import { getAppointmentById } from "@/app/actions/appointments"
+import { TipRecorder } from "@/components/dashboard/tip-recorder"
 import { formatSalonTime } from "@/lib/booking-time"
 import { getSessionSalonTimezone } from "@/lib/tenant"
 import { formatCurrency, formatDateStandard } from "@/lib/utils/format"
@@ -290,16 +291,58 @@ export default async function AppointmentDetailPage({ params }: PageProps) {
                     : t.appointments.details.notPaid}
                 </span>
               </div>
+              {/* #79: napitnina — ločena vrstica, NE del storitvenega prihodka. */}
+              {appointment.tipAmount > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span>{t.appointments.details.tip}</span>
+                  <span className="text-green-600">
+                    {formatCurrency(appointment.tipAmount)}
+                    {appointment.tipMethod
+                      ? ` (${appointment.tipMethod === "card" ? t.appointments.details.tipCard : t.appointments.details.tipCash})`
+                      : ""}
+                  </span>
+                </div>
+              )}
+              {appointment.status === "COMPLETED" && appointment.commissionAmount !== null && (
+                <div className="flex justify-between text-sm">
+                  <span>{t.appointments.details.commission}</span>
+                  <span className="text-muted-foreground">
+                    {formatCurrency(appointment.commissionAmount)}
+                  </span>
+                </div>
+              )}
               <Separator />
               <div className="flex justify-between font-medium">
                 <span>{t.appointments.details.balanceDue}</span>
                 <span>
                   {formatCurrency(
-                    appointment.totalPrice -
-                      (appointment.depositPaid ? appointment.depositAmount : 0)
+                    Math.max(
+                      0,
+                      appointment.totalPrice -
+                        (appointment.depositPaid ? appointment.depositAmount : 0)
+                    )
                   )}
                 </span>
               </div>
+              <Separator />
+              {/* #79: hitri zapis napitnine (0/5/10 % ali znesek po meri). */}
+              <TipRecorder
+                appointmentId={appointment.id}
+                totalPrice={appointment.totalPrice}
+                currentTip={appointment.tipAmount}
+                currentMethod={appointment.tipMethod}
+                labels={{
+                  title: t.appointments.details.tip,
+                  hint: t.appointments.details.tipHint,
+                  amount: t.appointments.details.tipAmountLabel,
+                  method: t.appointments.details.tipMethod,
+                  cash: t.appointments.details.tipCash,
+                  card: t.appointments.details.tipCard,
+                  save: t.appointments.details.tipSave,
+                  saved: t.appointments.details.tipSaved,
+                  failed: t.appointments.details.tipFailed,
+                }}
+              />
             </CardContent>
           </Card>
 

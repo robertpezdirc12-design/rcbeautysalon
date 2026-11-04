@@ -23,6 +23,20 @@ const staffBaseSchema = z.object({
   isActive: z.boolean(),
   serviceIds: z.array(z.string()).optional(),
   workingHours: z.array(workingHourSchema).optional(),
+  // #79: payroll — default tip suggestion + commission rule.
+  defaultTipPercent: z
+    .number()
+    .min(0, "Tip percent must be 0–100")
+    .max(100, "Tip percent must be 0–100")
+    .optional()
+    .nullable(),
+  commissionType: z.enum(["NONE", "PERCENT", "FIXED"]).optional(),
+  commissionValue: z
+    .number()
+    .min(0, "Commission value must be positive")
+    .optional()
+    .nullable(),
+  commissionBasis: z.string().optional(),
 })
 
 // Schema for creating staff

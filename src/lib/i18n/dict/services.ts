@@ -68,6 +68,15 @@ export const servicesSl = {
   descriptionPlaceholder: "Opišite storitev …",
   durationLabel: "Trajanje (minut) *",
   priceLabel: "Cena (€) *",
+  // #79: pravilo pologa
+  depositTypeLabel: "Polog",
+  depositInherit: "Po nastavitvi podjetja",
+  depositNone: "Brez pologa",
+  depositFixed: "Fiksni znesek (€)",
+  depositPercent: "Odstotek cene (%)",
+  depositValueFixed: "Znesek pologa (€)",
+  depositValuePercent: "Odstotek pologa (%)",
+  depositCapHelp: "Polog ni nikoli večji od cene storitve.",
   categoryLabel: "Kategorija",
   categoryPlaceholder: "Izberite kategorijo",
   // P3 #52: prazno stanje izbirnika — razlaga + pot do prve kategorije
@@ -169,6 +178,15 @@ export const servicesEn: ServicesDict = {
   descriptionPlaceholder: "Describe the service...",
   durationLabel: "Duration (minutes) *",
   priceLabel: "Price (€) *",
+  // #79: deposit rule
+  depositTypeLabel: "Deposit",
+  depositInherit: "Follow business setting",
+  depositNone: "No deposit",
+  depositFixed: "Fixed amount (€)",
+  depositPercent: "Percent of price (%)",
+  depositValueFixed: "Deposit amount (€)",
+  depositValuePercent: "Deposit percent (%)",
+  depositCapHelp: "The deposit never exceeds the service price.",
   categoryLabel: "Category",
   categoryPlaceholder: "Select a category",
   // P3 #52: empty state of the picker — explanation + path to the first one

@@ -24,10 +24,15 @@ export function StaffPerformanceChart({ data }: StaffPerformanceChartProps) {
     name: staff.name,
     Appointments: staff.appointments,
     Revenue: staff.revenue,
+    // #79: payroll stolpci kot LOČENE kategorije — graf jih ne sešteje v prihodek.
+    Tips: staff.tips,
+    Commission: staff.commission,
   }))
 
   const totalAppointments = data.reduce((sum, s) => sum + s.appointments, 0)
   const totalRevenue = data.reduce((sum, s) => sum + s.revenue, 0)
+  const totalTips = data.reduce((sum, s) => sum + s.tips, 0)
+  const totalCommission = data.reduce((sum, s) => sum + s.commission, 0)
 
   return (
     <Card>
@@ -59,6 +64,21 @@ export function StaffPerformanceChart({ data }: StaffPerformanceChartProps) {
               <span className="text-muted-foreground">
                 {t.analytics.staffPerformance.totalRevenue}:{" "}
                 <span className="font-semibold text-foreground">{fmt(totalRevenue)}</span>
+              </span>
+            </div>
+            {/* #79: ločene vsote za napitnine in provizije — payroll vrstici. */}
+            <div className="flex items-center gap-2">
+              <div className="h-3 w-3 rounded-full bg-emerald-500" />
+              <span className="text-muted-foreground">
+                {t.analytics.staffPerformance.totalTips}:{" "}
+                <span className="font-semibold text-foreground">{fmt(totalTips)}</span>
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="h-3 w-3 rounded-full bg-sky-500" />
+              <span className="text-muted-foreground">
+                {t.analytics.staffPerformance.totalCommission}:{" "}
+                <span className="font-semibold text-foreground">{fmt(totalCommission)}</span>
               </span>
             </div>
           </div>

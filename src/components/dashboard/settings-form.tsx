@@ -39,6 +39,7 @@ interface SettingsFormProps {
     timezone: string
     currency: string
     bookingDeposit: number
+    bookingDepositType?: "INHERIT" | "NONE" | "FIXED" | "PERCENT"
     depositRefundable: boolean
     minBookingAdvance: number
     maxBookingAdvance: number
@@ -104,6 +105,7 @@ export function SettingsForm({ initialSettings, appointmentsEnabled = true }: Se
       timezone: initialSettings.timezone,
       currency: initialSettings.currency,
       bookingDeposit: initialSettings.bookingDeposit,
+      bookingDepositType: initialSettings.bookingDepositType ?? "FIXED",
       depositRefundable: initialSettings.depositRefundable,
       minBookingAdvance: initialSettings.minBookingAdvance,
       maxBookingAdvance: initialSettings.maxBookingAdvance,
@@ -112,6 +114,8 @@ export function SettingsForm({ initialSettings, appointmentsEnabled = true }: Se
   })
 
   const watchDepositRefundable = watch("depositRefundable")
+  // #79: pravilo pologa
+  const watchDepositType = watch("bookingDepositType")
 
   // Handle logo upload
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -193,6 +197,7 @@ export function SettingsForm({ initialSettings, appointmentsEnabled = true }: Se
           timezone: result.settings.timezone,
           currency: result.settings.currency,
           bookingDeposit: result.settings.bookingDeposit,
+          bookingDepositType: result.settings.bookingDepositType,
           depositRefundable: result.settings.depositRefundable,
           minBookingAdvance: result.settings.minBookingAdvance,
           maxBookingAdvance: result.settings.maxBookingAdvance,
@@ -491,6 +496,37 @@ export function SettingsForm({ initialSettings, appointmentsEnabled = true }: Se
                   {errors.bookingDeposit && (
                     <p className="text-destructive text-sm">{errors.bookingDeposit.message}</p>
                   )}
+                </div>
+                {/* #79: ENA vrsta pologa (pravilo) — FIXED = € znesek, PERCENT = %
+                    cene storitve; oba razreši isti helper kot booking/Stripe. */}
+                <div className="space-y-2">
+                  <Label htmlFor="bookingDepositType">
+                    {t.settings.form.depositTypeLabel}
+                  </Label>
+                  <Select
+                    value={watchDepositType ?? "FIXED"}
+                    onValueChange={(v) =>
+                      setValue(
+                        "bookingDepositType",
+                        v as "INHERIT" | "NONE" | "FIXED" | "PERCENT"
+                      )
+                    }
+                    disabled={isSubmitting}
+                  >
+                    <SelectTrigger id="bookingDepositType">
+                      <SelectValue placeholder={t.settings.form.depositTypeLabel} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="FIXED">{t.settings.form.depositTypeFixed}</SelectItem>
+                      <SelectItem value="PERCENT">{t.settings.form.depositTypePercent}</SelectItem>
+                      <SelectItem value="NONE">{t.settings.form.depositTypeNone}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-muted-foreground text-xs">
+                    {watchDepositType === "PERCENT"
+                      ? t.settings.form.depositTypePercentHint
+                      : t.settings.form.depositTypeFixedHint}
+                  </p>
                 </div>
                 <div className="flex items-center justify-between rounded-lg border p-4">
                   <div>

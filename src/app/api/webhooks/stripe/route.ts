@@ -271,7 +271,17 @@ export async function POST(req: Request) {
       const config = await prisma.salonConfig.findFirst({
         where: { organizationId: org.id },
       })
-      const depositAmount = config?.bookingDeposit.toNumber() || 50
+      // #79: polog potuje s sejo (metadata.depositAmount, izračunan v
+      // createCheckoutSession iz per-storitvenih pravil). Fallback pokrije
+      // stare seje pred #79.
+      const metaDeposit =
+        typeof metadata.depositAmount === "string" && metadata.depositAmount
+          ? parseFloat(metadata.depositAmount)
+          : null
+      const depositAmount =
+        metaDeposit !== null && Number.isFinite(metaDeposit) && metaDeposit >= 0
+          ? metaDeposit
+          : (config?.bookingDeposit.toNumber() || 50)
 
       // Handle customer creation/retrieval
       let customerId: string | null = null

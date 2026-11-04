@@ -492,6 +492,8 @@ export async function getServiceById(id: string) {
   return {
     ...service,
     price: service.price.toNumber(),
+    // #79: deposit rule za formo (Decimal → number)
+    depositValue: service.depositValue ? service.depositValue.toNumber() : null,
   }
 }
 

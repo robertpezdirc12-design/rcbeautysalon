@@ -246,3 +246,44 @@ export async function getCustomerOrders() {
     orders: convertedOrders,
   }
 }
+
+// ============================================================
+// #79: NAPITNINA na naročilu — zabeleži napitnino (gotovina ali
+// kartica) pri oddaji/prevzemu. Ločena vrstica prihodka, ne del
+// postavk.
+// ============================================================
+export async function recordOrderTip(
+  id: string,
+  input: { amount: number; method?: "cash" | "card" | null }
+): Promise<{ success: boolean; error?: string }> {
+  const { org } = await requirePermissionOrg("orders.manage")
+
+  const amount = input.amount
+  if (!Number.isFinite(amount) || amount < 0 || amount > 10_000) {
+    return { success: false, error: "Neveljaven znesek napitnine" }
+  }
+
+  try {
+    const existing = await prisma.order.findFirst({
+      where: { id, organizationId: org.id },
+      select: { id: true },
+    })
+    if (!existing) {
+      return { success: false, error: "Order not found" }
+    }
+
+    await prisma.order.update({
+      where: { id },
+      data: {
+        tipAmount: amount.toFixed(2),
+        tipMethod: input.method ?? null,
+      },
+    })
+
+    revalidatePath("/dashboard/orders")
+    return { success: true }
+  } catch (error) {
+    console.error("Error recording order tip:", error)
+    return { success: false, error: "Failed to record tip." }
+  }
+}

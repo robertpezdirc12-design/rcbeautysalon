@@ -13,6 +13,8 @@ export const settingsSchema = z.object({
   timezone: z.string().min(1),
   currency: z.string().min(1),
   bookingDeposit: z.number({ error: "Deposit is required" }).min(0),
+  // #79: the org deposit RULE
+  bookingDepositType: z.enum(["INHERIT", "NONE", "FIXED", "PERCENT"]),
   depositRefundable: z.boolean(),
   minBookingAdvance: z.number({ error: "Min advance is required" }).min(0),
   maxBookingAdvance: z.number({ error: "Max advance is required" }).min(1),

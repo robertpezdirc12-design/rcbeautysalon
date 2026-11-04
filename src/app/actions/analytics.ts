@@ -474,20 +474,34 @@ export async function getStaffPerformance(period: PeriodType = "30d"): Promise<S
   })
 
   // Agrupar por staff
-  const staffMap = new Map<string, { name: string; appointments: number; revenue: number }>()
+  const staffMap = new Map<string, {
+    name: string
+    appointments: number
+    revenue: number
+    tips: number
+    commission: number
+  }>()
 
   appointments.forEach(apt => {
     const existing = staffMap.get(apt.staffId)
     const revenue = apt.depositAmount?.toNumber() ?? 0
+    // #79: napitnine in zamrznjene provizije so LOČENE vrstice —
+    // ne smejo napihovati "prihodka od storitev".
+    const tips = apt.tipAmount?.toNumber() ?? 0
+    const commission = apt.commissionAmount?.toNumber() ?? 0
 
     if (existing) {
       existing.appointments += 1
       existing.revenue += revenue
+      existing.tips += tips
+      existing.commission += commission
     } else {
       staffMap.set(apt.staffId, {
         name: apt.staff.name,
         appointments: 1,
-        revenue: revenue
+        revenue: revenue,
+        tips: tips,
+        commission: commission,
       })
     }
   })

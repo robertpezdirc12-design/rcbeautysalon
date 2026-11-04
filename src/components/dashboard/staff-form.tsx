@@ -51,6 +51,10 @@ interface StaffData {
   isActive: boolean
   services?: { service: { id: string; name: string } }[]
   workingHours?: WorkingHour[]
+  // #79: payroll
+  defaultTipPercent?: number | null
+  commissionType?: "NONE" | "PERCENT" | "FIXED"
+  commissionValue?: number | null
 }
 
 interface StaffFormProps {
@@ -112,10 +116,16 @@ export function StaffForm({ services, staff, mode = "create", onSubmit, onDelete
       phone: staff?.phone || "",
       bio: staff?.bio || "",
       isActive: staff?.isActive ?? true,
+      // #79: payroll
+      defaultTipPercent: staff?.defaultTipPercent ?? undefined,
+      commissionType: staff?.commissionType ?? "NONE",
+      commissionValue: staff?.commissionValue ?? undefined,
     },
   })
 
   const watchIsActive = watch("isActive")
+  // #79: payroll
+  const watchCommissionType = watch("commissionType")
 
   // Handle image upload
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -305,6 +315,74 @@ export function StaffForm({ services, staff, mode = "create", onSubmit, onDelete
                   disabled={isSubmitting}
                 />
               </div>
+
+              {/* #79: plačilni sloj — predlog napitnine + pravilo provizije.
+                  Provizija se izračuna ENKRAT ob zaključku termina in se
+                  zapiše na termin (kasnejša sprememba pravila ne prepiše
+                  zgodovine). */}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="defaultTipPercent">{t.staff.form.defaultTipPercent}</Label>
+                  <Input
+                    id="defaultTipPercent"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    placeholder="10.00"
+                    {...register("defaultTipPercent", { valueAsNumber: true })}
+                    disabled={isSubmitting}
+                  />
+                  <p className="text-muted-foreground text-xs">{t.staff.form.defaultTipPercentHint}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="commissionType">{t.staff.form.commissionType}</Label>
+                  <select
+                    id="commissionType"
+                    className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
+                    {...register("commissionType")}
+                    disabled={isSubmitting}
+                  >
+                    <option value="NONE">{t.staff.form.commissionNone}</option>
+                    <option value="PERCENT">{t.staff.form.commissionPercent}</option>
+                    <option value="FIXED">{t.staff.form.commissionFixed}</option>
+                  </select>
+                </div>
+                {watchCommissionType === "PERCENT" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="commissionValue">{t.staff.form.commissionPercentValue}</Label>
+                    <Input
+                      id="commissionValue"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      placeholder="10.00"
+                      {...register("commissionValue", { valueAsNumber: true })}
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                )}
+                {watchCommissionType === "FIXED" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="commissionValue">{t.staff.form.commissionFixedValue}</Label>
+                    <Input
+                      id="commissionValue"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="2.00"
+                      {...register("commissionValue", { valueAsNumber: true })}
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                )}
+              </div>
+              {watchCommissionType !== "NONE" && (
+                <p className="text-muted-foreground text-xs">
+                  {t.staff.form.commissionFreezeHelp}
+                </p>
+              )}
             </CardContent>
           </Card>
 

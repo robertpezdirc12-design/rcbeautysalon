@@ -21,18 +21,24 @@ import { format } from "date-fns"
 import { AvailableStaffMember, TimeSlot } from "@/lib/interfaces"
 import { useI18n } from "@/lib/i18n/provider"
 import { getDateFnsLocale } from "@/lib/i18n/dictionaries"
+// #79: polog kot pravilo — čisti helper, deljen s strežnikom.
+import { resolveDeposit } from "@/lib/booking/deposit"
 
 interface BookingSummaryCardProps {
   service: {
     name: string
     price: number
     duration: number
+    // #79: deposit rule fields (optional — INHERIT fallback)
+    depositType?: "INHERIT" | "NONE" | "FIXED" | "PERCENT"
+    depositValue?: number | null
   } | null
   selectedStaff?: AvailableStaffMember
   selectedDate?: Date
   selectedTime?: string
   salonConfig: {
     bookingDeposit: number
+    bookingDepositType?: "INHERIT" | "NONE" | "FIXED" | "PERCENT"
     depositRefundable: boolean
   }
   submitting: boolean
@@ -58,6 +64,27 @@ export function BookingSummaryCard({
 }: BookingSummaryCardProps) {
   const fmt = useFormatPrice()
   const { t, locale, withBusiness } = useI18n()
+
+  // #79: polog je PRAVILO — isti čisti helper kot na strežniku (booking
+  // akcija, Stripe, webhook). 15 € storitev z org pologom 50 € prikaže 15 €,
+  // ne 50 €; oproščena storitev (NONE) pokaže "brez pologa".
+  const resolvedDeposit =
+    service && !isEmployee
+      ? resolveDeposit(
+          {
+            price: service.price,
+            depositType: service.depositType ?? "INHERIT",
+            depositValue: service.depositValue ?? null,
+          },
+          {
+            bookingDeposit: salonConfig.bookingDeposit,
+            bookingDepositType: salonConfig.bookingDepositType ?? "FIXED",
+          }
+        )
+      : 0
+  const depositExempt = service?.depositType
+    ? service.depositType === "NONE"
+    : (salonConfig.bookingDepositType ?? "FIXED") === "NONE"
   const dfLocale = getDateFnsLocale(locale)
   const selectedSlot = availableSlots.find((s) => s.time === selectedTime)
 
@@ -155,7 +182,9 @@ export function BookingSummaryCard({
                 </span>
               ) : paymentsEnabled ? (
                 <span className="text-primary-text">
-                  {fmt(salonConfig.bookingDeposit)}
+                  {/* #79: izračunani polog (per storitev); oproščena storitev
+                      (NONE) pokaže "ni potreben" namesto 0,00 €. */}
+                  {depositExempt ? t.booking.notRequired : fmt(resolvedDeposit)}
                 </span>
               ) : (
                 <span className="text-primary-text">
@@ -202,7 +231,10 @@ export function BookingSummaryCard({
                     {t.booking.nonRefundableTitle}
                   </p>
                   <p className="text-sm text-amber-900 dark:text-amber-400">
-                    {t.booking.nonRefundableIntro(fmt(salonConfig.bookingDeposit))}
+                    {t.booking.nonRefundableIntro(
+                      // #79: isti izračunani polog, ne globalna številka.
+                      fmt(resolvedDeposit)
+                    )}
                     <strong className="font-bold">{t.booking.nonRefundableStrong}</strong>.
                   </p>
                 </div>
@@ -270,7 +302,10 @@ export function BookingSummaryCard({
             ) : paymentsEnabled ? (
               <>
                 <CurrencyDollarIcon size={20} className="mr-2" weight="regular" />
-                {t.booking.payAndConfirm(fmt(salonConfig.bookingDeposit))}
+                {t.booking.payAndConfirm(
+                  // #79: CTA nosi izračunani polog — združljivo s Stripe sejo.
+                  fmt(resolvedDeposit)
+                )}
               </>
             ) : (
               <>

@@ -226,7 +226,16 @@ export const getStaffMemberById = async (id: string) => {
   if (!staffMember) {
     return null
   }
-  return staffMember
+  // #79: payroll polja za formo (Decimal → number)
+  return {
+    ...staffMember,
+    defaultTipPercent: staffMember.defaultTipPercent
+      ? staffMember.defaultTipPercent.toNumber()
+      : null,
+    commissionValue: staffMember.commissionValue
+      ? staffMember.commissionValue.toNumber()
+      : null,
+  }
 }
 
 //Create Staff Member
