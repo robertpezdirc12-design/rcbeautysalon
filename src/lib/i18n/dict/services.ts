@@ -4,7 +4,7 @@ export const servicesSl = {
   // Glava strani
   title: "Upravljanje",
   titleAccent: "storitev",
-  subtitle: "Upravljajte storitve svojega salona",
+  subtitle: "Upravljajte storitve svojega {businessGenitive}",
   addService: "Dodaj storitev",
 
   // Statistika
@@ -53,7 +53,7 @@ export const servicesSl = {
 
   // Glavi strani za novo / urejanje
   newTitle: "Nova storitev",
-  newSubtitle: "Ustvarite novo storitev salona",
+  newSubtitle: "Ustvarite novo storitev {businessGenitive}",
   editTitle: "Uredi storitev",
 
   // Obrazec: kartica podatkov o storitvi
@@ -124,7 +124,7 @@ export const servicesEn: ServicesDict = {
   // Page header
   title: "Manage",
   titleAccent: "Services",
-  subtitle: "Manage your salon services",
+  subtitle: "Manage your {business} services",
   addService: "Add Service",
 
   // Stats
@@ -154,7 +154,7 @@ export const servicesEn: ServicesDict = {
 
   // New / edit page headers
   newTitle: "New Service",
-  newSubtitle: "Create a new salon service",
+  newSubtitle: "Create a new {business} service",
   editTitle: "Edit Service",
 
   // Form: service information card

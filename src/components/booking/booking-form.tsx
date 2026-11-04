@@ -37,7 +37,7 @@ export function BookingForm(props: BookingFormProps) {
     paymentsEnabled = true,
     defaultValues = {},
   } = props
-  const { locale, t } = useI18n()
+  const { locale, t, withBusiness } = useI18n()
 
   const router = useRouter()
   const [flowError, setFlowError] = useState<string | null>(null)
@@ -277,7 +277,7 @@ export function BookingForm(props: BookingFormProps) {
           }
 
           const fallbackError =
-            fallback.error || t.booking.noPaymentFailed
+            fallback.error || withBusiness(t.booking.noPaymentFailed)
           setFlowError(fallbackError)
           toast.error(fallbackError)
           return { ok: false }

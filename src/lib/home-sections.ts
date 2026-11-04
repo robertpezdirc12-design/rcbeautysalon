@@ -25,11 +25,20 @@ export interface HomeSectionFlags {
   services: boolean
   shop: boolean
   team: boolean
+  /** P2 #75: „Izjave strank" je lastna sekcija — ne več pasavica ekipe. */
+  reviews: boolean
 }
 
 /** Pure: drop sections the profile's capability matrix disables. */
 export function sectionsForProfile(
-  featured: { services: boolean; shop: boolean; team: boolean },
+  featured: {
+    services: boolean
+    shop: boolean
+    team: boolean
+    /** Podatkovna vrata (število aktivnih ocen > 0) — brez njih bi glava
+     *  kazala mrtvo sidro „Mnenja" pri 0 ocen (isto pravilo kot #62). */
+    reviews: boolean
+  },
   profile: ActivityProfile
 ): HomeSectionFlags {
   return {
@@ -37,5 +46,9 @@ export function sectionsForProfile(
       featured.services && isCapabilityEnabled(profile, "services"),
     shop: featured.shop && isCapabilityEnabled(profile, "shop"),
     team: featured.team && isCapabilityEnabled(profile, "staff"),
+    // P2 #75: capabilities.reviews je od zdaj DEJANSKO bran (prej mrtva
+    // stikalo v vseh 11 profilih) — in podatkovna vrata preprečijo mrtvo
+    // sidro pri 0 ocen; telo sekcije samo vrne null pri 0 vrsticah.
+    reviews: featured.reviews && isCapabilityEnabled(profile, "reviews"),
   }
 }

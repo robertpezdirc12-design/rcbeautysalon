@@ -18,6 +18,7 @@ import { resolvePublishGate } from "@/lib/publish-gate"
 import {
   buildTenantMetadata,
   buildTenantJsonLd,
+  aggregateRatingForTenant,
   resolveAppUrl,
   type SeoContext,
 } from "@/lib/seo"
@@ -191,11 +192,14 @@ export default async function RootLayout({
       const gate = await resolvePublishGate(org)
       if (gate === "published") {
         const content = mergeSiteContent(config?.siteContent, org.vertical)
+        // P2 #75: realna povprečna ocena (samo aktivne vrstice) v JSON-LD.
+        const aggregateRating = await aggregateRatingForTenant(org.id)
         jsonLd = buildTenantJsonLd({
           org: { name: org.name, slug: org.slug, logo: org.logo, vertical: org.vertical },
           content,
           appUrl: resolveAppUrl(),
           indexable: true,
+          aggregateRating,
         })
       }
     }

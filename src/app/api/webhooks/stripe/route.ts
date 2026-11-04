@@ -394,7 +394,7 @@ export async function POST(req: Request) {
 
         after(async () => {
           try {
-            await sendAppointmentConfirmationEmail({
+            const result = await sendAppointmentConfirmationEmail({
               email: customerEmail,
               customerName,
               serviceName: serviceNames,
@@ -406,6 +406,15 @@ export async function POST(req: Request) {
               depositAmount,
               appointmentId: appointment.id,
             })
+            // P1 #76 — evidence: confirmationSentAt PO uspešnem pošiljanju.
+            if (result?.success !== false) {
+              await prisma.appointment
+                .update({
+                  where: { id: appointment.id },
+                  data: { confirmationSentAt: new Date() },
+                })
+                .catch(() => undefined)
+            }
           } catch (emailError) {
             console.error("Webhook: confirmation email failed:", emailError)
           }

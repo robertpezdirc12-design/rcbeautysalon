@@ -57,7 +57,7 @@ export function BookingSummaryCard({
   paymentsEnabled = true,
 }: BookingSummaryCardProps) {
   const fmt = useFormatPrice()
-  const { t, locale } = useI18n()
+  const { t, locale, withBusiness } = useI18n()
   const dfLocale = getDateFnsLocale(locale)
   const selectedSlot = availableSlots.find((s) => s.time === selectedTime)
 
@@ -158,7 +158,14 @@ export function BookingSummaryCard({
                   {fmt(salonConfig.bookingDeposit)}
                 </span>
               ) : (
-                <span className="text-primary-text">{t.booking.depositInSalonValue}</span>
+                <span className="text-primary-text">
+                  {/* P2 #84: "v salonu" / "At the salon" — prva črka velika,
+                      ker je samostojna vrednost v vrstici. */}
+                  {withBusiness(t.booking.depositInSalonValue).replace(
+                    /^./,
+                    (c) => c.toUpperCase()
+                  )}
+                </span>
               )}
             </div>
           </div>
@@ -174,10 +181,10 @@ export function BookingSummaryCard({
                 />
                 <div className="space-y-1">
                   <p className="text-base font-bold text-sky-950 dark:text-sky-300">
-                    {t.booking.depositInSalonBoxTitle}
+                    {withBusiness(t.booking.depositInSalonBoxTitle)}
                   </p>
                   <p className="text-sm text-sky-900 dark:text-sky-400">
-                    {t.booking.depositInSalonBoxBody}
+                    {withBusiness(t.booking.depositInSalonBoxBody)}
                   </p>
                 </div>
               </div>

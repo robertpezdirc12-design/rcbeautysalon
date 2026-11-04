@@ -463,7 +463,7 @@ export async function verifyAndCreateAppointment(sessionId: string) {
       const salonTz = await getOrgTimezone(org.id)
 
       after(async () => {
-        await sendAppointmentConfirmationEmail({
+        const result = await sendAppointmentConfirmationEmail({
           email: customerEmail,
           customerName,
           serviceName: serviceNames,
@@ -475,6 +475,15 @@ export async function verifyAndCreateAppointment(sessionId: string) {
           depositAmount: bookingDeposit,
           appointmentId: appointment.id,
         })
+        // P1 #76 — evidence: confirmationSentAt PO uspešnem pošiljanju.
+        if (result?.success !== false) {
+          await prisma.appointment
+            .update({
+              where: { id: appointment.id },
+              data: { confirmationSentAt: new Date() },
+            })
+            .catch(() => undefined)
+        }
       })
     }
 

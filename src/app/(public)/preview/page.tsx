@@ -13,6 +13,7 @@ import {
 import { HomeContent } from "@/components/landing/home-content"
 import { resolveCtaLinks, resolveCtaSectionHref } from "@/lib/public-cta"
 import { resolveEffectiveProfile } from "@/lib/profiles/resolve"
+import { isCapabilityEnabled } from "@/lib/profiles/registry"
 import { PreviewBanner } from "@/components/public/preview-banner"
 
 // ============================================================
@@ -83,6 +84,11 @@ export default async function PreviewPage() {
           featuredStaff={featuredStaff}
           hasServices={featuredServices.length > 0}
           hasProducts={featuredProducts.length > 0}
+          // P2 #75: predogled pokaže formo za oceno podjetja za profile brez
+          // storitev — ista pravila kot javna stran.
+          canReviewBusiness={
+            !isCapabilityEnabled(resolveEffectiveProfile(org), "services")
+          }
         />
       </main>
     </div>

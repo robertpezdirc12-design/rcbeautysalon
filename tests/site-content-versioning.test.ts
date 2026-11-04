@@ -28,6 +28,9 @@ describe("normalizeSections", () => {
       { key: "shop", visible: true },
     ]
     const out = normalizeSections(stored)!
+    // P2 #75: platforma je dodala sekcijo "reviews" (kanonično za "team").
+    // Shranjen lastniški vrstni red ostaja; NOVI ključ se vstavi na svojo
+    // kanonično pozicijo (prej: na konec, pod končni CTA).
     expect(out.map((s) => s.key)).toEqual([
       "about",
       "services",
@@ -35,6 +38,7 @@ describe("normalizeSections", () => {
       "cta",
       "features",
       "team",
+      "reviews",
       "shop",
     ])
     expect(out.find((s) => s.key === "features")?.visible).toBe(false)
@@ -42,7 +46,13 @@ describe("normalizeSections", () => {
 
   it("appends missing keys at the end, visible (nothing disappears)", () => {
     const out = normalizeSections([{ key: "cta", visible: true }])!
-    expect(out.map((s) => s.key)).toEqual(["cta", ...SECTION_KEYS.filter((k) => k !== "cta")])
+    const keys = out.map((s) => s.key)
+    // P2 #75: NOVA sekcija "reviews" se vstavi kanonično (za najbližjega
+    // predhodnika; brez njega na konec) — ključna pogodba: vsi ključi
+    // prisotni, vsi vidni, brez duplikatov.
+    expect(keys[0]).toBe("cta")
+    for (const k of SECTION_KEYS) expect(keys).toContain(k)
+    expect(keys.filter((k) => k === "reviews")).toHaveLength(1)
     expect(out.every((s) => s.visible)).toBe(true)
   })
 
@@ -83,7 +93,11 @@ describe("normalizeSections", () => {
       ],
     }
     const merged = mergeSiteContent(stored, "beauty")
-    expect(merged.sections.slice(0, 3).map((s) => s.key)).toEqual(["hero", "team", "about"])
+    const keys = merged.sections.map((s) => s.key)
+    // P2 #75: shranjeni vrstni red (hero, team, about) se ohranja, NOVI
+    // ključ "reviews" pa se vstavi kanonično za "team" — ne na konec.
+    expect(keys.slice(0, 3)).toEqual(["hero", "team", "reviews"])
+    expect(keys.indexOf("about")).toBe(keys.indexOf("reviews") + 1)
     // missing keys appended visible
     expect(merged.sections.every((s) => s.visible)).toBe(true)
   })

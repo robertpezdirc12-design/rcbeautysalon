@@ -10,6 +10,7 @@ import { HomeContent } from "@/components/landing/home-content"
 import { PlatformLanding } from "@/components/landing/platform-landing"
 import { resolveCtaLinks, resolveCtaSectionHref } from "@/lib/public-cta"
 import { resolveEffectiveProfile } from "@/lib/profiles/resolve"
+import { isCapabilityEnabled } from "@/lib/profiles/registry"
 import { sectionsForProfile } from "@/lib/home-sections"
 import { prisma } from "@/lib/prisma"
 import { headers } from "next/headers"
@@ -87,6 +88,9 @@ export default async function HomePage() {
       services: featuredServices.length > 0,
       shop: featuredProducts.length > 0,
       team: featuredStaff.length > 0,
+      // P2 #75: podatkovna vrata za „Mnenja" — brez njih bi glava kazala
+      // mrtvo sidro pri 0 ocen (pravilo #62).
+      reviews: testimonials.length > 0,
     },
     profile
   )
@@ -113,6 +117,9 @@ export default async function HomePage() {
       // AND when the profile's capability matrix allows them (#60/#62).
       hasServices={sections.services}
       hasProducts={sections.shop}
+      // P2 #75: profil brez storitev dobi formo za oceno PODJETJA na
+      // domači strani (nima /services/[slug], kjer bi sicer živela).
+      canReviewBusiness={!isCapabilityEnabled(profile, "services")}
     />
   )
 }

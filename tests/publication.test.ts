@@ -66,7 +66,7 @@ describe("validatePublishRequirements", () => {
     expect(r.ok).toBe(true)
   })
 
-  it("beekeeping (services disabled) is not blocked by missing services; shop-required still needs products", () => {
+  it("beekeeping (services disabled) is not blocked by missing services; empty shop is a WARNING (#82)", () => {
     // products present → only the shop requirement matters, and it is satisfied
     const ok = validatePublishRequirements({
       ...baseInput,
@@ -76,28 +76,31 @@ describe("validatePublishRequirements", () => {
     })
     expect(ok.ok).toBe(true)
 
-    // products absent → the required shop capability blocks
+    // P2 #82: products absent → the site still publishes; the empty shop is
+    // a warning (the public site hides an empty shop section), never a blocker.
     const blocked = validatePublishRequirements({
       ...baseInput,
       serviceCount: 0,
       productCount: 0,
       capabilities: { services: "disabled", shop: "required" },
     })
-    expect(blocked.ok).toBe(false)
-    expect(blocked.errors.some((e) => e.includes("izdelek"))).toBe(true)
+    expect(blocked.ok).toBe(true)
+    expect(blocked.errors.some((e) => e.includes("izdelek"))).toBe(false)
+    expect(blocked.warnings.some((w) => w.toLowerCase().includes("trgovina"))).toBe(true)
   })
 
-  it("requires a product only when the shop capability is REQUIRED", () => {
+  it("empty shop on a REQUIRED shop capability warns instead of blocking (#82)", () => {
     const r = validatePublishRequirements({
       ...baseInput,
       productCount: 0,
       capabilities: { services: "disabled", shop: "required" },
     })
-    expect(r.ok).toBe(false)
-    expect(r.errors.some((e) => e.includes("izdelek"))).toBe(true)
+    expect(r.ok).toBe(true)
+    expect(r.errors.some((e) => e.includes("izdelek"))).toBe(false)
+    expect(r.warnings.some((w) => w.includes("prazna"))).toBe(true)
   })
 
-  it("blocks on multiple requirements at once and lists all reasons", () => {
+  it("blocks on multiple requirements at once and lists all reasons (shop moved to warnings, #82)", () => {
     const r = validatePublishRequirements({
       orgName: "",
       contactEmail: null,
@@ -107,7 +110,10 @@ describe("validatePublishRequirements", () => {
       capabilities: { services: "required", shop: "required" } as const,
     })
     expect(r.ok).toBe(false)
-    expect(r.errors).toHaveLength(4)
+    // orgName + contact + empty services catalog = 3 blockers; the empty
+    // shop is now a warning (#82), not a fourth blocker.
+    expect(r.errors).toHaveLength(3)
+    expect(r.warnings.some((w) => w.toLowerCase().includes("trgovina"))).toBe(true)
   })
 
   it("skips catalog checks when neither services nor shop is enabled", () => {

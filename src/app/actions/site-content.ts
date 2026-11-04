@@ -273,7 +273,14 @@ export async function updateOrgVertical(
       where: { id: org.id },
       data: {
         vertical: preset.id,
-        palette: org.palette || preset.palette,
+        // #87: keep the owner's colour only when it was an actual choice. If
+        // it still equals the OLD activity's preset palette, it was never
+        // touched by the owner — adopt the new trade's palette so the switch
+        // looks complete (preset palettes differ across trades).
+        palette:
+          org.palette === getVertical(org.vertical)?.palette
+            ? preset.palette
+            : org.palette,
         // P1 #58: every switch bumps the version — the owner sees the
         // pending-changes banner and publishes deliberately.
         contentVersion: { increment: 1 },

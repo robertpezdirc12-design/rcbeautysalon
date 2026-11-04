@@ -723,7 +723,7 @@ export async function createAppointment(
 
       // Send email in background (non-blocking)
       after(async () => {
-        await sendAppointmentConfirmationEmail({
+        const result = await sendAppointmentConfirmationEmail({
           email: customerEmail as string,
           customerName: customerName as string,
           serviceName: serviceNames,
@@ -735,6 +735,16 @@ export async function createAppointment(
           depositAmount: config.bookingDeposit,
           appointmentId: appointment.id,
         })
+        // P1 #76 — evidence: napiši confirmationSentAt PO uspešnem pošiljanju
+        // (naredi vsak prihodnji job varnega idempotentnost).
+        if (result?.success !== false) {
+          await prisma.appointment
+            .update({
+              where: { id: appointment.id },
+              data: { confirmationSentAt: new Date() },
+            })
+            .catch(() => undefined)
+        }
       })
     }
 
@@ -1191,7 +1201,7 @@ export async function updateAppointmentStatus(
     switch (status) {
       case "CONFIRMED":
         after(async () => {
-          await sendAppointmentConfirmationEmail({
+          const result = await sendAppointmentConfirmationEmail({
             email: customerEmail,
             customerName,
             serviceName,
@@ -1203,6 +1213,15 @@ export async function updateAppointmentStatus(
             depositAmount: appointmentDetails.depositAmount.toNumber(),
             appointmentId: id,
           })
+          // P1 #76 — evidence: confirmationSentAt PO uspešnem pošiljanju.
+          if (result?.success !== false) {
+            await prisma.appointment
+              .update({
+                where: { id },
+                data: { confirmationSentAt: new Date() },
+              })
+              .catch(() => undefined)
+          }
         })
         break
 

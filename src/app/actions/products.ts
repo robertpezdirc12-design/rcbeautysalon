@@ -193,6 +193,20 @@ export async function createProduct(data: CreateProductInput) {
     if (error instanceof UnauthorizedError) {
       return { success: false, error: error.message }
     }
+    // #77: SKU is unique per TENANT (@@unique([organizationId, sku])) — a
+    // collision inside one tenant must read as a field error, never as a raw
+    // Prisma constraint name.
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      (error as { code?: string }).code === "P2002"
+    ) {
+      return {
+        success: false,
+        error: "Ta SKU je že uporabljen v vaši trgovini.",
+      }
+    }
     console.error("Error creating product:", error)
     return { success: false, error: "Failed to create product." }
   }
@@ -252,6 +266,18 @@ export async function updateProduct(id: string, data: UpdateProductInput) {
   } catch (error) {
     if (error instanceof UnauthorizedError) {
       return { success: false, error: error.message }
+    }
+    // #77: same per-tenant SKU rule on update — human field error, no Prisma string.
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      (error as { code?: string }).code === "P2002"
+    ) {
+      return {
+        success: false,
+        error: "Ta SKU je že uporabljen v vaši trgovini.",
+      }
     }
     console.error("Error updating product:", error)
     return { success: false, error: "Failed to update product." }

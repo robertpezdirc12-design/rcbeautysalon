@@ -98,7 +98,12 @@ export function StartWizard({
   // the activity already chosen; "Naprej" is enabled immediately.
   const [vertical, setVertical] = useState<string | null>(initialVertical)
   const [secondary, setSecondary] = useState<string | null>(null)
+  // #81: `palette` is the owner's EXPLICIT override; the effective value
+  // follows the activity's preset so a deep-linked activity alone is enough
+  // to advance (the palette picker lives in step 2 — it must not gate step 1).
   const [palette, setPalette] = useState<string | null>(null)
+  const effectivePalette =
+    palette ?? ACTIVITY_OPTIONS.find((v) => v.id === vertical)?.palette ?? null
 
   // Step 2 — salon details
   const [name, setName] = useState("")
@@ -123,8 +128,8 @@ export function StartWizard({
     [vertical]
   )
   const selectedPalette = useMemo(
-    () => PALETTE_OPTIONS.find((p) => p.id === palette) ?? null,
-    [palette]
+    () => PALETTE_OPTIONS.find((p) => p.id === effectivePalette) ?? null,
+    [effectivePalette]
   )
 
   // Debounced slug availability check (state is set in change handlers;
@@ -278,15 +283,13 @@ export function StartWizard({
         toast.error("Izberite panogo.", { description: "Izberite eno od panog za nadaljevanje." })
         return false
       }
-      if (!palette) {
-        toast.error("Izberite barvno paleto.")
-        return false
-      }
+      // #81: no palette gate here — the picker is rendered in step 2, and a
+      // deep-linked activity already carries its preset palette forward.
       return true
     }
     if (current === 2) {
       if (name.trim().length < 2) {
-        toast.error("Ime salona mora imeti vsaj 2 znaka.")
+        toast.error("Ime podjetja mora imeti vsaj 2 znaka.")
         return false
       }
       if (slug.trim().length < 2) {
@@ -301,7 +304,9 @@ export function StartWizard({
         toast.error("Ta URL naslov ni prost. Izberite drugega.")
         return false
       }
-      if (!palette) {
+      // #81: safety net — with an activity chosen the preset always provides
+      // a palette, so this can only fail if the state is corrupted.
+      if (!effectivePalette) {
         toast.error("Izberite barvno paleto.")
         return false
       }
@@ -360,7 +365,7 @@ export function StartWizard({
         slug: slug.trim(),
         vertical: vertical!,
         secondaryVertical: secondary,
-        palette: palette!,
+        palette: effectivePalette!,
         ownerName: ownerName.trim(),
         // #40: prijavljen uporabnik — e-pošta iz seje, gesla ni (strežnik
         // poveže obstoječi račun in ne ustvari novega).
@@ -681,7 +686,7 @@ export function StartWizard({
             <p className="mt-2 text-muted-foreground">
               {authed
                 ? "Podjetje povežemo z vašim obstoječim računom — brez nove prijave."
-                : "S tem računom upravljate salon, rezervacije in trgovino."}
+                : "S tem računom upravljate svoje podjetje, rezervacije in trgovino."}
             </p>
 
             <div className="mt-6 space-y-4">
@@ -809,7 +814,7 @@ export function StartWizard({
               {creating ? (
                 <>
                   <SpinnerIcon size={16} className="mr-1.5 animate-spin" />
-                  Ustvarjam salon …
+                  Ustvarjam vašo stran …
                 </>
               ) : (
                 "Ustvari podjetje"

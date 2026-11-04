@@ -18,7 +18,7 @@ export const bookingSl = {
 
   // ---- Korak 3: datum in ura ----
   pickDateTime: "Izberite datum in uro",
-  pickDateTimeDesc: "Izberite, kdaj želite obiskati salon",
+  pickDateTimeDesc: "Izberite, kdaj želite obiskati {business}",
   pickStaffFirst: "Najprej izberite osebje",
   // P2 #15 (audit-2026-11): "vir" is back-office jargon — customers see
   // "prostor"; note no longer repeats the word "prost" twice.
@@ -65,10 +65,10 @@ export const bookingSl = {
     `Polog ${amount} je potreben za potrditev termina in je `,
   nonRefundableStrong: "nepovraten",
   depositInSalon: "Polog",
-  depositInSalonValue: "V salonu",
-  depositInSalonBoxTitle: "Plačilo v salonu",
+  depositInSalonValue: "{businessIn}",
+  depositInSalonBoxTitle: "Plačilo {businessIn}",
   depositInSalonBoxBody:
-    "Spletna plačila za ta salon še niso omogočena. Rezervacijo oddate brez pologa, znesek pa poravnate ob obisku.",
+    "Spletna plačila za {business} še niso omogočena. Rezervacijo oddate brez pologa, znesek pa poravnate ob obisku.",
   employeeBoxTitle: "Rezervacija zaposlenega",
   employeeBoxBody:
     "Polog ni potreben. Plačilo bo obračunano po opravljeni storitvi.",
@@ -88,9 +88,9 @@ export const bookingSl = {
   employeeCreateFailed:
     "Ustvarjanje termina ni uspelo. Poskusite znova.",
   noPaymentToast:
-    "Rezervacija je bila oddana brez spletnega plačila — salon jo bo potrdil, polog pa poravnal ob obisku.",
+    "Rezervacija je bila oddana brez spletnega plačila — potrjena bo po pregledu, znesek pa poravnajte ob obisku.",
   noPaymentFailed:
-    "Rezervacija ni uspela. Kontaktirajte salon ali poskusite znova.",
+    "Rezervacija ni uspela. Kontaktirajte {business} ali poskusite znova.",
   checkoutFailed: "Ustvarjanje plačila ni uspelo. Poskusite znova.",
   unexpectedError: "Prišlo je do nepričakovane napake. Poskusite znova.",
 
@@ -129,7 +129,7 @@ export const bookingEn: BookingDict = {
   yourSpecialistDesc: "You are booking with this specialist",
 
   pickDateTime: "Pick a date and time",
-  pickDateTimeDesc: "Choose when you would like to visit the salon",
+  pickDateTimeDesc: "Choose when you would like to visit the {business}",
   pickStaffFirst: "Choose a staff member first",
   resourceLabel: "Preferred space (optional)",
   resourcePlaceholder: "Choose a space",
@@ -171,10 +171,10 @@ export const bookingEn: BookingDict = {
     `The deposit of ${amount} is required to confirm the appointment and is `,
   nonRefundableStrong: "non-refundable",
   depositInSalon: "Deposit",
-  depositInSalonValue: "At the salon",
-  depositInSalonBoxTitle: "Pay at the salon",
+  depositInSalonValue: "{businessIn}",
+  depositInSalonBoxTitle: "Pay {businessIn}",
   depositInSalonBoxBody:
-    "Online payments are not yet enabled for this salon. Submit your booking without a deposit and settle the amount during your visit.",
+    "Online payments are not yet enabled for this {business}. Submit your booking without a deposit and settle the amount during your visit.",
   employeeBoxTitle: "Employee booking",
   employeeBoxBody:
     "No deposit required. Payment will be charged after the service.",
@@ -190,8 +190,8 @@ export const bookingEn: BookingDict = {
   staffRequiredToast: "Choose a staff member before confirming.",
   employeeCreateFailed: "Failed to create the appointment. Please try again.",
   noPaymentToast:
-    "Your booking was submitted without online payment — the salon will confirm it and collect the deposit on arrival.",
-  noPaymentFailed: "Booking failed. Contact the salon or try again.",
+    "Your booking was submitted without online payment — it will be confirmed after review and the deposit settled on arrival.",
+  noPaymentFailed: "Booking failed. Contact the {business} or try again.",
   checkoutFailed: "Failed to create the payment. Please try again.",
   unexpectedError: "An unexpected error occurred. Please try again.",
 

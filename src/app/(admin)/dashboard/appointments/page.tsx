@@ -32,7 +32,7 @@ const statusColors: Record<string, string> = {
 export default async function AppointmentsPage() {
   // Custom roles (E4-6b): server-side page guard
   await requirePagePermission("appointments.view")
-  const [{ t, locale }, salonTz, appointments] = await Promise.all([
+  const [{ t, locale, withBusiness }, salonTz, appointments] = await Promise.all([
     getServerI18n(),
     getSessionSalonTimezone(),
     getAdminAppointments(),
@@ -72,7 +72,7 @@ export default async function AppointmentsPage() {
             </span>
           </h1>
           <p className="text-muted-foreground">
-            {t.appointments.list.subtitle}
+            {withBusiness(t.appointments.list.subtitle)}
           </p>
         </div>
         <Link href="/dashboard/appointments/new">

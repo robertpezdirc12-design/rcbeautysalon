@@ -19,12 +19,13 @@ interface ReviewWithService {
   rating: number
   comment: string
   createdAt: Date
+  // P2 #75: ocena podjetja nima storitve (serviceId null → service null)
   service: {
     id: string
     name: string
     slug: string
     imageUrl: string | null
-  }
+  } | null
 }
 
 interface MyReviewCardProps {
@@ -67,9 +68,10 @@ export function MyReviewCard({ review }: MyReviewCardProps) {
     <Card className={isPending ? "opacity-50" : ""}>
       <CardContent className="p-4">
         <div className="flex gap-4">
-          {/* Service Image */}
-          <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg">
-            {review.service.imageUrl ? (
+          {/* P2 #75: ocena podjetja nima storitve — prikaži zvezdico
+              namesto slike storitve. */}
+          <div className="bg-muted relative h-20 w-20 shrink-0 overflow-hidden rounded-lg">
+            {review.service?.imageUrl ? (
               <Image
                 src={review.service.imageUrl}
                 alt={review.service.name}
@@ -78,8 +80,8 @@ export function MyReviewCard({ review }: MyReviewCardProps) {
               
               sizes="56px"/>
             ) : (
-              <div className="bg-muted flex h-full w-full items-center justify-center">
-                <span className="text-muted-foreground text-xs">Ni slike</span>
+              <div className="flex h-full w-full items-center justify-center">
+                <StarIcon size={28} className="text-muted-foreground" />
               </div>
             )}
           </div>
@@ -88,12 +90,16 @@ export function MyReviewCard({ review }: MyReviewCardProps) {
           <div className="flex-1">
             <div className="flex items-start justify-between">
               <div>
-                <Link
-                  href={`/services/${review.service.slug}`}
-                  className="font-semibold hover:underline"
-                >
-                  {review.service.name}
-                </Link>
+                {review.service ? (
+                  <Link
+                    href={`/services/${review.service.slug}`}
+                    className="font-semibold hover:underline"
+                  >
+                    {review.service.name}
+                  </Link>
+                ) : (
+                  <span className="font-semibold">Ocena podjetja</span>
+                )}
                 <div className="mt-1 flex items-center gap-1">
                   {[1, 2, 3, 4, 5].map((star) => (
                     <StarIcon
@@ -150,7 +156,7 @@ export function MyReviewCard({ review }: MyReviewCardProps) {
         open={showDeleteDialog}
         onOpenChange={setShowDeleteDialog}
         title="Izbriši oceno"
-        description={`Ste prepričani, da želite izbrisati svojo oceno za storitev "${review.service.name}"?`}
+        description={`Ste prepričani, da želite izbrisati svojo oceno${review.service ? ` za storitev "${review.service.name}"` : ""}?`}
         confirmLabel="Izbriši"
         onConfirm={handleConfirmDelete}
         variant="destructive"
@@ -160,7 +166,7 @@ export function MyReviewCard({ review }: MyReviewCardProps) {
       <EditReviewDialog
         open={showEditDialog}
         onOpenChange={setShowEditDialog}
-        serviceName={review.service.name}
+        serviceName={review.service?.name ?? "podjetje"}
         initialRating={review.rating}
         initialComment={review.comment}
         isPending={isPending}

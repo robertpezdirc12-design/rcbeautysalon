@@ -30,6 +30,13 @@ export function LoginForm({ orgName, orgLogo, orgSlug }: LoginFormProps) {
   // the fresh cookie immediately (cart/checkout read it client-side).
   const { update } = useSession()
   const callbackUrl = searchParams.get("callbackUrl") || "/dashboard"
+  // P2 #74: najemniško označena prijava (?org=) je VRATA STRANKE — iz nje
+  // je gost prišel prek "Prijava" v nogi najemnikove strani. Nikoli ne
+  // ponujaj provider CTA-ja ("Ustvari svoje podjetje") nekomu, ki kupuje
+  // med; pot nazaj je trgovina, ne platforma. Nevtralni /login ostane
+  // platformina lastna vrata (obe poti sta tam legitimni, glej #68).
+  const isTenantContext =
+    Boolean(orgSlug) || Boolean(callbackUrl.startsWith("/s/"))
 
   const {
     register,
@@ -92,7 +99,7 @@ export function LoginForm({ orgName, orgLogo, orgSlug }: LoginFormProps) {
                 href={`/s/${orgSlug}`}
                 className="text-muted-foreground hover:text-primary-text text-sm transition-colors"
               >
-                ← Nazaj na {orgName}
+                ← Nazaj v trgovino · {orgName}
               </Link>
             )}
           </div>
@@ -157,13 +164,18 @@ export function LoginForm({ orgName, orgLogo, orgSlug }: LoginFormProps) {
               </Link>
             </div>
 
-            <div className="text-center text-sm text-muted-foreground">
-              {t.auth.login.ownSalon}{" "}
-              {/* P2 #68: nevtralni CTA — platforma najema strani vsem obrtom. */}
-              <Link href="/start" className="font-medium text-primary-text hover:underline">
-                Ustvari svoje podjetje
-              </Link>
-            </div>
+            {/* P2 #74: provider CTA izključno v nevtralnem kontekstu —
+                najemniška prijava ne sme vabiti gosta k ustvarjanju
+                lastnega podjetja. */}
+            {!isTenantContext && (
+              <div className="text-center text-sm text-muted-foreground">
+                {t.auth.login.ownSalon}{" "}
+                {/* P2 #68: nevtralni CTA — platforma najema strani vsem obrtom. */}
+                <Link href="/start" className="font-medium text-primary-text hover:underline">
+                  Ustvari svoje podjetje
+                </Link>
+              </div>
+            )}
 
             <div className="text-center">
               <Link href="/" className="text-sm text-muted-foreground hover:text-primary-text">

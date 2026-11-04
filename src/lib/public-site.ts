@@ -179,8 +179,11 @@ export async function getPublicFeaturedStaff(orgId: string) {
  * section hides entirely while the tenant has none — no fake social proof.
  */
 export async function getPublicTestimonials(orgId: string) {
+  // P2 #75: najemnik DIREKTNO (prej skozi service) — ocene podjetja
+  // (serviceId null) so zdaj del iste vrstice in delujejo za profile
+  // brez storitev (npr. čebelarstvo).
   return prisma.review.findMany({
-    where: { isActive: true, service: { organizationId: orgId } },
+    where: { isActive: true, organizationId: orgId },
     orderBy: { createdAt: "desc" },
     take: 6,
     select: {
@@ -377,7 +380,8 @@ export async function resolveAvailableSections(
 ): Promise<HomeSectionFlags> {
   // P3 #62: staff is counted like services/products — the "Ekipa" anchor
   // is dead when the tenant has no active members.
-  const [featuredServices, featuredProducts, activeStaff] = await Promise.all([
+  // P2 #75: reviews se šteje enako — sidro „Mnenja" je mrtvo pri 0 ocen.
+  const [featuredServices, featuredProducts, activeStaff, activeReviews] = await Promise.all([
     prisma.service.count({
       where: { organizationId, isActive: true, isFeatured: true },
     }),
@@ -385,12 +389,14 @@ export async function resolveAvailableSections(
       where: { organizationId, isActive: true, isFeatured: true },
     }),
     prisma.staff.count({ where: { organizationId, isActive: true } }),
+    prisma.review.count({ where: { organizationId, isActive: true } }),
   ])
   return sectionsForProfile(
     {
       services: featuredServices > 0,
       shop: featuredProducts > 0,
       team: activeStaff > 0,
+      reviews: activeReviews > 0,
     },
     resolveEffectiveProfile(org)
   )

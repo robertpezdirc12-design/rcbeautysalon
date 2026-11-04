@@ -121,13 +121,18 @@ export default async function BookingSuccessPage({
   // No-payment booking (salon without Stripe, E4-3b): the appointment was
   // created directly as PENDING — show honest "submitted" state.
   if (appointmentId) {
-    const appointment = await prisma.appointment.findUnique({
-      where: { id: appointmentId },
-      include: {
-        services: { include: { service: true } },
-        staff: { select: { name: true } },
-      },
-    })
+    // IDOR guard: scope the lookup to THIS tenant (same class of fix as the
+    // dashboard order detail). A foreign or unknown id must be indistinguishable
+    // from a missing one — never confirm an id exists elsewhere.
+    const appointment = site?.org.id
+      ? await prisma.appointment.findFirst({
+          where: { id: appointmentId, organizationId: site.org.id },
+          include: {
+            services: { include: { service: true } },
+            staff: { select: { name: true } },
+          },
+        })
+      : null
 
     const tz = site?.org.id ? await getOrgTimezone(site.org.id) : "Europe/Ljubljana"
     const serviceNames =
@@ -146,8 +151,10 @@ export default async function BookingSuccessPage({
               </div>
               <CardTitle className="text-2xl">Rezervacija oddana!</CardTitle>
               <CardDescription className="text-base">
-                Vaša rezervacija je bila posredovana salonu. Salon bo termin
-                potrdil, znesek (
+                {/* P2 #84: pasiv brez samostalnika — ne morem napačno
+                    poimenovati podjetja (mechanic ≠ salon). */}
+                Vaša rezervacija je bila posredovana. Termin bo potrjen po
+                pregledu, znesek (
                 {appointment.totalPrice.toNumber().toFixed(2).replace(".", ",")}{" "}
                 €) pa poravnajte ob obisku.
               </CardDescription>

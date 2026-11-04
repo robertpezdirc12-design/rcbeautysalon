@@ -37,22 +37,61 @@ export async function createReview(data: ReviewFormData) {
     }
   }
 
+  // P2 #75: serviceId je izbiren — null = ocena PODJETJA.
   // Verify service exists, is active, and belongs to the current organization
   const org = await getPublicOrg()
-  const service = org
-    ? await prisma.service.findFirst({
-        where: {
-          id: data.serviceId,
-          organizationId: org.id,
-        },
-        select: { id: true, slug: true, isActive: true },
-      })
-    : null
-
-  if (!service || !service.isActive) {
+  if (!org) {
     return {
       success: false,
       error: "Storitev ni bila najdena ali ni na voljo.",
+    }
+  }
+
+  let service: { id: string; slug: string; isActive: boolean } | null = null
+  if (data.serviceId) {
+    service = await prisma.service.findFirst({
+      where: {
+        id: data.serviceId,
+        organizationId: org.id,
+      },
+      select: { id: true, slug: true, isActive: true },
+    })
+
+    if (!service || !service.isActive) {
+      return {
+        success: false,
+        error: "Storitev ni bila najdena ali ni na voljo.",
+      }
+    }
+  }
+
+  // P2 #75 — poštenost: mnenje sme oddati samo nekdo, ki je pri tem
+  // najemniku PRAVZAPRAV kupil — COMPLETED termin ali COMPLETED naročilo
+  // (povezava prek Customer računa ALI gostovskega e-poštnega naslova,
+  // isto pravilo ujemanja kot #70). Preverjeno na strežniku, ne v formi.
+  const customer = await prisma.customer.findFirst({
+    where: { userId: session.user.id, organizationId: org.id },
+    select: { id: true },
+  })
+  const email = session.user.email ?? null
+  const purchaseScopes = [
+    ...(customer ? [{ customerId: customer.id }] : []),
+    ...(email ? [{ guestEmail: email }] : []),
+  ]
+  const hasPurchased =
+    purchaseScopes.length > 0 &&
+    ((await prisma.appointment.count({
+      where: { organizationId: org.id, status: "COMPLETED", OR: purchaseScopes },
+    })) > 0 ||
+      (await prisma.order.count({
+        where: { organizationId: org.id, status: "COMPLETED", OR: purchaseScopes },
+      })) > 0)
+
+  if (!hasPurchased) {
+    return {
+      success: false,
+      error:
+        "Oceno lahko oddate samo po opravljenem terminu ali zaključenem naročilu pri tem podjetju.",
     }
   }
 
@@ -63,14 +102,19 @@ export async function createReview(data: ReviewFormData) {
         rating: data.rating,
         comment,
         userId: session.user.id,
-        serviceId: data.serviceId,
+        serviceId: data.serviceId ?? null,
+        organizationId: org.id, // P2 #75: najemnik direktno — nikoli iz forme
         isActive: true, // Auto-approve all reviews
       },
     })
 
     // Revalidate service page and services list
-    revalidatePath(`/services/${service.slug}`)
-    revalidatePath("/services")
+    if (service) {
+      revalidatePath(`/services/${service.slug}`)
+      revalidatePath("/services")
+    }
+    // P2 #75: podjetniška ocena se pojavi na domači strani (Izjave strank).
+    revalidatePath("/")
 
     return {
       success: true,

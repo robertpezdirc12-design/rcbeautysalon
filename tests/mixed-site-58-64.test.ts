@@ -117,7 +117,7 @@ describe("#60 — body sections derive from sectionsForProfile", () => {
   it("beekeeping profile + seeded services → no services section anywhere", () => {
     // The decision layer itself: capability gate beats legacy data.
     const flags = sectionsForProfile(
-      { services: true, shop: true, team: true },
+      { services: true, shop: true, team: true, reviews: true },
       PROFILES.beekeeping
     )
     expect(flags.services).toBe(false)
@@ -229,10 +229,13 @@ describe("#61 — validatePublishRequirements coherence gate", () => {
       siteContent: null,
       vertical: "beekeeping",
     })
-    // shop-required with 0 products still blocks (unchanged), but the
-    // services contradiction is a warning.
-    expect(r.ok).toBe(false)
+    // P2 #82: shop-required with 0 products no longer blocks either — an
+    // empty shop is a warning (the public site hides it). The services
+    // contradiction stays a warning.
+    expect(r.ok).toBe(true)
+    expect(r.errors).toHaveLength(0)
     expect(r.warnings.some((w) => w.includes("storitev"))).toBe(true)
+    expect(r.warnings.some((w) => w.toLowerCase().includes("trgovina"))).toBe(true)
   })
 
   it("sample-only imagery produces a warning (never a blocker)", () => {

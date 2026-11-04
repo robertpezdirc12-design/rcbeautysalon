@@ -9,7 +9,7 @@ import { requirePagePermission } from "@/lib/auth/guards"
 export default async function NewServicePage() {
   // Custom roles (E4-6b): server-side page guard
   await requirePagePermission("services.manage")
-  const [categories, staff, { t }] = await Promise.all([
+  const [categories, staff, { t, withBusiness }] = await Promise.all([
     getAllCategories(),
     getAllActiveStaff(),
     getServerI18n(),
@@ -26,7 +26,7 @@ export default async function NewServicePage() {
         </Link>
         <div>
           <h1 className="text-3xl font-bold">{t.services.newTitle}</h1>
-          <p className="text-muted-foreground">{t.services.newSubtitle}</p>
+          <p className="text-muted-foreground">{withBusiness(t.services.newSubtitle)}</p>
         </div>
       </div>
 

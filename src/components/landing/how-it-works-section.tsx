@@ -6,15 +6,18 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import { AccentSpan, splitLastWord } from "./section-title"
+import { useI18n } from "@/lib/i18n/provider"
 
 // ============================================================
 // "Kako deluje" — public trust section explaining the booking
 // flow in four truthful steps (pattern: NaročiSe / MyPlanly
 // landing pages). Copy is intentionally aligned with the real
 // booking semantics: a guest booking is created as PENDING and
-// the salon confirms it, so step 3 says the SALON confirms —
-// never promise e-mail/SMS confirmations here, delivery depends
-// on tenant e-mail configuration.
+// the business confirms it, so step 3 names the BUSINESS —
+// with the tenant's own noun (#84: "Salon potrdi" za lepoto,
+// "Servis potrdi" za vulkanizerja) — never promise e-mail/SMS
+// confirmations here, delivery depends on tenant e-mail
+// configuration.
 // ============================================================
 
 export interface BookingStep {
@@ -23,7 +26,19 @@ export interface BookingStep {
   icon: LucideIcon
 }
 
-/** Pure data so tests and the renderer stay in sync. */
+/**
+ * P2 #84: interpolates {business} with the tenant's own noun and
+ * capitalizes the first letter ("servis" → "Servis potrdi").
+ * Pure — tests and the renderer stay in sync.
+ */
+export function resolveBusinessTemplate(text: string, business: string): string {
+  return text
+    .replace(/\{business\}/g, business)
+    .replace(/^./, (c) => c.toUpperCase())
+}
+
+/** Pure data so tests and the renderer stay in sync. Step titles may
+ *  carry the {business} placeholder (#84) — resolved at render time. */
 export const HOW_IT_WORKS_STEPS: BookingStep[] = [
   {
     title: "Izberite storitev",
@@ -38,7 +53,7 @@ export const HOW_IT_WORKS_STEPS: BookingStep[] = [
     icon: CalendarCheck,
   },
   {
-    title: "Salon potrdi",
+    title: "{business} potrdi",
     description:
       "Vašo rezervacijo preverimo in potrdimo v najkrajšem možnem času.",
     icon: BadgeCheck,
@@ -60,6 +75,14 @@ export function HowItWorksSection({
   subtitle = "Rezervacija termina v štirih korakih — preprosto in brez klicanja.",
 }: HowItWorksSectionProps) {
   const { lead, accent } = splitLastWord(title)
+  // P2 #84: the confirming party is the tenant's OWN business noun
+  // ("salon" za lepoto, "servis" za vulkanizerja) — iz i18n profila.
+  const { term } = useI18n()
+  const business = term("businessSingular")
+  const confirmStepTitle = resolveBusinessTemplate(
+    HOW_IT_WORKS_STEPS[2].title,
+    business
+  )
 
   return (
     <section className="border-primary/30 bg-background border-t py-16">
@@ -74,6 +97,8 @@ export function HowItWorksSection({
           {HOW_IT_WORKS_STEPS.map((step, index) => {
             const Icon = step.icon
             const num = String(index + 1).padStart(2, "0")
+            const displayTitle =
+              index === 2 ? confirmStepTitle : step.title
             return (
               <li
                 key={step.title}
@@ -91,7 +116,7 @@ export function HowItWorksSection({
                   </span>
                 </div>
                 <h3 className="group-hover:text-primary-text mb-2 font-semibold transition-colors">
-                  {step.title}
+                  {displayTitle}
                 </h3>
                 <p className="text-muted-foreground text-sm leading-relaxed">
                   {step.description}

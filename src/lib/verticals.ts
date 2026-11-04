@@ -265,6 +265,11 @@ const IMG = {
   heroAtelier: "/img/presets/hero-atelier.jpg",
   heroGarage: "/img/presets/hero-garage.jpg",
   heroApiary: "/img/presets/hero-apiary.jpg",
+  // P2 #85: NEVTRALNE slike za "Univerzalno" — nobena ne pripada lepotnemu
+  // salonu; delovna miza in roke obrtnika sta resnični za vsak obrt.
+  heroWorkspace: "/img/presets/hero-workspace.jpg",
+  workspace: "/img/presets/workspace.jpg",
+  craft: "/img/presets/craft.jpg",
 
   // Owner/staff portrait presets (photorealistic, per vertical)
   staffFrizerka: "/img/presets/staff-frizerka.jpg",
@@ -317,8 +322,9 @@ export function presetStaffImage(verticalId: string): string | undefined {
 
 /**
  * Vertical-specific site imagery overrides (hero/about/cta). Verticals
- * not listed keep the generic beauty-salon imagery — appropriate for
- * the remaining profiles (beauty, frizer, nails, cosmetica, generic).
+ * not listed keep the beauty-salon imagery — appropriate for the
+ * remaining profiles (beauty, frizer, nails, cosmetica); generic has its
+ * own NEUTRAL set (#85).
  */
 const VERTICAL_IMAGERY: Record<string, { hero?: string; about?: string; cta?: string }> = {
   barber: { hero: IMG.heroBarber, about: IMG.barberBeard, cta: IMG.barberHotTowel },
@@ -327,6 +333,8 @@ const VERTICAL_IMAGERY: Record<string, { hero?: string; about?: string; cta?: st
   seamstress: { hero: IMG.heroAtelier, about: IMG.sewing, cta: IMG.customDress },
   "tire-service": { hero: IMG.heroGarage, about: IMG.tireChange, cta: IMG.oilChange },
   beekeeping: { hero: IMG.heroApiary, about: IMG.honeycomb, cta: IMG.honeyJars },
+  // P2 #85: generic dobi lastne nevtralne slike — ne deduje salon/transform.
+  generic: { hero: IMG.heroWorkspace, about: IMG.workspace, cta: IMG.craft },
 }
 
 export interface PresetService {
@@ -549,13 +557,15 @@ export const VERTICALS: VerticalPreset[] = [
     currency: "EUR",
     locale: "sl",
     timezone: "Europe/Ljubljana",
+    // P2 #85: nevtralne slike (delovna miza/roki), ne salon; vsebina je
+    // generic vnos iz site-content, ne beauty fallback.
     categories: [
       { name: "Storitve", slug: "storitve", services: [
-        { name: "Uvodni posvet", description: "Pogovor o vaših željah in pričakovanjih", duration: 30, price: 0, imageUrl: IMG.salonInterior, isFeatured: true },
-        { name: "Storitev po meri", description: "Dopolni s svojimi storitvami v urejevalniku", duration: 60, price: 50, imageUrl: IMG.transform, isFeatured: true },
+        { name: "Uvodni posvet", description: "Pogovor o vaših željah in pričakovanjih", duration: 30, price: 0, imageUrl: IMG.workspace, isFeatured: true },
+        { name: "Storitev po meri", description: "Dopolni s svojimi storitvami v urejevalniku", duration: 60, price: 50, imageUrl: IMG.craft, isFeatured: true },
       ]},
     ],
-    siteContent: defaultSiteContent("beauty"),
+    siteContent: defaultSiteContent("generic"),
   },
 
   // --- §21 acceptance profiles: genuinely different business models ---
@@ -636,8 +646,10 @@ export function getVertical(id: string): VerticalPreset {
 /** Fill content with vertical-specific default imagery. */
 export function verticalSiteContent(id: string): SiteContent {
   const v = getVertical(id)
+  // P2 #85: privzeta slika je NEVTRALNA (delovna miza) — prej je vsak
+  // neznan vertikal dobil notranjost lepotnega salona.
   const aboutImg =
-    v.id === "massage" ? IMG.massage : v.id === "nails" ? IMG.manicure : v.id === "cosmetica" ? IMG.facial : IMG.salonInterior
+    v.id === "massage" ? IMG.massage : v.id === "nails" ? IMG.manicure : v.id === "cosmetica" ? IMG.facial : IMG.workspace
   return withImages(v.id, v.siteContent, aboutImg)
 }
 

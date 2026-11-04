@@ -83,6 +83,9 @@ interface HomeContentProps {
    * (e.g. beekeeping, which has zero services by design). */
   hasServices: boolean
   hasProducts: boolean
+  /** P2 #75: profil brez storitev (npr. čebelarstvo) nima /services/[slug]
+   *  strani, kjer živi forma za ocene — pokaže se v „Izjavah strank". */
+  canReviewBusiness?: boolean
 }
 
 export function HomeContent({
@@ -100,6 +103,7 @@ export function HomeContent({
   bookingEnabled = false,
   hasServices,
   hasProducts,
+  canReviewBusiness = false,
 }: HomeContentProps) {
   const primaryCta = ctaLinks?.primaryCta ?? content.hero.primaryCta
   const secondaryCta = ctaLinks ? ctaLinks.secondaryCta : content.hero.secondaryCta
@@ -441,6 +445,19 @@ export function HomeContent({
           </div>
         </SectionWrapper>
       ),
+
+    // P2 #75: „Izjave strank" je LASTNA sekcija (ključ "reviews") —
+    // prej je bila pasavica ekipe in je izginila, kadar je bil ekipa
+    // izklopljena (čebelarstvo: staff "disabled" → brez ocen vendar).
+    // Komponenta sama vrne null pri 0 ocen (razen showForm — forma za
+    // profile brez storitev, ki morajo lahko dobiti PRVO oceno).
+    reviews: (
+      <TestimonialsSection
+        testimonials={testimonials}
+        showForm={canReviewBusiness}
+        businessName={org.name}
+      />
+    ),
   }
 
   return (
@@ -448,9 +465,6 @@ export function HomeContent({
       {homeSectionOrder(content.sections).map((key) => (
         <Fragment key={key}>
           {sectionNodes[key]}
-          {/* Social proof rides right after the team section (trust cluster),
-              without being an owner-configurable section key yet. */}
-          {key === "team" && <TestimonialsSection testimonials={testimonials} />}
           {/* "Kako deluje" trust cluster rides right after the features
               section — only for tenants whose CTA really is online booking. */}
           {key === "features" && bookingEnabled && <HowItWorksSection />}

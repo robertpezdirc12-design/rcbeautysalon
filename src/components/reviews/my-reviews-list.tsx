@@ -12,12 +12,13 @@ interface Review {
   rating: number
   comment: string
   createdAt: Date
+  // P2 #75: ocena podjetja nima storitve (serviceId null → service null)
   service: {
     id: string
     name: string
     slug: string
     imageUrl: string | null
-  }
+  } | null
 }
 
 interface MyReviewsListProps {

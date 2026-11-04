@@ -52,7 +52,7 @@ export function DateTimeStep({
   selectedResourceId = null,
   onSelectResource,
 }: DateTimeStepProps) {
-  const { t, locale } = useI18n()
+  const { t, locale, withBusiness } = useI18n()
   const dfLocale = getDateFnsLocale(locale)
   const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([])
   const [loadingSlots, setLoadingSlots] = useState(false)
@@ -97,7 +97,7 @@ export function DateTimeStep({
           </div>
           <CardTitle>{t.booking.pickDateTime}</CardTitle>
         </div>
-        <CardDescription>{t.booking.pickDateTimeDesc}</CardDescription>
+        <CardDescription>{withBusiness(t.booking.pickDateTimeDesc)}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         {!selectedStaffId ? (

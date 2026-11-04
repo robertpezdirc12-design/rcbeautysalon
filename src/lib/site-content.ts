@@ -66,6 +66,7 @@ export type SectionKey =
   | "services"
   | "about"
   | "team"
+  | "reviews"
   | "shop"
   | "cta"
 
@@ -94,6 +95,7 @@ export const SECTION_KEYS: SectionKey[] = [
   "services",
   "about",
   "team",
+  "reviews",
   "shop",
   "cta",
 ]
@@ -134,6 +136,24 @@ export function normalizeSections(input: unknown): SectionMeta[] | null {
     seen.add(entry.key)
     ordered.push({ key: entry.key, visible: !!entry.visible })
   }
+  // P2 #75: „reviews" je NOVA platformska sekcija — stari najemniki, ki so
+  // shranili vrstni red, je še ne poznajo. Kanonično jo vstavimo takoj za
+  // „team" (ali najbližjega predhodnika), da ne pristane pod končnim CTA.
+  // (Pred splošnim append-om — ta bi jo drugače dodal na konec.)
+  if (!ordered.some((s) => s.key === "reviews")) {
+    const idx = SECTION_KEYS.indexOf("reviews")
+    let insertAt = ordered.length
+    for (let i = idx - 1; i >= 0; i--) {
+      const prev = ordered.findIndex((s) => s.key === SECTION_KEYS[i])
+      if (prev !== -1) {
+        insertAt = prev + 1
+        break
+      }
+    }
+    ordered.splice(insertAt, 0, { key: "reviews", visible: true })
+    seen.add("reviews") // splošni append zgoraj ga ne sme podvojiti
+  }
+  // missing keys are appended at the end (visible, so nothing disappears)
   for (const key of SECTION_KEYS) {
     if (!seen.has(key)) {
       seen.add(key)
@@ -520,9 +540,49 @@ export function defaultSiteContent(vertical: string): SiteContent {
         buttonHref: "/shop",
       },
     },
+    // P2 #85: nevtralna vsebina za „Univerzalno“ — prej je generic padal na
+    // beauty (najbolj SPECIFIČEN profil), kar je vodovodniku povedalo
+    // „Vaša lepota, naša strast“. Vsebina je napisana tako, da drži za
+    // KATERO KOPI podjetij; CTA kaže na /inquiry, ker generic ima
+    // appointments: "optional" in privzeto brez koledarja.
+    generic: {
+      hero: {
+        eyebrow: "Dobrodošli",
+        title: "Vaše delo, predstavljeno kot si zasluži",
+        subtitle:
+          "Predstavite svoje storitve, sprejmite povpraševanja in objavite svojo stran — brez klicanja in brez posrednikov.",
+        primaryCta: { label: "Oddaj povpraševanje", href: "/inquiry" },
+        secondaryCta: { label: "Poglej storitve", href: "/services" },
+      },
+      about: {
+        title: "O našem podjetju",
+        paragraphs: [
+          "Smo majhno podjetje, ki ceni pošteno delo in jasno dogovorjeno ceno. Vsako povpraševanje preberemo in odgovorimo osebno.",
+          "Katalog storitev in pogoje uredite v svojem nadzornem panelu — stran se posodobi, ko jo objavite.",
+        ],
+        stats: [],
+      },
+      features: {
+        title: "Zakaj izbrati nas",
+        subtitle: "Preprosto, pošteno, brez presenečenj",
+        items: [
+          { icon: "MessageCircle", title: "Hiter odgovor", description: "Na povpraševanje odgovorimo osebno." },
+          { icon: "FileText", title: "Jasna ponudba", description: "Obseg in cena sta dogovorjena vnaprej." },
+          { icon: "CalendarCheck", title: "Dogovorjen termin", description: "Termin potrdimo, ko se uskladimo." },
+        ],
+      },
+      cta: {
+        title: "Povejte nam, kaj potrebujete",
+        text: "Oddajte povpraševanje in pripravili bomo ponudbo.",
+        buttonLabel: "Oddaj povpraševanje",
+        buttonHref: "/inquiry",
+      },
+    },
   }
 
-  const v = byVertical[vertical] ?? byVertical.beauty
+  // P2 #85: neznan/legacy vertikal pade na NAJBOLJ NEVTRALNO vsebino
+  // (generic), nikoli na najbolj specifično (beauty).
+  const v = byVertical[vertical] ?? byVertical.generic
   const base: SiteContent = {
     hero: v.hero as HeroContent,
     features: v.features!,

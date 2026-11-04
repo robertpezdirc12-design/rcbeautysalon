@@ -28,6 +28,10 @@ const legalLinks = [
  * P2 #68: the link CARRIES the tenant (`/login?org=<slug>`) — the header
  * alone cannot (auth is platform-level, #53), and without it the login
  * fell back to the oldest tenant's brand. Bare /login stays valid.
+ * P2 #74: a tenant-branded login is a CUSTOMER's door — it renders the
+ * tenant's brand and a "back to the shop" link, NEVER the provider CTA
+ * ("Ustvari svoje podjetje"). The provider CTA lives only on the neutral
+ * /login (the platform's own door). Do not "simplify" this back.
  */
 const staffLoginHref = (slug: string | null) =>
   slug ? `/login?org=${encodeURIComponent(slug)}` : "/login"

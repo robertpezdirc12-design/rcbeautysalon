@@ -76,7 +76,13 @@ export function validatePublishRequirements(
     errors.push("Katalog je prazen — dodajte vsaj eno storitev.")
   }
   if (input.capabilities.shop === "required" && input.productCount < 1) {
-    errors.push("Trgovina je obvezna za to dejavnost — dodajte vsaj en izdelek.")
+    // #82: a required module that the tenant's PRESET cannot populate must not
+    // block going live — 8 of 11 trades ship zero sample products, so this
+    // gate was an invisible fourth onboarding step. The public site already
+    // hides an empty shop section, so nothing broken reaches the visitor.
+    warnings.push(
+      "Trgovina je vklopljena, a prazna — stran bo objavljena brez trgovine.",
+    )
   }
 
   // --------------------------------------------------------------

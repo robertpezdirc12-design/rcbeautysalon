@@ -628,6 +628,16 @@ async function main() {
 
   await prisma.review.deleteMany({})
 
+  // P2 #75: ocene zdaj pripadajo najemniku (organizationId NOT NULL).
+  // Legacy demo vrstice nimajo najemnika — demo- predpona je notranji
+  // najemnik (izključen iz sitemap/SEO), podatki pa ostanejo dekorativni.
+  const demoReviewOrg = await prisma.organization.upsert({
+    where: { slug: 'demo-salon' },
+    update: {},
+    create: { slug: 'demo-salon', name: 'Demo Salon', vertical: 'beauty', plan: 'free' },
+    select: { id: true },
+  })
+
   await prisma.review.createMany({
     data: [
       {
@@ -635,6 +645,7 @@ async function main() {
         comment: 'Lara mi je naredila najboljše striženje, kar ga imam! Resnično je prisluhnila, kar sem želela, rezultat pa je popoln. Toplo priporočam!',
         serviceId: haircut.id,
         userId: customerJohn.userId!,
+        organizationId: demoReviewOrg.id,
         isActive: true,
       },
       {
@@ -642,6 +653,7 @@ async function main() {
         comment: 'Marija je čudežna z barvo! Moj balayage izgleda tako naravno in lepo. Pohvale dobim na vseh straneh.',
         serviceId: coloring.id,
         userId: customerEmily.userId!,
+        organizationId: demoReviewOrg.id,
         isActive: true,
       },
       {
@@ -649,6 +661,7 @@ async function main() {
         comment: 'Tretmaj obraza je bil neverjeten! Moja koža je neverjetno mehka in osvežena. Ana res zna svoje.',
         serviceId: facial.id,
         userId: customerMichael.userId!,
+        organizationId: demoReviewOrg.id,
         isActive: true,
       },
       {
@@ -656,6 +669,7 @@ async function main() {
         comment: 'Najboljša pedikura, kar sem jih imela! Sofija je izjemno natančna, masaža pa je bila nebeška. Zagotovo se vračam!',
         serviceId: pedicure.id,
         userId: customerEmily.userId!,
+        organizationId: demoReviewOrg.id,
         isActive: true,
       },
       {
@@ -663,6 +677,7 @@ async function main() {
         comment: 'Odlična storitev in prijazno osebje. Gel manikira je zdržala 3 tedne brez razpok!',
         serviceId: gelNails.id,
         userId: customerJohn.userId!,
+        organizationId: demoReviewOrg.id,
         isActive: true,
       },
     ],

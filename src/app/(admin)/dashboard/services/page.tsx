@@ -36,7 +36,7 @@ export default async function ServicesPage({ searchParams }: ServicesPageProps) 
   const params = await searchParams
   const search = params.search || ""
 
-  const [services, stats, { t }] = await Promise.all([
+  const [services, stats, { t, withBusiness }] = await Promise.all([
     getAdminServices(search),
     getServiceStats(),
     getServerI18n(),
@@ -53,7 +53,7 @@ export default async function ServicesPage({ searchParams }: ServicesPageProps) 
               {t.services.titleAccent}
             </span>
           </h1>
-          <p className="text-muted-foreground">{t.services.subtitle}</p>
+          <p className="text-muted-foreground">{withBusiness(t.services.subtitle)}</p>
         </div>
         <Link href="/dashboard/services/new">
           <Button>

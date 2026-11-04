@@ -23,6 +23,9 @@ interface I18nContextValue {
   profile: ActivityProfile
   /** Terminology lookup: industry-specific label for the current locale. */
   term: (key: keyof ActivityProfile["terminology"]) => string
+  /** P2 #84: interpolates {business}/{businessIn}/{businessGenitive} in dict
+   *  strings with the tenant's own nouns ("servis" instead of "salon"). */
+  withBusiness: (text: string) => string
   setLocale: (locale: Locale) => void
 }
 
@@ -68,11 +71,17 @@ export function AdminI18nProvider({
     // + owner overrides (Phase 5) — same order as the server resolver.
     const withSecondary = applySecondaryProfile(getProfile(profileId), secondaryVertical)
     const profile = applyOverrides(withSecondary, parseOverrides(profileOverrides))
+    const term = (key: keyof ActivityProfile["terminology"]) => profileTerm(profile, key, locale)
     return {
       locale,
       t: getDictionary(locale),
       profile,
-      term: (key) => profileTerm(profile, key, locale),
+      term,
+      withBusiness: (text: string) =>
+        text
+          .replace(/\{business\}/g, term("businessSingular"))
+          .replace(/\{businessIn\}/g, term("businessIn"))
+          .replace(/\{businessGenitive\}/g, term("businessGenitive")),
       setLocale,
     }
   }, [locale, setLocale, profileId, secondaryVertical, profileOverrides])

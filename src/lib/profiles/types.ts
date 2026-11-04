@@ -58,6 +58,16 @@ export interface TerminologySet {
   productPlural: TerminologyEntry
   customerSingular: TerminologyEntry
   customerPlural: TerminologyEntry
+  // P2 #84: panoga ima svoje SAMOSTALNIK ZA PODJETJE — mehanikov gost bere
+  // "servis potrdi", ne "salon potrdi". Sklanjana oblika je del vnosa, ker
+  // slovenščina sklanja (salon → v salonu → salona); glagolske oblike se
+  // v nizih izogibajo soglasju s spolom (pasiv namesto "salon jo bo potrdil").
+  /** Imenovalnik: "salon", "servis", "podjetje". */
+  businessSingular: TerminologyEntry
+  /** Ločilnik za besedne zveze "Plačilo …": "v salonu", "v servisu". */
+  businessIn: TerminologyEntry
+  /** Rodilnik za "svojega …": "salona", "servisa". */
+  businessGenitive: TerminologyEntry
   /** Primary call-to-action label on the public site. */
   bookingCta: TerminologyEntry
 }

@@ -37,7 +37,7 @@ interface PublicNavbarProps {
    * only when the profile does not disable staff — a missing or disabled
    * section must not be linked (dead anchor). Absent → assumed available.
    */
-  availableSections?: { services?: boolean; shop?: boolean; team?: boolean }
+  availableSections?: { services?: boolean; shop?: boolean; team?: boolean; reviews?: boolean }
 }
 
 export function PublicNavbar({ org, cta, availableSections }: PublicNavbarProps) {
@@ -51,9 +51,11 @@ export function PublicNavbar({ org, cta, availableSections }: PublicNavbarProps)
   // #services/#shop/#team are conditionally rendered — drop them when the
   // tenant has no featured services/products or the profile disables staff
   // (P2 #46/#47: about/contact always render).
+  // P2 #75: #testimonials enako — samo z vsaj eno oceno (mrtvo sidro).
   const showServices = availableSections?.services !== false
   const showShop = availableSections?.shop !== false
   const showTeam = availableSections?.team !== false
+  const showReviews = availableSections?.reviews !== false
   const navLinks: NavLinkItem[] = [
     ...(showServices
       ? [{ href: `${homeHref}#services`, sectionId: "services", label: t.public.navServices }]
@@ -61,6 +63,9 @@ export function PublicNavbar({ org, cta, availableSections }: PublicNavbarProps)
     { href: `${homeHref}#about`, sectionId: "about", label: t.public.navAbout },
     ...(showTeam
       ? [{ href: `${homeHref}#team`, sectionId: "team", label: t.public.navTeam }]
+      : []),
+    ...(showReviews
+      ? [{ href: `${homeHref}#testimonials`, sectionId: "testimonials", label: t.public.navReviews }]
       : []),
     ...(showShop
       ? [{ href: `${homeHref}#shop`, sectionId: "shop", label: t.public.navShop }]

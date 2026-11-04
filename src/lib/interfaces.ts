@@ -326,11 +326,13 @@ export interface ServicesListProps {
 export interface ReviewFormData {
   rating: number
   comment: string
-  serviceId: string
+  // P2 #75: izbiren — ocena PODJETJA (najemnika) brez storitve
+  serviceId?: string | null
 }
 
 export interface ReviewFormProps {
-  serviceId: string
+  // P2 #75: izpuščen = ocena podjetja (profil brez storitev, npr. čebelarstvo)
+  serviceId?: string | null
   serviceName: string
 }
 

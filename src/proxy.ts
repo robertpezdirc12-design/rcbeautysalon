@@ -118,6 +118,17 @@ export default auth(async (req) => {
   const orgMatch = pathname.match(/^\/s\/([^/]+)(\/.*)?$/)
   if (orgMatch) {
     const slug = orgMatch[1]
+
+    // P1 #83: /s/<slug>/sitemap.xml in /s/<slug>/robots.txt sta PRAVI ruti,
+    // ki opisujeta SAMO tega najemnika — nikoli ju ne prepisuj na globalni
+    // /sitemap.xml (izpiše VSE najemnike = kršitev osamljenosti) niti na
+    // globalni /robots.txt (oglašuje globalni sitemap). Objavljivost
+    // (draft/suspendiran/notranji → 404) uveljavljata sami ruti.
+    const firstHop = orgMatch[2] || "/"
+    if (firstHop === "/sitemap.xml" || firstHop === "/robots.txt") {
+      return NextResponse.next()
+    }
+
     if (req.headers.get(ORG_HEADER) !== slug) {
       // P0 #24 / P1 #27: statusne kode rešuje proxy (glej komentar zgoraj).
       // Samo na PRVEM prehodu (header še ni nastavljen) — po prepisu gre

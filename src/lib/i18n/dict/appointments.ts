@@ -3,7 +3,7 @@ export const appointmentsSl = {
   list: {
     title: "Upravljanje",
     titleAccent: "terminov",
-    subtitle: "Upravljajte in spremljajte vse salonske termine",
+    subtitle: "Upravljajte in spremljajte vse termine svojega {businessGenitive}",
     newAppointment: "Nov termin",
     stats: {
       todaysAppointments: "Današnji termini",
@@ -144,7 +144,7 @@ export const appointmentsEn: AppointmentsDict = {
   list: {
     title: "Manage",
     titleAccent: "Appointments",
-    subtitle: "Manage and track all salon appointments",
+    subtitle: "Manage and track all {business} appointments",
     newAppointment: "New Appointment",
     stats: {
       todaysAppointments: "Today's Appointments",

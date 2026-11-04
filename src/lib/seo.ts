@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import type { SiteContent } from "@/lib/site-content"
 import { getProfile } from "@/lib/profiles/registry"
 import { isInternalTenantSlug } from "@/lib/tenant-flags"
+import { prisma } from "@/lib/prisma"
 
 /**
  * Per-tenant SEO (P1) — čiste funkcije, testabilne brez DB.
@@ -127,11 +128,20 @@ export function buildTenantJsonLd({
   content,
   appUrl,
   indexable,
+  aggregateRating,
 }: {
   org: TenantSeoOrg
   content: SiteContent
   appUrl: string
   indexable: boolean
+  /** P2 #75: REALNA povprečna ocena (samo iz aktivnih vrstic — nikoli
+   *  konstanta; Google kaznuje izmišljene ocene). Null/izpuščeno = brez. */
+  aggregateRating?: {
+    ratingValue: string
+    reviewCount: number
+    bestRating?: number
+    worstRating?: number
+  } | null
 }): Record<string, unknown> | null {
   if (!indexable) return null
 
@@ -166,6 +176,29 @@ export function buildTenantJsonLd({
     image: tenantOgImageUrl(content, org.logo, appUrl),
     ...(hours.length > 0 ? { openingHoursSpecification: hours } : {}),
     ...(sameAs.length > 0 ? { sameAs } : {}),
+    ...(aggregateRating ? { aggregateRating: { "@type": "AggregateRating", bestRating: 5, worstRating: 1, ...aggregateRating } } : {}),
+  }
+}
+
+/**
+ * P2 #75: povprečna ocena iz REALNIH aktivnih vrstic (najemnik direktno,
+ #75 — vključno z ocenami podjetja brez storitve). Null pri 0 vrstic —
+ * nikoli izmišljen socialni dokaz.
+ */
+export async function aggregateRatingForTenant(
+  organizationId: string
+): Promise<{ ratingValue: string; reviewCount: number } | null> {
+  const agg = await prisma.review
+    .aggregate({
+      where: { organizationId, isActive: true },
+      _avg: { rating: true },
+      _count: { _all: true },
+    })
+    .catch(() => null)
+  if (!agg || agg._count._all === 0 || agg._avg.rating == null) return null
+  return {
+    ratingValue: agg._avg.rating.toFixed(1),
+    reviewCount: agg._count._all,
   }
 }
 

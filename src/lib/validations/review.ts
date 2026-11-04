@@ -10,7 +10,9 @@ export const reviewSchema = z.object({
     .min(10, "Komentar mora imeti vsaj 10 znakov")
     .max(1000, "Komentar ne sme presegati 1000 znakov")
     .trim(),
-  serviceId: z.string().min(1, "ID storitve je obvezen"),
+  // P2 #75: serviceId je OPTIONAL — null/izpuščen = ocena PODJETJA
+  // (najemnika), ne posamezne storitve (profili brez storitev).
+  serviceId: z.string().min(1).optional().nullable(),
 })
 
 export type ReviewInput = z.infer<typeof reviewSchema>

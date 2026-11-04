@@ -24,7 +24,7 @@ import { dashboardSl, dashboardEn } from "@/lib/i18n/dict/dashboard"
 describe("#46 — sectionsForProfile (capability + data gates)", () => {
   it("beekeeping: services, shop section exists but services capability disabled → no services anchor", () => {
     const flags = sectionsForProfile(
-      { services: false, shop: true, team: false },
+      { services: false, shop: true, team: false, reviews: true },
       PROFILES.beekeeping
     )
     expect(flags.services).toBe(false)
@@ -34,7 +34,7 @@ describe("#46 — sectionsForProfile (capability + data gates)", () => {
 
   it("beauty with featured services/products keeps all anchors", () => {
     const flags = sectionsForProfile(
-      { services: true, shop: true, team: true },
+      { services: true, shop: true, team: true, reviews: true },
       PROFILES.beauty
     )
     expect(flags.services).toBe(true)
@@ -45,7 +45,7 @@ describe("#46 — sectionsForProfile (capability + data gates)", () => {
   it("capability gate overrides legacy data (existing tenants, no migration)", () => {
     //even if featured rows exist, a disabled capability must drop the anchor
     const flags = sectionsForProfile(
-      { services: true, shop: true, team: true },
+      { services: true, shop: true, team: true, reviews: true },
       PROFILES.beekeeping
     )
     expect(flags.services).toBe(false)
@@ -55,7 +55,7 @@ describe("#46 — sectionsForProfile (capability + data gates)", () => {
   it("every profile with staff enabled keeps the team anchor (with staff data)", () => {
     for (const profile of Object.values(PROFILES)) {
       const flags = sectionsForProfile(
-        { services: true, shop: true, team: true },
+        { services: true, shop: true, team: true, reviews: true },
         profile
       )
       expect(flags.team).toBe(isCapabilityEnabled(profile, "staff"))
@@ -64,7 +64,7 @@ describe("#46 — sectionsForProfile (capability + data gates)", () => {
 
   it("#62 — team is data-gated: 0 active staff removes the anchor even when the profile allows staff", () => {
     const flags = sectionsForProfile(
-      { services: true, shop: true, team: false },
+      { services: true, shop: true, team: false, reviews: true },
       PROFILES.seamstress
     )
     expect(flags.team).toBe(false)

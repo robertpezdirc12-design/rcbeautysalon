@@ -1,12 +1,16 @@
 import { describe, it, expect } from "vitest"
-import { HOW_IT_WORKS_STEPS } from "../../src/components/landing/how-it-works-section"
+import {
+  HOW_IT_WORKS_STEPS,
+  resolveBusinessTemplate,
+} from "../../src/components/landing/how-it-works-section"
 import { splitLastWord } from "../../src/components/landing/section-title"
 
 // ============================================================
 // "Kako deluje" trust section — the copy must stay truthful to
 // the real booking semantics (guest booking = PENDING until the
-// salon confirms) and renderable (4 steps, unique titles,
-// non-empty copy, known icons).
+// business confirms) and renderable (4 steps, unique titles,
+// non-empty copy, known icons). P2 #84: the confirming party is
+// the tenant's OWN noun via the {business} placeholder.
 // ============================================================
 
 describe("HOW_IT_WORKS_STEPS", () => {
@@ -32,10 +36,22 @@ describe("HOW_IT_WORKS_STEPS", () => {
     expect(copy).not.toContain("sms")
   })
 
-  it("tells the truth about who confirms the booking (the salon, not the system)", () => {
+  it("P2 #84: no hardcoded 'salon' — the confirming party is the {business} placeholder", () => {
     const confirmStep = HOW_IT_WORKS_STEPS.find((s) => s.title.toLowerCase().includes("potrd"))
     expect(confirmStep).toBeDefined()
-    expect(confirmStep!.title.toLowerCase()).toContain("salon")
+    expect(confirmStep!.title.toLowerCase()).not.toContain("salon")
+    expect(confirmStep!.title).toContain("{business}")
+  })
+
+  it("P2 #84: resolver renders the trade's own noun, capitalized, for beauty and tire-service", () => {
+    const confirmTitle = HOW_IT_WORKS_STEPS.find((s) =>
+      s.title.includes("potrd")
+    )!.title
+    expect(resolveBusinessTemplate(confirmTitle, "salon")).toBe("Salon potrdi")
+    expect(resolveBusinessTemplate(confirmTitle, "servis")).toBe("Servis potrdi")
+    expect(resolveBusinessTemplate(confirmTitle, "čebelarstvo")).toBe(
+      "Čebelarstvo potrdi"
+    )
   })
 
   it("every step icon is a renderable component (lucide forwardRef object)", () => {

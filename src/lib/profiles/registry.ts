@@ -159,12 +159,29 @@ function terms(t: {
   productPlural?: string
   customerSingular?: string
   customerPlural?: string
+  // P2 #84: samostalnik za podjetje v 3 sklanjah (SL) + EN paket.
+  businessSingular?: string
+  businessIn?: string
+  businessGenitive?: string
+  businessEn?: { singular: string; in: string; genitive: string }
   bookingCta: string
   orderEn: { singular: string; plural: string }
   ctaEn: string
 }): TerminologySet {
   // Convenience builder — Slovenian + English terminology pairs.
   const e = (sl: string, en: string): TerminologyEntry => ({ sl, en })
+  // P2 #84: privzeto nevtralno "podjetje" — vsak profil, ki je govoril
+  // o "salonu", to izrecno deklarira spodaj.
+  const biz = {
+    singular: t.businessSingular ?? "podjetje",
+    in: t.businessIn ?? "v podjetju",
+    genitive: t.businessGenitive ?? "podjetja",
+  }
+  const bizEn = t.businessEn ?? {
+    singular: "business",
+    in: "at the business",
+    genitive: "the business's",
+  }
   return {
     appointmentSingular: e(t.appointmentSingular ?? "Termin", "Appointment"),
     appointmentPlural: e(t.appointmentPlural ?? "Termini", "Appointments"),
@@ -176,6 +193,9 @@ function terms(t: {
     productPlural: e(t.productPlural ?? "Izdelki", "Products"),
     customerSingular: e(t.customerSingular ?? "Stranka", "Customer"),
     customerPlural: e(t.customerPlural ?? "Stranke", "Customers"),
+    businessSingular: e(biz.singular, bizEn.singular),
+    businessIn: e(biz.in, bizEn.in),
+    businessGenitive: e(biz.genitive, bizEn.genitive),
     bookingCta: e(t.bookingCta, t.ctaEn),
   }
 }
@@ -196,6 +216,10 @@ const PROFILE_LIST: ActivityProfile[] = [
     schemaType: "BeautySalon",
     capabilities: salonCapabilities(),
     terminology: terms({
+      businessSingular: "salon",
+      businessIn: "v salonu",
+      businessGenitive: "salona",
+      businessEn: { singular: "salon", in: "at the salon", genitive: "the salon's" },
       orderSingular: "Spletno naročilo",
       orderPlural: "Spletna naročila",
       bookingCta: "Rezerviraj termin",
@@ -219,6 +243,10 @@ const PROFILE_LIST: ActivityProfile[] = [
     schemaType: "HairSalon",
     capabilities: salonCapabilities(),
     terminology: terms({
+      businessSingular: "salon",
+      businessIn: "v salonu",
+      businessGenitive: "salona",
+      businessEn: { singular: "salon", in: "at the salon", genitive: "the salon's" },
       orderSingular: "Spletno naročilo",
       orderPlural: "Spletna naročila",
       bookingCta: "Rezerviraj termin",
@@ -242,6 +270,10 @@ const PROFILE_LIST: ActivityProfile[] = [
     schemaType: "HairSalon",
     capabilities: salonCapabilities(),
     terminology: terms({
+      businessSingular: "barber shop",
+      businessIn: "v barber shopu",
+      businessGenitive: "barber shopa",
+      businessEn: { singular: "barber shop", in: "at the barber shop", genitive: "the barber shop's" },
       orderSingular: "Naročilo",
       orderPlural: "Naročila",
       bookingCta: "Rezerviraj termin",
@@ -265,6 +297,10 @@ const PROFILE_LIST: ActivityProfile[] = [
     schemaType: "NailSalon",
     capabilities: salonCapabilities(),
     terminology: terms({
+      businessSingular: "salon",
+      businessIn: "v salonu",
+      businessGenitive: "salona",
+      businessEn: { singular: "salon", in: "at the salon", genitive: "the salon's" },
       orderSingular: "Spletno naročilo",
       orderPlural: "Spletna naročila",
       bookingCta: "Rezerviraj termin",
@@ -288,6 +324,10 @@ const PROFILE_LIST: ActivityProfile[] = [
     schemaType: "BeautySalon",
     capabilities: salonCapabilities(),
     terminology: terms({
+      businessSingular: "salon",
+      businessIn: "v salonu",
+      businessGenitive: "salona",
+      businessEn: { singular: "salon", in: "at the salon", genitive: "the salon's" },
       orderSingular: "Spletno naročilo",
       orderPlural: "Spletna naročila",
       bookingCta: "Rezerviraj termin",
@@ -322,6 +362,10 @@ const PROFILE_LIST: ActivityProfile[] = [
     schemaType: "DaySpa",
     capabilities: salonCapabilities(),
     terminology: terms({
+      businessSingular: "salon",
+      businessIn: "v salonu",
+      businessGenitive: "salona",
+      businessEn: { singular: "salon", in: "at the salon", genitive: "the salon's" },
       orderSingular: "Spletno naročilo",
       orderPlural: "Spletna naročila",
       bookingCta: "Rezerviraj termin",
@@ -356,6 +400,10 @@ const PROFILE_LIST: ActivityProfile[] = [
     schemaType: "BeautySalon",
     capabilities: salonCapabilities(),
     terminology: terms({
+      businessSingular: "salon",
+      businessIn: "v salonu",
+      businessGenitive: "salona",
+      businessEn: { singular: "salon", in: "at the salon", genitive: "the salon's" },
       orderSingular: "Spletno naročilo",
       orderPlural: "Spletna naročila",
       bookingCta: "Rezerviraj termin",
@@ -437,6 +485,10 @@ const PROFILE_LIST: ActivityProfile[] = [
       delivery: "optional",
     },
     terminology: terms({
+      businessSingular: "atelje",
+      businessIn: "v ateljeju",
+      businessGenitive: "ateljeja",
+      businessEn: { singular: "studio", in: "at the studio", genitive: "the studio's" },
       appointmentSingular: "Srečanje",
       appointmentPlural: "Srečanja",
       orderSingular: "Delovno naročilo",
@@ -521,6 +573,10 @@ const PROFILE_LIST: ActivityProfile[] = [
       delivery: "disabled",
     },
     terminology: terms({
+      businessSingular: "servis",
+      businessIn: "v servisu",
+      businessGenitive: "servisa",
+      businessEn: { singular: "service centre", in: "at the service centre", genitive: "the service centre's" },
       appointmentSingular: "Termin menjave",
       appointmentPlural: "Termini menjave",
       orderSingular: "Delovni nalog",
@@ -591,6 +647,10 @@ const PROFILE_LIST: ActivityProfile[] = [
       delivery: "optional",
     },
     terminology: terms({
+      businessSingular: "čebelarstvo",
+      businessIn: "v čebelarstvu",
+      businessGenitive: "čebelarstva",
+      businessEn: { singular: "farm", in: "at the farm", genitive: "the farm's" },
       appointmentSingular: "Srečanje",
       appointmentPlural: "Srečanja",
       orderSingular: "Naročilo",
