@@ -11,6 +11,14 @@ SET "organizationId" = (
 )
 WHERE "organizationId" IS NULL;
 
+-- Demo/seed vrstice, katerih storitev NI ima organizacije (organizationId
+-- null), jih ni mogoče pripisati nobenemu najemniku. Prav tako nikoli niso
+-- bile vidne: getPublicTestimonials je filtriral po
+-- service.organizationId, storitve brez najemnika pa nikoli niso čakale.
+-- Izmišljati lastnika (npr. najstarejši najemnik) bi bilo napako — tako
+-- dekorativne vrstice se izbrišejo, ne pripisane resnemu podjetju.
+DELETE FROM "Review" WHERE "organizationId" IS NULL;
+
 ALTER TABLE "Review" ALTER COLUMN "organizationId" SET NOT NULL;
 
 ALTER TABLE "Review" ALTER COLUMN "serviceId" DROP NOT NULL;
