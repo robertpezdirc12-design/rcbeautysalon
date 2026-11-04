@@ -17,3 +17,4 @@ playwright/.cache/
 # local sqlite/pg scratch data
 .pgdata/
 .v4b-db.mjs
+.zcode-audit/

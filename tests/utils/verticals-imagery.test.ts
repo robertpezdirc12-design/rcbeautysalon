@@ -105,3 +105,70 @@ describe("vertical preset imagery completeness", () => {
     expect(presetStaffImage("")).toBeUndefined()
   })
 })
+
+// ============================================================
+// #94 — nadgradnja zastarelih privzetih slik (upgradeLegacyImagery)
+// Najemniki, ustvarjeni pred per-panognimi preseti, nosijo v
+// snapshotu stari skupni salon default; render pot jo nadgradi na
+// trenutni preset. Lastniško prilagojene slike se NE pregazijo.
+// ============================================================
+import { upgradeLegacyImagery, isSampleImageUrl } from "@/lib/verticals"
+import type { SiteContent } from "@/lib/site-content"
+
+const LEGACY_SALON_HERO = "/img/hero-default.jpg" // stari skupni default
+const OWNER_HERO = "https://own-cdn.example/moja-delavnica.jpg"
+
+function contentWith(overrides: Partial<SiteContent>): SiteContent {
+  return verticalSiteContent("seamstress") as SiteContent
+  Object.assign({}, overrides) // unreachable — shape asserted below
+}
+
+describe("#94 upgradeLegacyImagery", () => {
+  it("zastarel skupni salon default na šiviljstvu → preset atelje", () => {
+    const base = verticalSiteContent("seamstress") as SiteContent
+    const stale = {
+      ...base,
+      hero: { ...base.hero, imageUrl: isSampleImageUrl(base.hero?.imageUrl) ? base.hero?.imageUrl : "/img/presets/hero-atelier.jpg" },
+    }
+    // Simuliraj starejši snapshot: hero kaže na KATERIKOLI vzorčni URL
+    const legacy = { ...base, hero: { ...base.hero, imageUrl: "/img/presets/hair-salon.jpg" } }
+    expect(isSampleImageUrl("/img/presets/hair-salon.jpg")).toBe(false) // ne-vzorčen → lastniški
+    // Pravi zastarel primer: snapshot kaže na znano vzorčno sliko (salon)
+    const knownSample = isSampleImageUrl("/img/presets/hero-barber.jpg")
+    expect(knownSample).toBe(true)
+    const upgraded = upgradeLegacyImagery(
+      { ...base, hero: { ...base.hero, imageUrl: "/img/presets/hero-barber.jpg" } },
+      "seamstress"
+    )
+    expect(upgraded.hero?.imageUrl).toBe("/img/presets/hero-atelier.jpg")
+  })
+
+  it("lastniško prilagojena slika (ni vzorčna) ostane nedotaknjena", () => {
+    const base = verticalSiteContent("seamstress") as SiteContent
+    const upgraded = upgradeLegacyImagery(
+      { ...base, hero: { ...base.hero, imageUrl: OWNER_HERO } },
+      "seamstress"
+    )
+    expect(upgraded.hero?.imageUrl).toBe(OWNER_HERO)
+  })
+
+  it("panoga brez presetov (beauty — video hero) → no-op", () => {
+    const base = verticalSiteContent("beauty") as SiteContent
+    const upgraded = upgradeLegacyImagery(base, "beauty")
+    expect(upgraded.hero?.imageUrl).toBe(base.hero?.imageUrl)
+  })
+
+  it("about in cta se nadgradita po istem pravilu", () => {
+    const base = verticalSiteContent("tire-service") as SiteContent
+    const upgraded = upgradeLegacyImagery(
+      {
+        ...base,
+        about: { ...base.about, imageUrl: "/img/presets/makeup.jpg" }, // napačna panoga, a vzorčna
+        cta: { ...base.cta, imageUrl: "/img/presets/hero-spa.jpg" },
+      },
+      "tire-service"
+    )
+    expect(upgraded.about?.imageUrl).toBe("/img/presets/tirechange.jpg")
+    expect(upgraded.cta?.imageUrl).toBe("/img/presets/oilchange.jpg")
+  })
+})

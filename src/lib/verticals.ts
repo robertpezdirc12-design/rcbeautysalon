@@ -389,6 +389,42 @@ function withImages(vertical: string, content: SiteContent, aboutImage?: string)
   }
 }
 
+/**
+ * #94: trenutna preset slika za panogo (hero/about/cta) — uporablja se
+ * za NADGRADNJO zastarelih privzetih slik na render poti: najemniki,
+ * ustvarjeni pred per-panognimi preseti, nosijo v snapshotu stari
+ * skupni salon default; lastniško prilagojene slike se nikoli ne
+ * pregazijo (pogojuje jih isSampleImageUrl).
+ */
+export function presetImageryFor(vertical: string): { hero?: string; about?: string; cta?: string } {
+  return VERTICAL_IMAGERY[vertical] ?? {}
+}
+
+/**
+ * #94 — nadgradnja ZASTARELIH privzetih slik na render poti.
+ *
+ * Najemniki, ustvarjeni pred per-panognimi preseti (VERTICAL_IMAGERY),
+ * nosijo v siteContent snapshotu stari SKUPNI salon default (npr.
+ * frizerski interier na šiviljstvu). Pravilo: če je shranjena slika
+ * ŠE VEDNO ena od vzorčnih/preset vrednosti (isSampleImageUrl), jo
+ * nadomesti trenutni preset panoge. LASTNIŠKO prilagojene slike
+ * (katerikoli drug URL) se nikoli ne pregazijo — to ni tih poseg v
+ * lastniško vsebino. Beauty panoga nima presetov (video hero) — no-op.
+ */
+export function upgradeLegacyImagery(content: SiteContent, vertical: string): SiteContent {
+  const preset = VERTICAL_IMAGERY[vertical] ?? {}
+  const upgrade = (stored: string | undefined, presetUrl?: string): string | undefined => {
+    if (!presetUrl) return stored
+    return isSampleImageUrl(stored) ? presetUrl : stored
+  }
+  return {
+    ...content,
+    hero: { ...content.hero, imageUrl: upgrade(content.hero?.imageUrl, preset.hero) },
+    about: { ...content.about, imageUrl: upgrade(content.about?.imageUrl, preset.about) },
+    cta: { ...content.cta, imageUrl: upgrade(content.cta?.imageUrl, preset.cta) },
+  }
+}
+
 export const VERTICALS: VerticalPreset[] = [
   {
     id: "beauty",

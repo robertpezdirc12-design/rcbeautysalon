@@ -6,6 +6,7 @@ import { notFound, permanentRedirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import { ORG_HEADER, getOrgBySlug, getSessionOrg } from "@/lib/tenant"
 import { mergeSiteContent, type SiteContent } from "@/lib/site-content"
+import { upgradeLegacyImagery } from "@/lib/verticals"
 import { parsePublishState } from "@/lib/publication"
 import { resolveEffectiveProfile } from "@/lib/profiles/resolve"
 import { sectionsForProfile, type HomeSectionFlags } from "@/lib/home-sections"
@@ -63,11 +64,15 @@ export const getPublicSiteData = cache(
     //   exactly as it was at the last publish, so draft edits stay private.
     // - Tenant WITHOUT a snapshot (pre-E3-2 data, or never published) renders
     //   the live siteContent — the original behavior, unchanged.
+    // #94: merge nato nadgradi zastarele privzete slike (glej zgoraj).
     const published =
       parsePublishState(org.publishState) === "PUBLISHED" &&
       config?.publishedSiteContent != null
     const rawContent = published ? config.publishedSiteContent : config?.siteContent
-    const content = mergeSiteContent(rawContent, org.vertical)
+    const content = upgradeLegacyImagery(
+      mergeSiteContent(rawContent, org.vertical),
+      org.vertical
+    )
     return { org, config, content }
   }
 )
