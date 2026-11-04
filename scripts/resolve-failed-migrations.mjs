@@ -77,6 +77,17 @@ END $$;`
   }
 
   const probeOutput = `${probeError.stdout || ""}${probeError.stderr || ""}`
+  // Fresh-database path (#100 F0 proof, 2026-11-05): when the database has
+  // no _prisma_migrations table yet (P1014), there can be no FAILED row —
+  // the probe must treat that as healthy instead of failing the build.
+  // This happens on brand-new local/dev databases before the first
+  // `prisma migrate deploy` creates the table.
+  if (/P1014|_prisma_migrations"? (table )?does not exist/i.test(probeOutput)) {
+    console.log(
+      `resolve-guard: ${name} — _prisma_migrations table not present (fresh DB); no failed migrations possible`
+    )
+    continue
+  }
   if (!probeOutput.includes("FAILED_MIGRATION_PRESENT")) {
     console.error(
       `resolve-guard: probe failed unexpectedly (not a failed-migration signal):\n${probeOutput}`
