@@ -1,6 +1,7 @@
 "use server"
 
 import { cache } from "react"
+import type { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { revalidatePath } from "next/cache"
 import bcrypt from "bcryptjs"
@@ -16,6 +17,7 @@ import {
 import { hasAllPermissions } from "@/lib/permissions/roles"
 import { getEffectivePermissions } from "@/lib/permissions/effective"
 import { buildLeadSearchWhere } from "@/lib/customers/leads"
+import { sanitizeCustomerTags } from "@/lib/customers/tags"
 
 type UserRole = "ADMIN" | "STAFF" | "CLIENTE"
 
@@ -25,7 +27,8 @@ export interface AdminUpdateUserInput {
 }
 
 // Admin: Get all users with customer data (scoped to the admin's organization)
-export async function getAdminUsers(search?: string) {
+// #91: neobvezni segment = oznaka (tag) na Customer profilu.
+export async function getAdminUsers(search?: string, tag?: string) {
   const { org } = await requirePermissionOrg("customers.manage")
 
   // A user belongs to this org directly, or via their customer profile
@@ -33,20 +36,33 @@ export async function getAdminUsers(search?: string) {
     OR: [{ organizationId: org.id }, { customer: { organizationId: org.id } }],
   }
 
+  const segment = tag?.trim()
+    ? { customer: { tags: { has: tag.trim() } } }
+    : undefined
+
+  // Anotacija je obvezna: brez nje se "insensitive" razširi na `string`
+  // (izgubi se kontekstualno tipiziranje) in Prisma pade na širši
+  // overload brez include inference — tip napake nazaj na strani je
+  // potem "customer missing". (#91, diagnosticirano z anotacijo.)
+  const searchText: Prisma.UserWhereInput | undefined = search
+    ? {
+        OR: [
+          { name: { contains: search, mode: "insensitive" } },
+          { email: { contains: search, mode: "insensitive" } },
+        ],
+      }
+    : undefined
+
+  const usersWhere: Prisma.UserWhereInput = {
+    AND: [
+      orgMembership,
+      ...(segment ? [segment] : []),
+      ...(searchText ? [searchText] : []),
+    ],
+  }
+
   const users = await prisma.user.findMany({
-    where: search
-      ? {
-          AND: [
-            orgMembership,
-            {
-              OR: [
-                { name: { contains: search, mode: "insensitive" } },
-                { email: { contains: search, mode: "insensitive" } },
-              ],
-            },
-          ],
-        }
-      : orgMembership,
+    where: usersWhere,
     include: {
       customer: {
         include: {
@@ -118,11 +134,20 @@ export async function getUserStats() {
 // Admin: Get customers WITHOUT a user account (P2 #48) — public form
 // submissions create these leads; they must be visible in the customer
 // list, searchable by name, email and phone.
-export async function getCustomerLeads(search?: string) {
+// #91: neobvezni segment = oznaka (tag).
+export async function getCustomerLeads(search?: string, tag?: string) {
   const { org } = await requirePermissionOrg("customers.manage")
 
+  const segment = tag?.trim() ? { tags: { has: tag.trim() } } : undefined
+  const leadSearch = buildLeadSearchWhere(org.id, search)
+
   return prisma.customer.findMany({
-    where: buildLeadSearchWhere(org.id, search),
+    where: {
+      AND: [
+        leadSearch,
+        ...(segment ? [segment] : []),
+      ],
+    },
     include: {
       _count: {
         select: {
@@ -134,6 +159,52 @@ export async function getCustomerLeads(search?: string) {
     },
     orderBy: { createdAt: "desc" },
   })
+}
+
+// #91: vsi obstoječi tagi najemnika (za filter chips / segmente).
+// Prisma ne zna DISTINCT po elementih polja — potegnemo samo tags
+// stolpec in unikat zrižemo v JS (obseg najemnika je majhen).
+export async function getCustomerTagOptions() {
+  const { org } = await requirePermissionOrg("customers.manage")
+
+  const rows = await prisma.customer.findMany({
+    where: { organizationId: org.id },
+    select: { tags: true },
+  })
+  const all = rows.flatMap((r) => r.tags)
+  return Array.from(new Set(all)).sort((a, b) => a.localeCompare(b, "sl"))
+}
+
+// #91: urejanje oznak stranke — Customer vrstica mora pripadati
+// najemniku (org-scoped, fail-closed). Velja za registrirane stranke
+// IN linke brez računa (isti model).
+export async function updateCustomerTags(
+  customerId: string,
+  tags: unknown
+): Promise<{ success: boolean; error?: string; tags?: string[] }> {
+  try {
+    const { org } = await requirePermissionOrg("customers.manage")
+
+    const customer = await prisma.customer.findFirst({
+      where: { id: customerId, organizationId: org.id },
+      select: { id: true },
+    })
+    if (!customer) {
+      return { success: false, error: "Stranka ni najdena ali ni vaša." }
+    }
+
+    const clean = sanitizeCustomerTags(tags)
+    await prisma.customer.update({
+      where: { id: customer.id },
+      data: { tags: clean },
+    })
+
+    revalidatePath("/dashboard/users")
+    return { success: true, tags: clean }
+  } catch (error) {
+    console.error("updateCustomerTags failed:", error)
+    return { success: false, error: "Shranjevanje oznak ni uspelo. Poskusite znova." }
+  }
 }
 
 // Admin: Get user by ID with full details

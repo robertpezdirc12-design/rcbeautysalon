@@ -4,27 +4,31 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { EnvelopeIcon } from "@/components/icons"
-import { getAdminUsers, getCustomerLeads, getUserStats } from "@/app/actions/users"
+import { getAdminUsers, getCustomerLeads, getCustomerTagOptions, getUserStats } from "@/app/actions/users"
 import { UserSearch } from "@/components/dashboard/user-search"
+import { CustomerTags } from "@/components/dashboard/customer-tags"
+import { TagFilterBar } from "@/components/dashboard/tag-filter-bar"
 import { ExportUsersButton } from "@/components/dashboard/export-users-button"
 import { getServerI18n } from "@/lib/i18n/server"
 import { requirePagePermission } from "@/lib/auth/guards"
 
 interface UsersPageProps {
-  searchParams: Promise<{ search?: string }>
+  searchParams: Promise<{ search?: string; tag?: string }>
 }
 
 export default async function UsersPage({ searchParams }: UsersPageProps) {
   // Custom roles (G8): server-side page guard
   await requirePagePermission("customers.manage")
-  const { search } = await searchParams
-  const [{ t, locale }, users, leads, stats] = await Promise.all([
+  const { search, tag } = await searchParams
+  const [{ t, locale }, users, leads, stats, tagOptions] = await Promise.all([
     getServerI18n(),
-    getAdminUsers(search),
+    getAdminUsers(search, tag),
     // P2 #48: linke iz javnih obrazcev (Customer brez računa) — prej so
     // bili nevidni, ker je seznam gradil izključno iz User vrstic.
-    getCustomerLeads(search),
+    getCustomerLeads(search, tag),
     getUserStats(),
+    // #91: segmenti = oznake (za filter chips)
+    getCustomerTagOptions(),
   ])
   return (
     <div className="space-y-6">
@@ -76,6 +80,15 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
       {/* Search */}
       <UserSearch />
 
+      {/* #91: segmenti = oznake — klik filtrira obe tabeli strežniško */}
+      <TagFilterBar
+        tags={tagOptions}
+        activeTag={tag ?? null}
+        search={search}
+        allLabel={t.users.tags.filterAll}
+        label={t.users.tags.filterLabel}
+      />
+
       {/* Users Table */}
       <Card>
         <CardHeader>
@@ -95,6 +108,7 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
                     <th className="pb-3 font-medium">{t.users.table.user}</th>
                     <th className="pb-3 font-medium">{t.users.table.email}</th>
                     <th className="pb-3 font-medium">{t.users.table.role}</th>
+                    <th className="pb-3 font-medium">{t.users.tags.column}</th>
                     <th className="pb-3 font-medium">{t.users.table.appointments}</th>
                     <th className="pb-3 font-medium">{t.users.table.orders}</th>
                     <th className="pb-3 font-medium">{t.users.table.joined}</th>
@@ -141,6 +155,17 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
                           {t.users.roleLabel(user.role)}
                         </span>
                       </td>
+                      <td className="py-4">
+                        {user.customer ? (
+                          <CustomerTags
+                            customerId={user.customer.id}
+                            tags={user.customer.tags}
+                            labels={t.users.tags}
+                          />
+                        ) : (
+                          <span className="text-muted-foreground text-sm">—</span>
+                        )}
+                      </td>
                       <td className="py-4 text-sm">{user.customer?._count.appointments || 0}</td>
                       <td className="py-4 text-sm">{user.customer?._count.orders || 0}</td>
                       <td className="py-4 text-sm">
@@ -182,6 +207,7 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
                   <tr className="border-b text-left text-sm text-muted-foreground">
                     <th className="pb-3 font-medium">{t.users.leads.table.customer}</th>
                     <th className="pb-3 font-medium">{t.users.table.email}</th>
+                    <th className="pb-3 font-medium">{t.users.tags.column}</th>
                     <th className="pb-3 font-medium">{t.users.table.appointments}</th>
                     <th className="pb-3 font-medium">{t.users.table.orders}</th>
                     <th className="pb-3 font-medium">{t.users.leads.table.submissions}</th>
@@ -217,6 +243,13 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
                             <span className="text-muted-foreground">{lead.phone}</span>
                           )}
                         </div>
+                      </td>
+                      <td className="py-4">
+                        <CustomerTags
+                          customerId={lead.id}
+                          tags={lead.tags}
+                          labels={t.users.tags}
+                        />
                       </td>
                       <td className="py-4 text-sm">{lead._count.appointments}</td>
                       <td className="py-4 text-sm">{lead._count.orders}</td>

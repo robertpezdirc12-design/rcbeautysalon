@@ -639,6 +639,11 @@ model Customer {
   phone String?
   notes String? @db.Text
 
+  // #91: proste oznake lastnika (»VIP«, »rdeča«, …) — segment = oznaka.
+  // Vstopna točka za ciljane kampanje (P1 marketing sklop). Urejene
+  // samo prek updateCustomerTags (whitelist sanitizacija, org-scoped).
+  tags String[] @default([])
+
   // OPTIONAL one-to-one relationship with User
   userId String? @unique
   user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)

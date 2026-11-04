@@ -162,6 +162,19 @@ export const usersSl = {
     unexpectedError: "Prišlo je do nepričakovane napake",
   },
 
+  // ---- #91: oznake strank (segmenti) ----
+  tags: {
+    column: "Oznake",
+    edit: "Uredi oznake",
+    save: "Shrani",
+    cancel: "Prekliči",
+    placeholder: "npr. VIP, rdeča, prijatelj",
+    addHint: "Loči z vejico (največ 12 oznak).",
+    filterLabel: "Segmenti",
+    filterAll: "Vse stranke",
+    saved: "Oznake shranjene",
+  },
+
   // ---- Pomožnik za oznake vlog (vrednosti v bazi: ADMIN | STAFF | CLIENTE) ----
   roleLabel: (role: string): string => {
     if (role === "ADMIN") return "Administrator"
@@ -330,5 +343,18 @@ export const usersEn: UsersDict = {
     if (role === "ADMIN") return "Administrator"
     if (role === "STAFF") return "Staff"
     return "Client"
+  },
+
+  // ---- #91: customer tags (segments) ----
+  tags: {
+    column: "Tags",
+    edit: "Edit tags",
+    save: "Save",
+    cancel: "Cancel",
+    placeholder: "e.g. VIP, red, friend",
+    addHint: "Separate with commas (max 12 tags).",
+    filterLabel: "Segments",
+    filterAll: "All customers",
+    saved: "Tags saved",
   },
 }
