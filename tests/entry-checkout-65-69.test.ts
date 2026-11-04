@@ -204,9 +204,11 @@ describe("#65 — the shop can actually sell", () => {
     expect(action).toContain("const guest = !session?.user")
     // guests WITH Stripe go through the hosted page too
     expect(action).toContain("contact?.email?.trim() || undefined")
-    // org-scoped guest customer lookup
-    expect(action).toContain("findOrCreateGuestCustomer")
-    expect(action).toContain("organizationId: orgId, OR: orConditions")
+    // org-scoped guest identity: e-mail first; phone alone never adopts
+    // an existing customer's identity (#70 — QIGC3TJU regression)
+    expect(action).toContain("resolveGuestCustomerId")
+    expect(action).toContain('email: { equals: email, mode: "insensitive" }')
+    expect(action).not.toContain("OR: orConditions")
   })
 
   it("action: no Stripe still creates a recorded order (offline)", () => {

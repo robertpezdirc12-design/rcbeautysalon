@@ -110,13 +110,16 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                       <td className="py-4">
                         <p className="font-mono font-medium text-sm">{order.id.slice(0, 8)}...</p>
                       </td>
+                      {/* P2 #70: kontakt, ki pripada TO naročilu — gostova
+                          polja imajo prednost pred stranko, sicer bi
+                          telefonski zadetek prikazal tujo osebo. */}
                       <td className="py-4">
                         <div>
                           <p className="font-medium">
-                            {order.customer?.name || order.guestName || t.orders.guest}
+                            {order.guestName || order.customer?.name || t.orders.guest}
                           </p>
                           <p className="text-sm text-muted-foreground">
-                            {order.customer?.email || order.guestEmail || "-"}
+                            {order.guestEmail || order.customer?.email || "-"}
                           </p>
                         </div>
                       </td>

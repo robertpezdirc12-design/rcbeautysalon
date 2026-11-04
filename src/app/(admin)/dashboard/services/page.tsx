@@ -20,6 +20,7 @@ import { formatCurrency } from "@/lib/utils/format"
 import { ServiceSearch } from "@/components/dashboard/service-search"
 import { getServerI18n } from "@/lib/i18n/server"
 import { requirePagePermission } from "@/lib/auth/guards"
+import { getSessionOrg } from "@/lib/tenant"
 
 interface ServicesPageProps {
   searchParams: Promise<{ search?: string }>
@@ -28,6 +29,10 @@ interface ServicesPageProps {
 export default async function ServicesPage({ searchParams }: ServicesPageProps) {
   // Custom roles (E4-6b): server-side page guard
   await requirePagePermission("services.manage")
+  // P2 #72: "javna stran" gumb vodi na najemnikovo KANONIČNO pot
+  // (/s/<slug>/services/...) — gola /services/... je od #72 platformska
+  // 404, prej pa je odpirala napačen (najstarejši) najemnik.
+  const org = await getSessionOrg()
   const params = await searchParams
   const search = params.search || ""
 
@@ -161,7 +166,7 @@ export default async function ServicesPage({ searchParams }: ServicesPageProps) 
                     </p>
                   </div>
                   <div className="flex gap-1">
-                    <Link href={`/services/${service.slug}`}>
+                    <Link href={org ? `/s/${org.slug}/services/${service.slug}` : "#"}>
                       <Button variant="ghost" size="icon" title={t.services.viewPublicPage}>
                         <EyeIcon size={16} />
                       </Button>

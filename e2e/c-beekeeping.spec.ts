@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test"
-import { makeTenant, publishSite, registerTenant } from "./helpers"
+import { makeTenant, publishSite, registerTenant, visitPublished } from "./helpers"
 
 // ============================================================
 // SCENARIO C — Beekeeper / honey producer (issue #3 §16 C)
@@ -28,8 +28,7 @@ test("C — beekeeping: shop flow + honest checkout + no booking", async ({ page
   const c = await customer.newPage()
 
   // 2: generated site shows the honey product catalogue
-  await c.goto(`${baseUrl}/s/${t.slug}/shop`)
-  await expect(c.locator("body")).toContainText(/Cvetlični med/, { timeout: 20_000 })
+  await visitPublished(c, `${baseUrl}/s/${t.slug}/shop`, /Cvetlični med/)
 
   // 4: customer adds a product to the cart and starts checkout.
   //    The salon has no Stripe keys → the flow must FAIL HONESTLY

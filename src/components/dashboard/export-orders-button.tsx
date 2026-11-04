@@ -42,8 +42,11 @@ export function ExportOrdersButton({ orders }: ExportOrdersButtonProps) {
     const rows = orders.map((order) => [
       // P1 #9 (walkthrough): kratek prijazen ID namesto celotnega cuid
       `#${order.id.slice(-6)}`,
-      order.customer?.name || order.guestName || t.orders.guest,
-      order.customer?.email || order.guestEmail || "-",
+      // P2 #70: kontakt tega naročila — gostova polja imajo prednost,
+      // ker kupec tista podatke dejansko vnesel (telefonski zadetek
+      // stranke ni identiteta naročila).
+      order.guestName || order.customer?.name || t.orders.guest,
+      order.guestEmail || order.customer?.email || "-",
       order._count.items.toString(),
       formatCurrency(order.total),
       order.status,

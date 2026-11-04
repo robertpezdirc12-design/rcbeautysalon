@@ -8,6 +8,7 @@ import { getPublicOrg } from "@/lib/tenant"
 import { getPlan } from "@/lib/plans/registry"
 import { checkPlanLimit, monthStartUtc } from "@/lib/plans/types"
 import { SI_VAT_RATE, vatFromGross } from "@/lib/vat"
+import { guestIdentityMatches } from "@/lib/checkout/guest-identity"
 import type { CartItem } from "@/store/cart-store"
 
 const FREE_SHIPPING_THRESHOLD = 50
@@ -67,8 +68,26 @@ function validateContact(
   return { ok: true }
 }
 
-/** Find-or-create a tenant customer from guest contact details (org-scoped). */
-async function findOrCreateGuestCustomer(
+/**
+ * P2 #70 — poveži gostovo naročilo z obstoječo stranko SAMO, kadar je
+ * ujemanje nedvoumno; sicer je naročilo ČISTO gostovo (customerId = null).
+ *
+ *  1. E-pošta je identitetni signal, ki ga kupec upravlja — natančno
+ *     (neobčutljivo na velike črke) ujemanje poveže naročilo s stranko
+ *     (brez duplikatov).
+ *  2. Telefon SAM NI DOVOLJ za prevzem identitete: skupni gospodinjski
+ *     telefon ali trgovinska številka bi lastnika usmerila k napačni
+ *     osebi (QIGC3TJU je bil prikazan kot »Gost Test Srna«, čeprav je
+ *     kupec vnesel drugo ime/e-pošto). Telefonski zadetek velja le, če
+ *     je tudi ime isto IN stranka nima e-pošte ali se e-pošti ujemata
+ *     (guestIdentityMatches, čista logika v lib/checkout/guest-identity).
+ *  3. Sicer: brez tihoge spajanja identitet, brez duplikatov strank in
+ *     brez PISANJA v obstoječi zapis (ime/e-pošta/telefon stranke se ne
+ *     spreminjata iz gostovega obrazca). Kontakt naročila ostane na
+ *     gostovih poljih (guestName/guestEmail/guestPhone) in je vir
+ *     resnice za prikaz (prioriteta: gost pred stranko).
+ */
+async function resolveGuestCustomerId(
   orgId: string,
   contact: CheckoutContact
 ): Promise<string | null> {
@@ -76,25 +95,31 @@ async function findOrCreateGuestCustomer(
   const phone = contact.phone?.trim() || null
   if (!email && !phone) return null
 
-  const orConditions: Array<Record<string, string>> = []
-  if (email) orConditions.push({ email })
-  if (phone) orConditions.push({ phone })
-  const existing = await prisma.customer.findFirst({
-    where: { organizationId: orgId, OR: orConditions },
-    select: { id: true },
-  })
-  if (existing) return existing.id
+  // 1) e-pošta — nedvoumna identiteta
+  if (email) {
+    const byEmail = await prisma.customer.findFirst({
+      where: {
+        organizationId: orgId,
+        email: { equals: email, mode: "insensitive" },
+      },
+      select: { id: true },
+    })
+    if (byEmail) return byEmail.id
+  }
 
-  const created = await prisma.customer.create({
-    data: {
-      name: contact.name.trim(),
-      email,
-      phone,
-      organizationId: orgId,
-    },
-    select: { id: true },
-  })
-  return created.id
+  // 2) telefon + enaka identiteta (ime [+ e-pošta])
+  if (phone) {
+    const byPhone = await prisma.customer.findFirst({
+      where: { organizationId: orgId, phone },
+      select: { id: true, name: true, email: true },
+    })
+    if (byPhone && guestIdentityMatches(byPhone, contact)) {
+      return byPhone.id
+    }
+  }
+
+  // 3) čisto gostovo naročilo — brez tihoge združitve oseb
+  return null
 }
 
 export async function createProductCheckoutSession(
@@ -213,7 +238,7 @@ export async function createProductCheckoutSession(
         customerId = customer.id
       }
     } else if (contact) {
-      customerId = await findOrCreateGuestCustomer(org.id, contact)
+      customerId = await resolveGuestCustomerId(org.id, contact)
     }
 
     // MONTHLY ORDERS LIMIT (E3-7): entitlements are enforced server-side

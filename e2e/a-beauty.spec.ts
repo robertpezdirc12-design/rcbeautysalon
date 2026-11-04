@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test"
 import { PrismaClient } from "@prisma/client"
-import { makeTenant, publishSite, registerTenant } from "./helpers"
+import { makeTenant, publishSite, registerTenant, visitPublished } from "./helpers"
 
 // ============================================================
 // SCENARIO A — Beauty studio (issue #3 §16 A)
@@ -99,12 +99,10 @@ test("A — beauty studio: register → catalog → publish → booking → mana
   //    and opens the real booking wizard.
   const customer = await page.context().browser()!.newContext()
   const cust = await customer.newPage()
-  await cust.goto(`${baseUrl}/s/${t.slug}`)
   // Published site renders the generated beauty content (stable hero
   // from the vertical preset) — the org name only shows in the logo alt.
-  await expect(cust.locator("body")).toContainText("Vaša lepota, naša strast", {
-    timeout: 20_000,
-  })
+  // visitPublished: re-navigates past the 15 s DRAFT-proxy-cache window.
+  await visitPublished(cust, `${baseUrl}/s/${t.slug}`, "Vaša lepota, naša strast")
   await cust.goto(`${baseUrl}/s/${t.slug}/booking?service=lasje-ensko-stri-enje`)
   await expect(cust.locator("body")).toContainText(/Rezervirajte svoj termin|Rezervac|Termin/i, {
     timeout: 20_000,

@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test"
 import { PrismaClient } from "@prisma/client"
-import { makeTenant, publishSite, registerTenant } from "./helpers"
+import { makeTenant, publishSite, registerTenant, visitPublished } from "./helpers"
 
 // ============================================================
 // SCENARIO D — Seamstress (issue #3 §16 D)
@@ -36,10 +36,7 @@ test("D — seamstress: inquiry → workspace management, no forced shop/booking
   // 3: customer opens the real public inquiry form
   const customer = await page.context().browser()!.newContext()
   const c = await customer.newPage()
-  await c.goto(`${baseUrl}/s/${t.slug}/inquiry`)
-  await expect(c.locator("body")).toContainText(/Povpraševanje|vprašanje|obrazec/i, {
-    timeout: 20_000,
-  })
+  await visitPublished(c, `${baseUrl}/s/${t.slug}/inquiry`, /Povpraševanje|vprašanje|obrazec/i)
   await customer.close()
 
   // 4: a request lands in the workspace (fixture) and the owner

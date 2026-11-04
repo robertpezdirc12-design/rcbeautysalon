@@ -211,3 +211,30 @@ export async function switchPlan(page: Page, planLabel: string): Promise<void> {
   ).toBeVisible({ timeout: 30_000 })
   await page.waitForTimeout(1000)
 }
+
+/**
+ * #44/#66/#72-era tenant visits: the dashboard header PREFETCHES
+ * /s/<slug> while the tenant is still DRAFT — the proxy caches the
+ * resolver answer for 15 s, so a visit right after publishing can
+ * draw the poisoned window (a real HTTP 404, not a soft one). This
+ * helper re-navigates until the expected content renders (the poll
+ * window outlives the 15 s TTL), instead of asserting on a single
+ * navigation that happened to land inside the window.
+ */
+export async function visitPublished(
+  page: Page,
+  url: string,
+  expected: RegExp | string
+): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        await page.goto(url).catch(() => "nav-failed")
+        const text = await page.locator("body").innerText().catch(() => "")
+        if (typeof expected === "string") return text.includes(expected) ? "ok" : "waiting"
+        return expected.test(text) ? "ok" : "waiting"
+      },
+      { timeout: 45_000, intervals: [1_000, 2_000, 3_000] }
+    )
+    .toBe("ok")
+}

@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test"
 import { PrismaClient } from "@prisma/client"
-import { login, makeTenant, publishSite, registerTenant, switchPlan } from "./helpers"
+import { login, makeTenant, publishSite, registerTenant, switchPlan, visitPublished } from "./helpers"
 
 // ============================================================
 // SCENARIO E — SaaS lifecycle (issue #3 §16 E)
@@ -39,12 +39,12 @@ test("E — SaaS lifecycle: privacy → publish → domain → entitlements → 
   await registerTenant(page, t)
   await expect(page).toHaveURL(/dashboard/)
 
-  // 2: DRAFT stays private — a stranger gets the neutral maintenance
-  //    screen (no tenant data leaked), the owner sees the preview.
+  // 2: DRAFT stays private — since #44 the stranger gets a REAL 404
+  //    (the proxy answers the status; the maintenance screen is gone).
   const stranger = await page.context().browser()!.newContext()
   const s = await stranger.newPage()
   await s.goto(`${baseUrl}/s/${t.slug}`)
-  await expect(s.locator("body")).toContainText(/Stran ni objavljena/i, { timeout: 20_000 })
+  await expect(s.locator("body")).toContainText(/Stran ni najdena/i, { timeout: 20_000 })
   await stranger.close()
 
   // 3: custom domain on an eligible plan — the beauty profile mandates
@@ -65,8 +65,7 @@ test("E — SaaS lifecycle: privacy → publish → domain → entitlements → 
   await publishSite(page)
   const visitor = await page.context().browser()!.newContext()
   const v = await visitor.newPage()
-  await v.goto(`${baseUrl}/s/${t.slug}`)
-  await expect(v.locator("body")).toContainText("Vaša lepota, naša strast", { timeout: 20_000 })
+  await visitPublished(v, `${baseUrl}/s/${t.slug}`, "Vaša lepota, naša strast")
   await visitor.close()
 
   // 3b: custom domain on an eligible plan — upgrade to PRO first
@@ -103,10 +102,7 @@ test("E — SaaS lifecycle: privacy → publish → domain → entitlements → 
   })
   const after = await page.context().browser()!.newContext()
   const afterPage = await after.newPage()
-  await afterPage.goto(`${baseUrl}/s/${t.slug}`)
-  await expect(afterPage.locator("body")).toContainText("Vaša lepota, naša strast", {
-    timeout: 20_000,
-  })
+  await visitPublished(afterPage, `${baseUrl}/s/${t.slug}`, "Vaša lepota, naša strast")
   await after.close()
 
   // 7: platform operator inspects the tenant (audit trail visible)

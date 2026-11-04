@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test"
 import { PrismaClient } from "@prisma/client"
-import { makeTenant, publishSite, registerTenant } from "./helpers"
+import { makeTenant, publishSite, registerTenant, visitPublished } from "./helpers"
 
 const e2eDb = new PrismaClient({
   datasources: { db: { url: process.env.E2E_DATABASE_URL ?? "" } },
@@ -41,8 +41,7 @@ test("B — tire service: vertical site + work orders + isolation", async ({ pag
   await publishSite(page)
   const visitor = await page.context().browser()!.newContext()
   const v = await visitor.newPage()
-  await v.goto(`${baseUrl}/s/${t.slug}`)
-  await expect(v.locator("body")).toContainText(/gum|servis|vulkani/i, { timeout: 20_000 })
+  await visitPublished(v, `${baseUrl}/s/${t.slug}`, /gum|servis|vulkani/i)
   // The generated site is NOT beauty-styled: no beauty preset categories
   await expect(v.locator("body")).not.toContainText(/Balayage|Nohti — gel/i)
   await visitor.close()
@@ -56,7 +55,7 @@ test("B — tire service: vertical site + work orders + isolation", async ({ pag
   const stranger = await page.context().browser()!.newContext()
   const s = await stranger.newPage()
   await s.goto(`${baseUrl}/s/this-slug-does-not-exist-e2e`)
-  await expect(s.locator("body")).toContainText(/Stran ni objavljena|Salon ni konfiguriran|ni na voljo/i, {
+  await expect(s.locator("body")).toContainText(/Stran ni najdena/i, {
     timeout: 20_000,
   })
   await s.goto(`${baseUrl}/s/${t.slug}`)

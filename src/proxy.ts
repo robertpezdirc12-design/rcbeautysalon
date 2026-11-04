@@ -6,13 +6,18 @@ const ORG_HEADER = "x-org-slug"
 
 // ------------------------------------------------------------
 // P1 #39-5 (re-audit 2026-11): goli javni dostop ("/services", …)
-// servira ISEO vsebino kot /s/{prvi-objavljeni}/… — dvojniki. Proxy
-// jih trajno preusmeri (308) na kanonično najemniško pot. Privzeti
-// slug pride iz /api/public/default-tenant-slug (proxy ne doseže baze)
-// in se krajsa drži v pomnilniku (60 s).
-// P1 #66: goli "/" je IZLOŽEN iz tega pravila — kore platforme je
-// PRODUKTNA izložba (marketing landing → /start), ne najstarejši
-// najemnik. Najemniške poti pod /s/ in custom domene so nespremenjene.
+// je VEDNO pripadal najstarejšemu objavljenemu najemniku — dvojniki
+// in napačna pozornost.
+// P1 #66: goli "/" je izložen — koren platforme je PRODUKTNA izložba.
+// P2 #72 (ODLOČITEV, OPCIJA A — platformska nevtralnost): goli
+// vsebinske poti (/services, /staff, /shop, /booking, /cart,
+// /inquiry) NE gredo več k najstarejšemu najemniku — na gostitelju
+// platforme so 404 (pravi status rešuje proxy; Next 16 streaming
+// notFound() v strani ga ne zmore, glej #44). Zgodovinske povezave
+// (npr. salonove) se ohranijo z DOKUMENTIRANIM dednim pravilom: env
+// LEGACY_DEFAULT_SLUG=<slug> — ko je nastavljen, goli dostop 308 na
+// /s/<slug>… Eksplicitno, odstranljivo, testno pokrito. /s/<slug>
+// in custom domene ostanejo nespremenjene.
 // ------------------------------------------------------------
 const BARE_PUBLIC_PATH = /^\/(services|staff|shop|booking|cart|inquiry)(\/|$)/
 
@@ -105,25 +110,6 @@ function rewriteTo404(req: { nextUrl: URL }) {
   return NextResponse.rewrite(url)
 }
 
-let defaultSlugCache: { slug: string | null; expires: number } | null = null
-
-async function getDefaultTenantSlug(origin: string): Promise<string | null> {
-  if (defaultSlugCache && defaultSlugCache.expires > Date.now()) {
-    return defaultSlugCache.slug
-  }
-  try {
-    const res = await fetch(`${origin}/api/public/default-tenant-slug`, {
-      cache: "no-store",
-    })
-    if (!res.ok) return null
-    const data = (await res.json()) as { slug: string | null }
-    defaultSlugCache = { slug: data.slug, expires: Date.now() + 60_000 }
-    return data.slug
-  } catch {
-    return null
-  }
-}
-
 export default auth(async (req) => {
   const { pathname } = req.nextUrl
 
@@ -198,23 +184,27 @@ export default auth(async (req) => {
     }
   }
 
-  // ---- P1 #39-5: gola javna pot → kanonična najemniška pot (308) ----
-  // Samo za anonimne/prijavljene obiske GOLIH vsebinskih poti; /api,
-  // /dashboard, /login, /sitemap.xml, pravne strani idr. ostanejo goli.
-  // POMEMBNO: zahtevki, ki jih je proxy že prepisal pod najemnika (x-org-slug
-  // glava), se ne preusmerjajo — sicer bi bila preusmeritvena zanka.
+  // ---- P2 #72 (Opcija A): gola javna pot → platformska nevtralnost ----
+  // Brez LEGACY_DEFAULT_SLUG: pravi HTTP 404 (rezervirana pot).
+  // Z LEGACY_DEFAULT_SLUG=<slug>: 308 na /s/<slug>… (dokumentirano
+  // dedno pravilo za zgodovinske povezave, npr. salonove). Prijavljen
+  // lastnik si svojo stran odpre prek /dashboard → "Obišči stran" ali
+  // /s/<slug> — goli poti niso lastniški vhod. Zahtevki, ki jih je
+  // proxy že prepisal pod najemnika (x-org-slug glava), ne pridejo sem
+  // (orgMatch zanka varovalka).
   if (
     !orgMatch &&
     !req.headers.get(ORG_HEADER) &&
     BARE_PUBLIC_PATH.test(pathname)
   ) {
-    const slug = await getDefaultTenantSlug(req.nextUrl.origin)
-    if (slug) {
+    const legacySlug = process.env.LEGACY_DEFAULT_SLUG?.trim()
+    if (legacySlug) {
       const url = req.nextUrl.clone()
-      url.pathname = `/s/${slug}${pathname === "/" ? "" : pathname}`
+      url.pathname = `/s/${legacySlug}${pathname}`
       url.search = req.nextUrl.search
       return NextResponse.redirect(url, 308)
     }
+    return rewriteTo404(req)
   }
 
   const isLoggedIn = !!req.auth

@@ -2,7 +2,7 @@ import "server-only"
 
 import { cache } from "react"
 import { headers } from "next/headers"
-import { permanentRedirect } from "next/navigation"
+import { notFound, permanentRedirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import { ORG_HEADER, getOrgBySlug, getSessionOrg } from "@/lib/tenant"
 import { mergeSiteContent, type SiteContent } from "@/lib/site-content"
@@ -73,30 +73,39 @@ export const getPublicSiteData = cache(
 )
 
 /**
- * P1 #39-5 (re-audit 2026-11): GOLI javni dostop ("/", "/services", …)
- * vsebuje ISEO vsebino kot /s/{slug}/… (isti prevzeti najemnik) — dva
- * URL-ja z identično vsebino. Klic na vrhu vsake javne strani preusmeri
- * golo pot na kanonično najemniško pot (permanentRedirect → 308; SEO
- * enakovredno 301). Ko zahtevek PRIHAJ pod najemnikom (x-org-slug) ali
- * ko ni objavljenega najemnika (prazna platforma / custom domena),
- * se nič ne zgodi.
+ * P2 #72 (ODLOČITEV — OPCIJA A, platformska nevtralnost): goli javni
+ * dostop ("/shop", "/services", …) NE pade več na najstarejšega
+ * objavljenega najemnika. Privzeto:
+ *   - pod najemnikom (x-org-slug) / custom domeni → nič (stran rendra),
+ *   - prijavljen lastnik → kanonična pot NJEGOVEGA org,
+ *   - sicer → notFound() (fail-closed; pravi HTTP 404 na gostitelju
+ *     platforme rešuje PROXY, ta klic je obrambna druga linija za
+ *     dosegi, ki proxyja ne gredo — glej #44 glej statusov v Next 16).
+ *
+ * allowDefaultTenant (privzeto FALSE) je eksplicitno odprto dedno
+ * pravilo: klicatelj, ki GA izrecno poda, sprejme 308 na najstarejšega
+ * najemnika. Noben klicatelj ga danes ne poda — vsak novi goli route
+ * NE more podedovati padca po nesreči (test to zagotavlja).
  */
-export async function redirectBareToTenant(path: string): Promise<void> {
+export async function redirectBareToTenant(
+  path: string,
+  opts: { allowDefaultTenant?: boolean } = {}
+): Promise<void> {
   const h = await headers()
   // Pod najemnikom (/s/{slug}) ali na custom domeni: nič.
   if (h.get(ORG_HEADER)) return
 
   const sessionOrg = await getSessionOrg()
-  // Prijavljen lastnik na goli poti vidi svoj org — tudi ta dobi
-  // kanonični URL (isti nadzorni potek kot anonimni obiskovalec).
   const org =
     sessionOrg ??
-    (await prisma.organization.findFirst({
-      where: { status: "ACTIVE", publishState: "PUBLISHED" },
-      orderBy: { createdAt: "asc" },
-      select: { slug: true },
-    }))
-  if (!org) return
+    (opts.allowDefaultTenant
+      ? await prisma.organization.findFirst({
+          where: { status: "ACTIVE", publishState: "PUBLISHED" },
+          orderBy: { createdAt: "asc" },
+          select: { slug: true },
+        })
+      : null)
+  if (!org) notFound()
 
   permanentRedirect(`/s/${org.slug}${path}`)
 }

@@ -1,6 +1,13 @@
 export const commonSl = {
   platformTagline: "Poslovna platforma",
   skipToContent: "Preskoči na vsebino",
+  // P2 #71: nadzorna not-found meja (notFound() v /dashboard/*)
+  notFound: {
+    title: "Stran ni najdena",
+    description:
+      "Naslov, ki ga iščete, ne obstaja ali ne pripada vaši organizaciji.",
+    backToDashboard: "Nazaj na nadzorno ploščo",
+  },
   theme: {
     toggle: "Preklopi temo",
     light: "Svetlo",
@@ -82,6 +89,13 @@ export type CommonDict = typeof commonSl
 export const commonEn: CommonDict = {
   platformTagline: "Business platform",
   skipToContent: "Skip to content",
+  // P2 #71: dashboard not-found boundary
+  notFound: {
+    title: "Page not found",
+    description:
+      "The address you are looking for does not exist or does not belong to your organization.",
+    backToDashboard: "Back to dashboard",
+  },
   theme: {
     toggle: "Toggle theme",
     light: "Light",

@@ -13,7 +13,7 @@
 // ============================================================
 
 import { describe, it, expect } from "vitest"
-import { readFileSync } from "node:fs"
+import { srcOf } from "./helpers/source"
 import {
   detectContentActivityMismatch,
   defaultSiteContent,
@@ -30,8 +30,6 @@ import {
   isSampleImageUrl,
 } from "@/lib/verticals"
 import { buildSetupChecklist } from "@/lib/profiles/setup-checklist"
-
-const srcOf = (p: string) => readFileSync(__dirname + "/../" + p, "utf8")
 
 // ------------------------------------------------------------
 // #58 — vertical switch reseeds (or explicitly keeps) content
@@ -361,10 +359,17 @@ describe("#64 — resolution cache honesty", () => {
   it("source guard: resolve-tenant answers exists:false with no-store", () => {
     const route = srcOf("src/app/api/public/resolve-tenant/route.ts")
     expect(route).toContain('"Cache-Control": "no-store"')
-    // the negative branch must NOT carry the long cache header anymore
+    // P3 #73: STRUKTURNA trditev namesto rezine z dobesedno \n v
+    // markerju (CRLF checkout je prej utopil marker in rezina je
+    // zajela celotno datoteko). Negativno vejo locimo po "exists: false":
+    // rezina od ZADNJEGA NextResponse.json( pred njo do NASLEDNJEGA.
+    const falseIdx = route.indexOf("exists: false")
+    expect(falseIdx).toBeGreaterThan(0)
+    const callStart = route.lastIndexOf("NextResponse.json(", falseIdx)
+    const callEnd = route.indexOf("NextResponse.json(", falseIdx)
     const negativeBranch = route.slice(
-      route.indexOf("if (!org || org.status"),
-      route.indexOf("return NextResponse.json(\n      {\n        exists: true")
+      callStart,
+      callEnd === -1 ? route.length : callEnd
     )
     expect(negativeBranch).toContain("no-store")
     expect(negativeBranch).not.toContain("max-age=15")

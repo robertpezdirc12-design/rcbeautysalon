@@ -95,13 +95,34 @@ export async function generateMetadata(): Promise<Metadata> {
     // dobi produktni naslov IN SME biti indeksiran (izložba platforme);
     // skriti osnutek pod /s/<slug> (glava prisotna) ostane brez indeksa.
     const barePlatform = !(await headers()).get("x-org-slug")
+    // P3 #73: izložba potrebuje socialni predogled + kanonični URL —
+    // v soudeležbi (ogled linka v sporočilu) je to prva točka pridobitve.
+    // Skriti osnutek NE sme dobiti platformskih og:* vrednosti (isto
+    // brezPlatform pogoj ju ločuje); najemniške vrednosti spodaj zmagajo.
+    if (barePlatform) {
+      const productTitle = "RCBeauty — ustvari svoje podjetje"
+      const productDescription =
+        "Spletna stran s rezervacijami, trgovino in povpraševanji za 11 dejavnosti — frizer, kozmetika, čebelarstvo, šiviljstvo in več. V nekaj minutah, brez kodiranja."
+      return {
+        title: productTitle,
+        description: productDescription,
+        alternates: { canonical: appUrl },
+        openGraph: {
+          type: "website",
+          url: appUrl,
+          siteName: "RCBeauty",
+          title: productTitle,
+          description: productDescription,
+          locale: "sl_SI",
+        },
+        robots: { index: true, follow: true },
+      }
+    }
     return {
-      title: "RCBeauty — ustvari svoje podjetje",
+      title: "Salon Platform",
       description:
-        "Spletna stran s rezervacijami, trgovino in povpraševanji za 11 dejavnosti — frizer, kozmetika, čebelarstvo, šiviljstvo in več. V nekaj minutah, brez kodiranja.",
-      robots: barePlatform
-        ? { index: true, follow: true }
-        : { index: false, follow: false },
+        "Rezervacije, trgovina in predstavitev vašega podjetja",
+      robots: { index: false, follow: false },
     }
   }
 
