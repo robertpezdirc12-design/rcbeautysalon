@@ -9,7 +9,10 @@ import { buildTenantJsonLd } from "@/lib/seo"
 import { reminderWindow, dueReminderWhere } from "@/lib/jobs/send-due-reminders"
 import { isAuthorizedCron } from "@/app/api/cron/tick/route"
 
-const read = (p: string) => readFileSync(__dirname + "/../" + p, "utf8")
+// Windows checkout (core.autocrlf) delivers CRLF — normalise so
+// source-content assertions containing "\n" are platform-independent.
+const read = (p: string) =>
+  readFileSync(__dirname + "/../" + p, "utf8").replace(/\r\n/g, "\n")
 
 // ============================================================
 // P1 #76 · P1 #77 · P1 #83 · P2 #75 · P2 #86 — zlati set regresij
