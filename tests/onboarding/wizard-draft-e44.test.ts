@@ -54,6 +54,8 @@ function fullDraft(overrides?: Partial<WizardDraftData>): WizardDraftData {
     slugTouched: true,
     ownerName: "Nika Novak",
     email: "nika@studionika.si",
+    teamSize: null,
+    onlineBooking: null,
     ...overrides,
   }
 }
@@ -146,6 +148,55 @@ describe("sanitize caps and allowlists (E4-4)", () => {
   })
 })
 
+describe("P2 #88 — second-level answers in the draft", () => {
+  it("round-trips valid answers", () => {
+    const draft = fullDraft({ teamSize: "solo", onlineBooking: "no" })
+    const json = serializeWizardDraft(draft, { ...CTX_BASE, now: T0 })
+    const res = parseWizardDraft(json, { ...CTX_BASE, now: T0 + 1000 })
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    expect(res.envelope.data.teamSize).toBe("solo")
+    expect(res.envelope.data.onlineBooking).toBe("no")
+  })
+
+  it("rejects tampered answer values (fail closed, not guessed)", () => {
+    const data = sanitizeWizardDraftData(
+      { teamSize: "medium", onlineBooking: "maybe", extra: 42 },
+      CTX_BASE
+    )
+    expect(data.teamSize).toBeNull()
+    expect(data.onlineBooking).toBeNull()
+  })
+
+  it("older drafts without the answer keys degrade to null (backward compatible)", () => {
+    const legacyEnvelope = {
+      version: WIZARD_DRAFT_VERSION,
+      savedAt: T0,
+      data: { ...fullDraft(), teamSize: undefined, onlineBooking: undefined },
+    }
+    const res = parseWizardDraft(JSON.stringify(legacyEnvelope), { ...CTX_BASE, now: T0 + 1000 })
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    expect(res.envelope.data.teamSize).toBeNull()
+    expect(res.envelope.data.onlineBooking).toBeNull()
+  })
+
+  it("answers alone are not 'substantial' progress (vertical/name still gate the resume offer)", () => {
+    const answersOnly = fullDraft({
+      vertical: null,
+      palette: null,
+      name: "",
+      slug: "",
+      slugTouched: false,
+      ownerName: "",
+      email: "",
+      teamSize: "small",
+      onlineBooking: "yes",
+    })
+    expect(isDraftSubstantial(answersOnly)).toBe(false)
+  })
+})
+
 describe("isDraftSubstantial (E4-4 honest resume)", () => {
   it("an all-empty draft is never offered for resume", () => {
     const empty: WizardDraftData = {
@@ -158,6 +209,8 @@ describe("isDraftSubstantial (E4-4 honest resume)", () => {
       slugTouched: false,
       ownerName: "",
       email: "",
+      teamSize: null,
+      onlineBooking: null,
     }
     expect(isDraftSubstantial(empty)).toBe(false)
   })

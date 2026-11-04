@@ -21,6 +21,15 @@ export interface CreateSalonInput {
   ownerName: string
   email: string
   password: string
+  /**
+   * P2 #88 — optional second-level answers from /start step 2 (same shape
+   * the guided-entry wizard persists): "solo" removes the staff step from
+   * the activation checklist; onlineBooking "no" rewords the publish step.
+   * Never blocking — unanswered fields stay null and the checklist keeps
+   * its safe defaults.
+   */
+  teamSize?: "solo" | "small" | "team" | null
+  onlineBooking?: "yes" | "no" | null
 }
 
 export interface CreateSalonResult {
@@ -176,6 +185,18 @@ export async function createSalonOrganization(input: CreateSalonInput): Promise<
     // P2 #42: verticalChosenAt se zapiše TU — dejavnost je bila izbrana v
     // čarovniku /start, dashboard je zato NE vpraša ponovno (vrata
     // "Kaj počnete?" visijo natanko na tem polju).
+    // P2 #88: odgovora iz koraka 2 (velikost tima, spletna rezervacija)
+    // se shranita v onboardingAnswers — dashboard kontrolni seznam ju
+    // bere od prvega dne (solo brez koraka osebja, "no" preformulira
+    // korak objave). Whitelist vrednosti: neznan vnos = neobvezani odgovor.
+    const teamSize =
+      input.teamSize === "solo" || input.teamSize === "small" || input.teamSize === "team"
+        ? input.teamSize
+        : null
+    const onlineBooking =
+      input.onlineBooking === "yes" || input.onlineBooking === "no" ? input.onlineBooking : null
+    const onboardingAnswers =
+      teamSize || onlineBooking ? { ...(teamSize ? { teamSize } : {}), ...(onlineBooking ? { onlineBooking } : {}) } : undefined
     const org = await prisma.organization.create({
       data: {
         slug,
@@ -185,6 +206,7 @@ export async function createSalonOrganization(input: CreateSalonInput): Promise<
         palette,
         publishState: "DRAFT",
         verticalChosenAt: new Date(),
+        ...(onboardingAnswers ? { onboardingAnswers } : {}),
       },
     })
 

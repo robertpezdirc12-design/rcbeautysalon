@@ -111,6 +111,13 @@ export function StartWizard({
   const [slugTouched, setSlugTouched] = useState(false)
   const [slugStatus, setSlugStatus] = useState<SlugStatus>("idle")
 
+  // P2 #88 — second-level answers (step 2): optional, never blocking.
+  // "solo" removes the staff step from the activation checklist;
+  // onlineBooking "no" rewords the publish step — the same answers the
+  // guided-entry wizard persists on Organization.onboardingAnswers.
+  const [teamSize, setTeamSize] = useState<"solo" | "small" | "team" | null>(null)
+  const [onlineBooking, setOnlineBooking] = useState<"yes" | "no" | null>(null)
+
   // Step 3 — owner
   // #40: prijavljen uporabnik — e-pošta je iz seje (nespremenljiva), ime
   // se predizpolni iz računa.
@@ -189,6 +196,8 @@ export function StartWizard({
       slugTouched,
       ownerName,
       email,
+      teamSize,
+      onlineBooking,
     }
     const pristine = pristineRef.current
     if (pristine === null) {
@@ -204,7 +213,9 @@ export function StartWizard({
       pristine.slug === data.slug &&
       pristine.slugTouched === data.slugTouched &&
       pristine.ownerName === data.ownerName &&
-      pristine.email === data.email
+      pristine.email === data.email &&
+      pristine.teamSize === data.teamSize &&
+      pristine.onlineBooking === data.onlineBooking
     ) {
       return
     }
@@ -224,7 +235,7 @@ export function StartWizard({
     } else {
       clearDraftRaw(window.localStorage, WIZARD_DRAFT_KEY)
     }
-  }, [step, vertical, secondary, palette, name, slug, slugTouched, ownerName, email, resumeOffer])
+  }, [step, vertical, secondary, palette, name, slug, slugTouched, ownerName, email, teamSize, onlineBooking, resumeOffer])
 
   // E4-4 — honest resume: restore the saved draft, but never land
   // further than the data actually allows (safeResumeStep). The slug
@@ -244,6 +255,9 @@ export function StartWizard({
     // #40: e-pošta prijavljenega uporabnika je avtoritativna — osnutek je
     // ne more preglasiti.
     setEmail(authedEmail ?? d.email)
+    // P2 #88: drugonivojski odgovori se obnovita skupaj z osnutkom.
+    setTeamSize(d.teamSize)
+    setOnlineBooking(d.onlineBooking)
     setResumeOffer(null)
   }
 
@@ -371,6 +385,9 @@ export function StartWizard({
         // poveže obstoječi račun in ne ustvari novega).
         email: (authed ? authedEmail! : email).trim(),
         password: authed ? "" : password,
+        // P2 #88: odgovora iz koraka 2 — neobvezna, nikoli ne blokirata.
+        teamSize,
+        onlineBooking,
       })
 
       if (!res.success) {
@@ -670,6 +687,93 @@ export function StartWizard({
                 {selectedPalette && (
                   <p className="text-sm text-muted-foreground">
                     Izbrana paleta: <span className="font-medium text-foreground">{selectedPalette.label}</span>
+                  </p>
+                )}
+              </div>
+
+              {/* P2 #88 — drugonivojski odgovori (neobvezna, nikoli ne
+                  blokirata): prilagodita kontrolni seznam namestitve.
+                  Isti dve vprašanji kot vodeni vstop na dashboardu. */}
+              <div className="rounded-xl border bg-muted/30 p-4 sm:p-5">
+                <h2 className="text-sm font-semibold">Nekaj o vašem podjetju (neobvezno)</h2>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Odgovora prilagodita kontrolni seznam namestitve. Preskok je v redu.
+                </p>
+
+                {/* Q1 — velikost tima */}
+                <p className="mt-4 text-sm font-medium">Koliko ljudi dela pri vas?</p>
+                <div
+                  role="radiogroup"
+                  aria-label="Koliko ljudi dela pri vas?"
+                  className="mt-2 flex flex-wrap gap-2"
+                >
+                  {(
+                    [
+                      ["solo", "Samo jaz"],
+                      ["small", "2–5"],
+                      ["team", "6 ali več"],
+                    ] as const
+                  ).map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      role="radio"
+                      aria-checked={teamSize === value}
+                      onClick={() => setTeamSize(value)}
+                      disabled={creating}
+                      className={cn(
+                        "rounded-full border px-4 py-1.5 text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        teamSize === value
+                          ? "border-primary bg-primary/5 ring-2 ring-primary/30"
+                          : "hover:border-primary/40"
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                {teamSize === "solo" && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Razumevano — kontrolni seznam ne bo zahteval dodajanja osebja.
+                  </p>
+                )}
+
+                {/* Q2 — spletna rezervacija */}
+                <p className="mt-5 text-sm font-medium">
+                  Želite, da stranke termine rezervirajo prek spleta (24/7)?
+                </p>
+                <div
+                  role="radiogroup"
+                  aria-label="Želite, da stranke termine rezervirajo prek spleta (24/7)?"
+                  className="mt-2 flex flex-wrap gap-2"
+                >
+                  {(
+                    [
+                      ["yes", "Da — spletna rezervacija"],
+                      ["no", "Ne — po dogovoru"],
+                    ] as const
+                  ).map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      role="radio"
+                      aria-checked={onlineBooking === value}
+                      onClick={() => setOnlineBooking(value)}
+                      disabled={creating}
+                      className={cn(
+                        "rounded-full border px-4 py-1.5 text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        onlineBooking === value
+                          ? "border-primary bg-primary/5 ring-2 ring-primary/30"
+                          : "hover:border-primary/40"
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                {onlineBooking === "no" && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Objava strani bo še vedno priporočena — brez obljub o spletnih rezervacijah.
                   </p>
                 )}
               </div>

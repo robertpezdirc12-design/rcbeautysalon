@@ -43,6 +43,10 @@ export interface WizardDraftData {
   slugTouched: boolean
   ownerName: string
   email: string
+  /** P2 #88 — team-size answer (null = not answered / older draft). */
+  teamSize: "solo" | "small" | "team" | null
+  /** P2 #88 — online-booking answer (null = not answered / older draft). */
+  onlineBooking: "yes" | "no" | null
 }
 
 export interface WizardDraftEnvelope {
@@ -88,6 +92,13 @@ function optionalId(value: unknown, allowed: readonly string[] | null): string |
     : null
 }
 
+/** P2 #88 — whitelist one of the literal answer values, else null. */
+function optionalAnswer<T extends string>(value: unknown, allowed: readonly T[]): T | null {
+  return typeof value === "string" && (allowed as readonly string[]).includes(value)
+    ? (value as T)
+    : null
+}
+
 /**
  * Whitelist + clamp raw draft-shaped input. Unknown keys (including any
  * smuggled password-like property) are structurally dropped — only the
@@ -116,6 +127,10 @@ export function sanitizeWizardDraftData(
     slugTouched: obj.slugTouched === true,
     ownerName: clampString(obj.ownerName, CAPS.ownerName),
     email: clampString(obj.email, CAPS.email),
+    // P2 #88 — same answer shape the guided-entry wizard persists on the
+    // organization; older drafts (and tampered values) degrade to null.
+    teamSize: optionalAnswer(obj.teamSize, ["solo", "small", "team"] as const),
+    onlineBooking: optionalAnswer(obj.onlineBooking, ["yes", "no"] as const),
   }
 }
 
