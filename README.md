@@ -45,6 +45,14 @@ Ena namestitev streže **več neodvisnim podjetjem** — vsak s svojo potjo (`/s
 - **Per-tenant SEO** — naslov/opis iz SEO nastavitev najemnika, Open Graph + Twitter kartice (hero slika ali logotip), canonical na `/s/{slug}` (goli dostop se deduplira), `noindex` za osnutke in dashboard
 - **Ponastavitev gesla** — samoslužni tok prek e-pošte (žeton 1 h, pošteno sporočilo neodvisno od obstoja računa) + admin ponastavitev članu iz `/dashboard/users/[id]`: močno generirano geslo brez dvoumnih znakov, org-scoped, zaščiteno (ne samo-sebi, ne drugim adminom), pošteno i18n SL/EN
 
+### 🆕 November 2026 — konkurenčni P0 sklop (#88–93, [analiza](docs/KONKURENCA-ANALIZA-2026-11.md))
+- **Čakalna lista (#90)** — javna prijava na zaseden termin (anchor iz polnega koledarja), admin `/dashboard/waitlist` z enim klikom pošlje obvestilo s povezavo v rezervacijo; **nikoli auto-book**, neuspešna e-pošta je vidna (fail-closed)
+- **Oznake strank + segmenti (#91)** — proste oznake („VIP", „rdeča") na strankah IN linkih brez računa, filter chips na Strankah filtrirata obe tabeli strežniško — vstopna točka za ciljane kampanje (P1)
+- **Dodatki storitvi / add-ons (#92)** — izbirna doplačila z lastnim trajanjem; cena + trajanje se prištejeta **atomarno** (strežniški izračun iz DB, snapshot na terminu); sloti upoštevajo podaljšanje; Stripe metadata + webhook ponovno razrešita iz DB
+- **Transakcijska varnost rezervacij (#93)** — vse 4 pisalne poti (javna rezervacija, webhook, `/booking/success` verify, prestavitev) pod `pg_advisory_xact_lock` + transakcijo z avtoritativnim overlap checkom; `stripePaymentId @unique` (eno plačilo = največ en termin); prepaid dekrement + redemption + EXHAUSTED v eni transakciji (rollback povrne seanso)
+- **Onboarding korak 2 (#88)** — velikost tima + spletna rezervacija: „solo" odstrani korak osebja iz kontrolnega seznama, „brez spletnih rezervacij" preformulira objavo
+- **Terminologija panoge (#89)** — „salon" ni več hardcodiran: `businessSingular/businessIn/businessGenitive` per panoga (servis, atelje, čebelarstvo …) prek `{business}` interpolacije na clientu in strežniku
+
 ### 🏢 Večnajemniškost (multi-tenant)
 - Vsak salon dobi svojo javno stran pod `/s/[slug]` (npr. `/s/salon-luna/rezervacija`)
 - **Izolacija najemnikov** — vsaka poizvedba org-scoped, shemski guardrail test zahteva `organizationId` + indeks na vseh najemniških modelih, runtime izolacijski skript
@@ -53,11 +61,14 @@ Ena namestitev streže **več neodvisnim podjetjem** — vsak s svojo potjo (`/s
 - **Samostojno vključitev (onboarding)** — nov salon se registrira na `/start`, izbere dejavnost in takoj dobi celotno stran z materializiranimi obrazci, procesi in katalogom
 
 ### 📅 Rezervacije
-- Spletna rezervacija s pologom (znesek nastavi salon, privzeto **50 €**)
+- **Polog kot pravilo (#79)** — org privzeto (FIXED znesek ali PERCENT), per-storitveni INHERIT/NONE/FIXED/PERCENT; polog nikoli višji od cene storitve; napitnine + provizije ob zaključku (provizija zapisana enkrat, zgodovina se ne prepiše)
+- **Čakalna lista (#90)** — zaseden dan → prijava → obvestilo ob odprtju termina
+- **Dodatki storitvi (#92)** — izbirna doplačila s trajanjem, atomarno vrezana v rezervacijo
 - Koledar z **uvojitvijo `Europe/Ljubljana`** — termini so natančni na časovni pas (date-fns tz)
 - Preverjanje razpoložljivosti v realnem času, izbira storitve in osebja
 - Preklic / prestavitev rezervacije s strani stranke
 - Samodejna e-poštna potrdila in opomniki
+- **Transakcijsko varno (#93)** — advisory lock + transakcija na vseh pisalnih poteh; eno plačilo = največ en termin
 
 ### 🛍️ Trgovina (e-commerce)
 - Katalog izdelkov s slikami, košarica (Zustand), Stripe checkout
