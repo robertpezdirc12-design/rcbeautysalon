@@ -58,7 +58,13 @@ const lora = Lora({ variable: "--font-lora", subsets: ["latin", "latin-ext"], di
  *     tenant brands the page only for its own owner (EPIC #3 E3-1), so guest
  *     metadata/theme never leak an unpublished tenant
  *  2. signed-in user's organization (dashboard)
- *  3. default (first PUBLISHED) organization (bare public routes, anonymous) */
+ *
+ *  P1 #66/#68: there is NO platform-root fallback. The bare host is a
+ *  PRODUCT surface (/, /login, /register, /start) — the oldest published
+ *  tenant must not brand it (visible theme, head metadata or JSON-LD).
+ *  Bare content paths (/shop, /services, …) are 308-redirected by the
+ *  proxy to /s/<slug> and arrive here WITH the x-org-slug header, so no
+ *  tenant loses branding; auth is platform-level by design (#53). */
 async function resolveBrandOrg(): Promise<Organization | null> {
   try {
     const h = await headers()
@@ -74,10 +80,7 @@ async function resolveBrandOrg(): Promise<Organization | null> {
     if (session?.user?.organizationId) {
       return await getOrgById(session.user.organizationId)
     }
-    if (session?.user?.role === "ADMIN") {
-      return prisma.organization.findFirst({ where: { status: "ACTIVE", publishState: "PUBLISHED" }, orderBy: { createdAt: "asc" } })
-    }
-    return prisma.organization.findFirst({ where: { status: "ACTIVE", publishState: "PUBLISHED" }, orderBy: { createdAt: "asc" } })
+    return null
   } catch {
     return null
   }
@@ -88,11 +91,17 @@ export async function generateMetadata(): Promise<Metadata> {
   const org = await resolveBrandOrg()
 
   if (!org) {
-    // Skriti osnutek ali brez organizacij — generična platforma, brez indeksa.
+    // P1 #66/#68: platforma govori sama zase. Goli gost (/, /login, /start)
+    // dobi produktni naslov IN SME biti indeksiran (izložba platforme);
+    // skriti osnutek pod /s/<slug> (glava prisotna) ostane brez indeksa.
+    const barePlatform = !(await headers()).get("x-org-slug")
     return {
-      title: "Salon Platform",
-      description: "Rezervacije, trgovina in predstavitev vašega salona",
-      robots: { index: false, follow: false },
+      title: "RCBeauty — ustvari svoje podjetje",
+      description:
+        "Spletna stran s rezervacijami, trgovino in povpraševanji za 11 dejavnosti — frizer, kozmetika, čebelarstvo, šiviljstvo in več. V nekaj minutah, brez kodiranja.",
+      robots: barePlatform
+        ? { index: true, follow: true }
+        : { index: false, follow: false },
     }
   }
 
