@@ -102,7 +102,8 @@ function money(n: number): string {
 export function PackagesClient({ packages, catalog, customers = [] }: PackagesClientProps) {
   const router = useRouter()
   // Oznake iz client bundle-a (funkcije v slovarju niso props-serijalizabilne).
-  const labels: Labels = useI18n().t.catalogDocs.packages
+  const { t, withBusiness } = useI18n()
+  const labels: Labels = t.catalogDocs.packages
   const [open, setOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
@@ -582,7 +583,7 @@ export function PackagesClient({ packages, catalog, customers = [] }: PackagesCl
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>
-                {labels.sellTitle}
+                {withBusiness(labels.sellTitle)}
                 {selling ? `: ${selling.name}` : ""}
               </DialogTitle>
               <DialogDescription>{labels.sellDesc}</DialogDescription>
