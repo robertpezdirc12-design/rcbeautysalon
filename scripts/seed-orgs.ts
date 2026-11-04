@@ -14,14 +14,14 @@ const prisma = new PrismaClient()
 const DEFAULT_ORG_ID = "org_rcbeauty"
 
 async function main() {
-  // ---------- 1. Default organization (existing RC Beauty demo) ----------
+  // ---------- 1. Default organization (legacy demo, slug rc-beauty) ----------
   let defaultOrg = await prisma.organization.findUnique({ where: { slug: "rc-beauty" } })
   if (!defaultOrg) {
     defaultOrg = await prisma.organization.create({
       data: {
         id: DEFAULT_ORG_ID,
         slug: "rc-beauty",
-        name: "RC Beauty Salon",
+        name: "Salon harmonija (demo)",
         vertical: "beauty",
         palette: "rose",
       },

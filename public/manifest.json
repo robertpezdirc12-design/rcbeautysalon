@@ -1,7 +1,7 @@
 {
-  "name": "RCBeauty Salon Platform",
-  "short_name": "Salon",
-  "description": "Rezervacije, trgovina in predstavitev vašega salona",
+  "name": "MARKEC – MY BUSINESS PLATFORM",
+  "short_name": "MARKEC",
+  "description": "Spletna stran, rezervacije, trgovina in povpraševanja za vaše podjetje",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

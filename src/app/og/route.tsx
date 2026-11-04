@@ -13,7 +13,7 @@ export const runtime = "nodejs"
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
-  const title = (searchParams.get("title") ?? "Salon Platform").slice(0, 120)
+  const title = (searchParams.get("title") ?? "MARKEC – MY BUSINESS PLATFORM").slice(0, 120)
   const subtitle = (searchParams.get("subtitle") ?? "").slice(0, 120)
 
   return new ImageResponse(
@@ -66,7 +66,7 @@ export async function GET(request: Request) {
             opacity: 0.7,
           }}
         >
-          Salon Platform
+          MARKEC – MY BUSINESS PLATFORM
         </div>
       </div>
     ),

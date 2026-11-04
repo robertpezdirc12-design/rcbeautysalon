@@ -102,9 +102,9 @@ export async function generateMetadata(): Promise<Metadata> {
     // Skriti osnutek NE sme dobiti platformskih og:* vrednosti (isto
     // brezPlatform pogoj ju ločuje); najemniške vrednosti spodaj zmagajo.
     if (barePlatform) {
-      const productTitle = "RCBeauty — ustvari svoje podjetje"
+      const productTitle = "MARKEC – MY BUSINESS PLATFORM"
       const productDescription =
-        "Spletna stran s rezervacijami, trgovino in povpraševanji za 11 dejavnosti — frizer, kozmetika, čebelarstvo, šiviljstvo in več. V nekaj minutah, brez kodiranja."
+        "Spletna stran, rezervacije, trgovina in povpraševanja za katerokoli dejavnost — od salona do obrti, trgovine in storitev. V nekaj minutah, brez kodiranja."
       return {
         title: productTitle,
         description: productDescription,
@@ -112,7 +112,7 @@ export async function generateMetadata(): Promise<Metadata> {
         openGraph: {
           type: "website",
           url: appUrl,
-          siteName: "RCBeauty",
+          siteName: "MARKEC",
           title: productTitle,
           description: productDescription,
           locale: "sl_SI",
@@ -121,7 +121,7 @@ export async function generateMetadata(): Promise<Metadata> {
       }
     }
     return {
-      title: "Salon Platform",
+      title: "MARKEC – MY BUSINESS PLATFORM",
       description:
         "Rezervacije, trgovina in predstavitev vašega podjetja",
       robots: { index: false, follow: false },

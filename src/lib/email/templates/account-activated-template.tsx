@@ -44,14 +44,14 @@ export function AccountActivatedTemplate({
 
           {/* Content */}
           <Section style={content}>
-            <Heading style={title}>Welcome to Business Platform!</Heading>
+            <Heading style={title}>Welcome to MARKEC!</Heading>
             <Text style={text}>
               Hello{userName ? ` ${userName}` : ""},
             </Text>
             <Text style={text}>
               Great news! Your email has been verified and your account is now
-              fully activated. You can now enjoy all the features of RC Beauty
-              Salon.
+              fully activated. You can now enjoy all the features of
+              MARKEC – MY BUSINESS PLATFORM.
             </Text>
 
             <Section style={featuresBox}>

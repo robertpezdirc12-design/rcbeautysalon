@@ -1,6 +1,8 @@
-# RCBeauty — večnajemniška platforma za 11 dejavnosti
+# MARKEC – MY BUSINESS PLATFORM
 
-Sodobna full-stack platforma za samostojne ponudnike — frizerji, kozmetika, čebelarji, šivilje, vulkanizerji in več — zgrajena z **Next.js 16**, **React 19**, **TypeScript** in **Tailwind CSS v4**.
+Univerzalna modularna poslovna platforma za samostojne ponudnike — od lepotnih salonov do obrti, čebelarjev, šiviljstva, vulkanizerjev, trgovine in storitev — zgrajena z **Next.js 16**, **React 19**, **TypeScript** in **Tailwind CSS v4**.
+
+> 🏷️ **Preimenovanje (#100):** aplikacija je bila nekoč »RCBeauty« (lepotni saloni). Znova je **MARKEC – MY BUSINESS PLATFORM** — univerzalna platforma za katerokoli dejavnost. Tehnični identifikatorji (repo, URL-ji, e-pošte, slug) ostajajo, dokler lastnik ne odloči o migraciji.
 
 🌐 **V živo:** [https://rcbeautysalon-phi.vercel.app](https://rcbeautysalon-phi.vercel.app) — koren je **produktna izložba platforme** (11 kartic dejavnosti → `/start?vertical=<id>`)
 

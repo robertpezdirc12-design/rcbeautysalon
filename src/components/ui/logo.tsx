@@ -27,8 +27,8 @@ export function Logo({ className, variant = "navbar", src, alt }: LogoProps) {
 
   // No custom logo uploaded — render the salon's initials instead of a
   // generic platform mark (avoids wrong branding for other tenants).
-  // P2 #17 (audit-2026-11): keep a leading acronym intact — "RC Beauty
-  // Salon" must monogram as "RC", not "RB". role="img" makes the
+  // P2 #17 (audit-2026-11): keep a leading acronym intact — "AB
+  // Studio" must monogram as "AB", not "AS". role="img" makes the
   // aria-label meaningful, and the size reads ≥ 18 px in the navbar.
   if (!src || src.trim().length === 0) {
     const words = name.split(/\s+/).filter(Boolean)

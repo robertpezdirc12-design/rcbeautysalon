@@ -201,13 +201,13 @@ describe("#73 — root metadata + hygiene", () => {
     const branchEnd = layout.indexOf("const [config", branchStart)
     const branch = layout.slice(branchStart, branchEnd)
     expect(branch).toContain("alternates: { canonical: appUrl }")
-    expect(branch).toContain('siteName: "RCBeauty"')
+    expect(branch).toContain('siteName: "MARKEC"')
     expect(branch).toContain('locale: "sl_SI"')
     expect(branch).toContain('type: "website"')
     // exactly ONE openGraph block in the layout — the platform branch;
-    // the noindex draft branch ("Salon Platform") stays metadata-free
+    // the noindex draft branch ("MARKEC – MY BUSINESS PLATFORM") stays metadata-free
     expect(layout.match(/openGraph:/g)?.length).toBe(1)
-    expect(layout).toContain("Salon Platform")
+    expect(layout).toContain("MARKEC – MY BUSINESS PLATFORM")
   })
 
   it("normalizeSource: CRLF input behaves like LF", () => {

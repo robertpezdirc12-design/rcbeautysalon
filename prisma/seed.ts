@@ -37,7 +37,7 @@ async function main() {
     update: {},
     create: {
       id: 'salon_config',
-      name: 'RC Beauty Salon',
+      name: 'Salon harmonija (demo)',
       email: 'info@rcbeautysalon.org',
       phone: '+386 40 123 456',
       address: 'Slovenska ulica 5',
@@ -72,7 +72,7 @@ async function main() {
     where: { email: 'admin@rcbeautysalon.org' },
     update: {},
     create: {
-      name: 'Admin RC Beauty',
+      name: 'Admin (demo)',
       email: 'admin@rcbeautysalon.org',
       password: adminPassword,
       role: 'ADMIN',
