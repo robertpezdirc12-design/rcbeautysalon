@@ -123,6 +123,8 @@ model Organization {
   customers            Customer[]
   // #90: prijave na čakalno listo (zasedeni termini, obvestila ob prostoru)
   waitlistEntries      WaitlistEntry[]
+  // #95: avtomatske e-poštne kampanje (reaktivacija, no-show follow-up)
+  marketingCampaigns   MarketingCampaign[]
   appointments         Appointment[]
   orders               Order[]
   media                Media[]
@@ -732,6 +734,53 @@ model ServiceAddon {
   isActive    Boolean @default(true)
 
   @@index([serviceId, isActive])
+}
+
+// ============================================================
+// #95 — MARKETING AVTOMATIKA (honest v1: e-pošta)
+// Dve avtomatski kampanji per najemnik (ena vrsta = ena kampanja):
+//  - REACTIVATION: stranka, katere ZADNJI zaključeni obisk je točno
+//    thresholdDays dni nazaj IN nima prihodnjega termina
+//  - NO_SHOW: sledenje po včerajšnjem ne-prihodu
+// Dedup: CampaignSend unikaten (campaign, email, triggerKey) —
+// triggerKey je id sprožilnega termina (reaktivacija se ponovi šele
+// ob NASLEDNJEM obisku; no-show enkrat na ne-prihod).
+// Rojstni dan zahteva Customer.birthDate + UI — ločen follow-up.
+// ============================================================
+enum CampaignKind {
+  REACTIVATION
+  NO_SHOW
+}
+
+model MarketingCampaign {
+  id             String           @id @default(cuid())
+  organizationId String
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  kind           CampaignKind
+  enabled        Boolean          @default(false)
+  // Samo REACTIVATION uporablja (dnevi od zadnjega zaključenega obiska).
+  thresholdDays  Int              @default(60)
+  subject        String
+  body           String           @db.Text
+  lastRunAt      DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  sends CampaignSend[]
+
+  @@unique([organizationId, kind])
+}
+
+model CampaignSend {
+  id         String            @id @default(cuid())
+  campaignId String
+  campaign   MarketingCampaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  email      String
+  triggerKey String
+  sentAt     DateTime          @default(now())
+
+  @@unique([campaignId, email, triggerKey])
+  @@index([campaignId, sentAt])
 }
 
 model Appointment {

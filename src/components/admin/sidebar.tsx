@@ -20,6 +20,7 @@ import {
   CalendarIcon,
   ClockIcon,
   UsersIcon,
+  EnvelopeIcon,
   ScissorsIcon,
   PackageIcon,
   ToteIcon,
@@ -38,7 +39,7 @@ import { usePermissions } from "@/components/admin/permissions-provider"
 import type { PermissionKey } from "@/lib/permissions/roles"
 
 interface NavItem {
-  nameKey: "dashboard" | "analytics" | "appointments" | "waitlist" | "customers" | "services" | "products" | "packages" | "shopOrders" | "workOrders" | "documents" | "forms" | "records" | "projects" | "staff" | "roles" | "settings"
+  nameKey: "dashboard" | "analytics" | "appointments" | "waitlist" | "customers" | "marketing" | "services" | "products" | "packages" | "shopOrders" | "workOrders" | "documents" | "forms" | "records" | "projects" | "staff" | "roles" | "settings"
   href: string
   icon: React.ComponentType<{ size?: number; className?: string }>
   /** Capability that must not be "disabled" for this item to render. */
@@ -62,6 +63,8 @@ const navigation: NavItem[] = [
   // #90: čakalna lista — isti zmožnost/dovoljenje kot termini
   { nameKey: "waitlist", href: "/dashboard/waitlist", icon: ClockIcon, capability: "appointments", permission: "appointments.view" },
   { nameKey: "customers", href: "/dashboard/users", icon: UsersIcon, capability: "customers", permission: "customers.manage" },
+  // #95: marketing avtomatika — isti zmožnost/dovoljenje kot stranke
+  { nameKey: "marketing", href: "/dashboard/marketing", icon: EnvelopeIcon, capability: "customers", permission: "customers.manage" },
   { nameKey: "services", href: "/dashboard/services", icon: ScissorsIcon, capability: "services", termKey: "servicePlural", permission: "services.manage" },
   { nameKey: "products", href: "/dashboard/products", icon: PackageIcon, capability: "shop", termKey: "productPlural", permission: "products.manage" },
   // Packages (bundles of services and/or products) — shown when either exists

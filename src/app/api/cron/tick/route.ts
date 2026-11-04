@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { sendDueReminders } from "@/lib/jobs/send-due-reminders"
 import { expireStalePending } from "@/lib/jobs/expire-stale-pending"
+import { sendMarketingEmails } from "@/lib/jobs/send-marketing-emails"
 import { withJobRun } from "@/lib/jobs/job-run"
 
 export const dynamic = "force-dynamic"
@@ -30,13 +31,14 @@ export async function GET(req: Request) {
   }
 
   // Vsak job je neodvisen: neuspeh opomnikov ne sme ustaviti čiščenja.
-  const [reminders, expiry] = await Promise.all([
+  const [reminders, expiry, marketing] = await Promise.all([
     withJobRun("send-due-reminders", sendDueReminders),
     withJobRun("expire-stale-pending", expireStalePending),
+    withJobRun("send-marketing-emails", sendMarketingEmails),
   ])
 
   return NextResponse.json({
     ok: true,
-    results: { reminders, expiry },
+    results: { reminders, expiry, marketing },
   })
 }
