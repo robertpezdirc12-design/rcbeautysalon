@@ -1,10 +1,10 @@
-# RC Beauty Salon — večnajemniška platforma za salone lepote
+# RCBeauty — večnajemniška platforma za 11 dejavnosti
 
-Sodobna full-stack platforma za upravljanje frizerskih in kozmetičnih salonov, zgrajena z **Next.js 16**, **React 19**, **TypeScript** in **Tailwind CSS v4**.
+Sodobna full-stack platforma za samostojne ponudnike — frizerji, kozmetika, čebelarji, šivilje, vulkanizerji in več — zgrajena z **Next.js 16**, **React 19**, **TypeScript** in **Tailwind CSS v4**.
 
-🌐 **V živo:** [https://rcbeautysalon-phi.vercel.app](https://rcbeautysalon-phi.vercel.app)
+🌐 **V živo:** [https://rcbeautysalon-phi.vercel.app](https://rcbeautysalon-phi.vercel.app) — koren je **produktna izložba platforme** (11 kartic dejavnosti → `/start?vertical=<id>`)
 
-Ena namestitev streže **več neodvisnim salonom** — vsak s svojo domeno (`/s/ime-salona`), temo, vsebino, storitvami, osebjem in plačili.
+Ena namestitev streže **več neodvisnim podjetjem** — vsak s svojo potjo (`/s/ime-podjetja`), temo, vsebino, katalogom, osebjem in plačili.
 
 ## ✨ Zmožnosti
 
@@ -61,8 +61,17 @@ Ena namestitev streže **več neodvisnim salonom** — vsak s svojo domeno (`/s/
 
 ### 🛍️ Trgovina (e-commerce)
 - Katalog izdelkov s slikami, košarica (Zustand), Stripe checkout
-- Upravljanje naročil in zalog v nadzorni plošči
-- Valuta salona (EUR) — brez trdo kodiranih USD
+- **Gostov checkout (#65)** — nakup brez računa: ime + (e-pošta ali telefon), naslov neobvezen; potrditveni zaslon s številko naročila in klikabilnimi `tel:`/`mailto:` povezavami
+- **Brez Stripe se naročilo VEDNO zapiše** — plačilna metoda „po povzetju“ (`offline`), vidna v nadzorni plošči; povpraševanje nikoli ne izgine
+- **Identiteta gostovega naročila (#70)** — naročilo se poveže z obstoječo stranko IZKLJUČNO po e-pošti (telefon sam ne prevzame identitete — skupni gospodinjski ali reciklirani telefon bi lastnika usmeril k napačni osebi); povsod je prikazan kontakt, ki ga je kupec dejansko VNESEL (gostova polja imajo prednost), obstoječi zapisi pa se iz gostovega obrazca nikoli ne prepišejo
+- **Podrobnosti naročila (#71)** — „Prikaži“ odpre read-only pogled (kontakt, postavke, DDV, plačilna metoda, dostavni naslov iz opomb); poizvedba je org-scoped (`findFirst({ id, organizationId })`), naročilo tujega najemnika = 404 znotraj nadzorne lupine
+- Upravljanje naročil in zalog v nadzorni plošči; valuta (EUR) brez trdo kodiranih USD
+
+### 🚪 Blagrovane poti in lastniška pomaga (odločitve #66/#67/#68/#72)
+- **Koren platforme = izložba** — `GET /` rendra produktno stran (nevtralna kopija, OG + canonical, indeksirana); prijavljen lastnik/staff gre na svojo stran
+- **Goli vsebinski poti NE pripadajo nobenemu najemniku** — `/shop`, `/services`, `/staff`, `/booking`, `/cart`, `/inquiry` na gostitelju platforme vrnejo **pravi 404**; zgodovinske povezave (npr. salonove) se ohranijo z eksplicitnim env pravilom `LEGACY_DEFAULT_SLUG=<slug>` (308 na `/s/<slug>…`), ki je odstranljivo in testno pokrito
+- **Prijava nosi kontekst** — „Prijava“ v nogi najemnika vodi na `/login?org=<slug>` („← Nazaj na <ime>“); brez konteksta je prijava nevtralna platforma — nikoli ne pokaže tujega najemnika
+- **OwnerBar** — lastnik na svoji strani vidi vrstico s stanjem objave + „Uredi vsebino“ / „Nadzorna plošča“, skrije jo z × (per seja); kupci in tuji lastniki je ne vidijo
 
 ### 💳 Stripe plačila — **admin vnese ključe sam**
 Ni treba urejati environment spremenljivk! Lastnik salona v **Nastavitve → Plačila** sam vnese:
@@ -133,6 +142,11 @@ pnpm run dev           # http://localhost:3000
 DATABASE_URL="postgresql://user:password@localhost:5432/beauty_salon"
 AUTH_SECRET=""              # openssl rand -base64 32
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
+
+# LEGACY_DEFAULT_SLUG — NEOBVEZNO (#72): če je nastavljen, goli dostop
+# (/shop, /services, …) preusmeri (308) na /s/<slug>… namesto 404 —
+# dedno pravilo za zgodovinske povezave; izpusti ga za popolno
+# platformsko nevtralnost.
 
 # Stripe — NEOBVEZNO in NEDOSTOPNO za najemniška plačila: ključe vnese
 # vsak salon lastnik v Nastavitve → Plačila (E4-3b: env fallback je odstranjen)
@@ -248,7 +262,7 @@ Prijavni računi za testiranje:
 | Lastnik salona (naili) | `luna@demo.si` | `demo1234` | nadzorna plošča za `/s/nail-studio-luna` |
 | Stranka | `cliente@rcbeautysalon.org` | `cliente123` | rezervacije, naročila, ocene |
 
-> 💡 Plačila v demo najemnikih niso nastavljena (noben Stripe ključ) — rezervacijski polog in checkout prikažeta iskreno sporočilo »Spletna plačila še niso nastavljena«, kar je pričakovano vedenje (E4-3b).
+> 💡 Plačila v demo najemnikih niso nastavljena (noben Stripe ključ) — rezervacijski polog se zapiše kot „brez pologa“ (plačilo ob obisku), trgovinski checkout pa ustvari **pravo naročilo z oznako „po povzetju“** (#65): pričakovano vedenje brez ključa, brez izgubljenih povpraševanj (E4-3b).
 
 ## 📄 Licenca
 
