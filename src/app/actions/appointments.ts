@@ -45,6 +45,8 @@ import { sendAppointmentRescheduledEmail } from "@/lib/email/appointment-resched
 import { sendAppointmentExpiredEmail } from "@/lib/email/appointment-expired"
 import { getSessionOrg, getResolvedOrg, getTrustedOrgSlug } from "@/lib/tenant"
 import { requirePermissionOrg, UnauthorizedError } from "@/lib/auth/guards"
+import { notifyOrgOwners } from "@/lib/push/send"
+import { buildPushPayload } from "@/lib/push/core"
 import { hasPermission } from "@/lib/permissions/roles"
 import { getEffectivePermissions } from "@/lib/permissions/effective"
 import { isAdminForOrg } from "@/lib/permissions/guard-rules"
@@ -1085,6 +1087,17 @@ export async function createAppointment(
       })
     }
 
+    // #99: push lastniku (nov termin) — neblokirajoče, po commitu.
+    after(async () => {
+      await notifyOrgOwners(
+        org.id,
+        buildPushPayload("new_appointment", {
+          customerName: customerName as string | undefined,
+          date: formatSalonTime(startInstant, tz),
+        })
+      ).catch(() => undefined)
+    })
+
     // Revalidate paths to update UI with new appointment
     revalidatePath("/my-appointments")
     revalidatePath("/dashboard")
@@ -1219,6 +1232,19 @@ export async function cancelAppointment(appointmentId: string) {
       where: { id: appointmentId },
       data: { status: "CANCELLED" },
     })
+
+    // #99: push lastniku (odpoved stranke) — neblokirajoče, po commitu.
+    if (appointment.organizationId) {
+      after(async () => {
+        await notifyOrgOwners(
+          appointment.organizationId!,
+          buildPushPayload("cancellation", {
+            customerName: appointment.customer?.name ?? undefined,
+            date: formatSalonTime(appointment.startTime, DEFAULT_SALON_TIMEZONE),
+          })
+        ).catch(() => undefined)
+      })
+    }
 
     // Revalidate paths to update UI
     revalidatePath("/my-appointments")

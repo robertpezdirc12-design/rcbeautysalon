@@ -1,6 +1,7 @@
 import { AdminSidebar } from "@/components/admin/sidebar"
 import { AdminHeader } from "@/components/admin/header"
 import { PermissionsProvider } from "@/components/admin/permissions-provider"
+import { PushSetup } from "@/components/dashboard/push-setup"
 import { AdminI18nProvider } from "@/lib/i18n/provider"
 import { getLocaleFromCookies } from "@/lib/i18n/server"
 import { getSessionOrg } from "@/lib/tenant"
@@ -42,6 +43,8 @@ export default async function AdminLayout({
         }}
       >
       <div className="admin-sans-headings flex h-screen overflow-hidden bg-background">
+        {/* #99: registracija service workerja (push kanal, tiha napaka) */}
+        <PushSetup />
         {/* Desktop Sidebar */}
         <AdminSidebar />
 

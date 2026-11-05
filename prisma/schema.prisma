@@ -315,6 +315,8 @@ model User {
   accounts Account[]
   sessions Session[]
   reviews  Review[]
+  // #99: push naročnine naprav (VAPID Web Push).
+  pushSubscriptions PushSubscription[]
 
   // One-to-one relationships with business profiles
   staff    Staff? // If role=STAFF, MUST exist
@@ -851,6 +853,25 @@ model MarketingUnsubscribe {
 
   @@unique([organizationId, email])
   @@index([email])
+}
+
+/// #99: push naročnina (VAPID Web Push) — ena naprava = ena vrstica,
+/// endpoint je naravni dedup ključ. Vrstica brez org (org=null) je
+/// osebna naročnina uporabnika brez najemnika (javna vrsta samo do
+/// org-scoped pošiljanja). Zastarele (404/410) pobira pošiljatelj.
+model PushSubscription {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId String?
+  endpoint       String   @unique
+  p256dh         String
+  auth           String
+  userAgent      String?
+  createdAt      DateTime @default(now())
+
+  @@index([userId])
+  @@index([organizationId])
 }
 
 model Appointment {
