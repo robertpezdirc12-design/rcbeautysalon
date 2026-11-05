@@ -37,7 +37,6 @@ export default async function MarketingPage() {
       <MarketingClient
         campaigns={overview.campaigns}
         bookingLink={overview.bookingLink}
-        unsubscribedCount={overview.unsubscribedCount}
       />
     </div>
   )

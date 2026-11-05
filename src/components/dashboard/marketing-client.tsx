@@ -51,12 +51,9 @@ const KIND_LABELS: Record<CampaignKind, { title: string; desc: string }> = {
 export function MarketingClient({
   campaigns,
   bookingLink,
-  unsubscribedCount,
 }: {
   campaigns: MarketingCampaignView[]
   bookingLink: string
-  /** #95 (AD-03): naslovi, ki so se odjavili od tega pošiljatelja. */
-  unsubscribedCount: number
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()

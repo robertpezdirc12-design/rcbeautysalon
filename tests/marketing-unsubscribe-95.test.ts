@@ -98,8 +98,11 @@ describe("#95 AD-03 struktura: job, predloga, akcija, pregled", () => {
     const overview = read("src/app/actions/marketing.ts")
     expect(overview).toContain("recentSends")
     expect(overview).toContain("marketingUnsubscribe.count")
+    // Števec odjav je viden v glavi strežniške strani (prej odvečni prop v
+    // client komponenti, ki ga ta nikoli ni prikazala — dead prop odstranjen).
+    const page = read("src/app/(admin)/dashboard/marketing/page.tsx")
+    expect(page).toContain("unsubscribedCount")
     const client = read("src/components/dashboard/marketing-client.tsx")
-    expect(client).toContain("unsubscribedCount")
     expect(client).toContain("Zadnja pošiljanja")
   })
 

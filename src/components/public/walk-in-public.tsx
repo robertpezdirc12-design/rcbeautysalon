@@ -21,6 +21,20 @@ export function WalkInPublicClient() {
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
+  function checkStatus(code: string, fromInput: boolean) {
+    if (fromInput) setError(null)
+    startTransition(async () => {
+      const res = await getWalkInStatus(code)
+      if (res.success) {
+        setPosition(res.position ?? null)
+        setServingNow(res.servingNow === true)
+        if (fromInput) setTicket(code.trim().toUpperCase())
+      } else {
+        if (fromInput) setError(res.error ?? "Vstopnice ni bilo mogoče najti.")
+      }
+    })
+  }
+
   // Sledenje: samodejna osvežitev, dokler gost gleda svojo vstopnico.
   useEffect(() => {
     if (!ticket) return
@@ -41,20 +55,6 @@ export function WalkInPublicClient() {
         await checkStatus(res.ticketCode, false)
       } else {
         setError(res.error ?? "Prijava ni uspela. Poskusite znova.")
-      }
-    })
-  }
-
-  function checkStatus(code: string, fromInput: boolean) {
-    if (fromInput) setError(null)
-    startTransition(async () => {
-      const res = await getWalkInStatus(code)
-      if (res.success) {
-        setPosition(res.position ?? null)
-        setServingNow(res.servingNow === true)
-        if (fromInput) setTicket(code.trim().toUpperCase())
-      } else {
-        if (fromInput) setError(res.error ?? "Vstopnice ni bilo mogoče najti.")
       }
     })
   }

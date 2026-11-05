@@ -577,6 +577,11 @@ export function defaultSiteContent(vertical: string): SiteContent {
         text: "Vklopite module, ki jih potrebujete, dodajte svojo vsebino in objavite stran, ko ste pripravljeni.",
         buttonLabel: "Oddaj povpraševanje",
         buttonHref: "/inquiry",
+        // #100: nevtralna slika (roke obrtnika) — brez nje je ozadje CTA
+        // sekcije padlo na lepotilni transform.avif fallback (DEFAULT_CTA_
+        // IMAGE), kar je predstavitvi platforme vtisnilo lepotilni salon.
+        // Isti preset kot VERTICAL_IMAGERY.generic.cta (verticals.ts).
+        imageUrl: "/img/presets/craft.jpg",
       },
     },
   }

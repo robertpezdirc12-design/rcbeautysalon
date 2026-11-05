@@ -51,6 +51,10 @@ const RESOLVABLE = [
   // (IF NOT EXISTS / DO-block probes / nothing is dropped), retry-safe.
   "20261129040000_p100_f1_sync_enum_types",
   "20261129050000_p100_f1_full_schema_sync",
+  // #100 demo-front neutralize: plain scoped UPDATEs (flip isActive/forSale/
+  // isFeatured to false + demo org vertical/name). Fully idempotent (WHERE
+  // predicates on current values), so a retry after rollback is always safe.
+  "20261130000000_p100_demo_front_neutralize",
 ]
 
 function runPrisma(args, { input } = {}) {

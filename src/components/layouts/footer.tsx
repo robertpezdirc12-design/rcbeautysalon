@@ -8,6 +8,7 @@ import { formatOpeningHours } from "@/lib/site-content"
 import { term as profileTerm } from "@/lib/profiles/registry"
 import { resolveEffectiveProfile } from "@/lib/profiles/resolve"
 import { resolvePublishGate } from "@/lib/publish-gate"
+import { prisma } from "@/lib/prisma"
 
 function truncate(text: string, max = 160): string {
   if (text.length <= max) return text
@@ -76,9 +77,23 @@ const Footer = async () => {
   const profile = resolveEffectiveProfile(org)
   const cap = (k: keyof typeof profile.capabilities) =>
     profile.capabilities[k] !== "disabled"
+  // #100 (ista filozofija kot #62 za sidra v glavi): povezava v noga je
+  // živa samo, kadar ciljna stran sploh ima vsebino — »Storitve«/»Trgovina«
+  // brez ene aktivne vrstice sta mrtva konec poti (prazna stran). Štejemo
+  // AKTIVNE vrstice (ne izpostavljene): /services in /shop navajata celoten
+  // aktivni katalog, ne samo izpostavljenih.
+  const [activeServices, activeProducts] = org
+    ? await Promise.all([
+        prisma.service.count({ where: { organizationId: org.id, isActive: true } }),
+        prisma.product.count({
+          where: { organizationId: org.id, isActive: true, forSale: true },
+        }),
+      ]).catch(() => [0, 0] as const)
+    : [0, 0]
   const quickLinks = [
-    cap("services") && { href: "/services", label: "Storitve" },
-    cap("shop") && { href: "/shop", label: "Trgovina" },
+    cap("services") &&
+      activeServices > 0 && { href: "/services", label: "Storitve" },
+    cap("shop") && activeProducts > 0 && { href: "/shop", label: "Trgovina" },
     profile.website.ctaMode === "booking" &&
       cap("appointments") && { href: "/booking", label: "Rezerviraj termin" },
     session &&
