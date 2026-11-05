@@ -77,7 +77,10 @@ export default async function AdminDashboard() {
   // confirmed their activity see ONLY the wizard — the workspace opens
   // with that activity's modules after the choice (sidebar, terminology
   // and forms all resolve from the profile).
-  const guidedEntryPending = canManageSettings && shareOrg?.verticalChosenAt == null
+  // F1 #100 (razlika B): ekspliciten preskok dejavnosti NI neodgovor —
+  // lastnik, ki je preskočil, ne dobi čarovnika vsiljenega ponovno.
+  const guidedEntryPending =
+    canManageSettings && shareOrg?.verticalChosenAt == null && !shareOrg?.verticalSkipped
 
   if (guidedEntryPending && shareOrg) {
     return (
@@ -179,7 +182,8 @@ export default async function AdminDashboard() {
         prisma.order.count({ where: { organizationId: shareOrg.id } }),
       ])
     checklist = buildSetupChecklist({
-      verticalChosen: shareOrg.verticalChosenAt != null,
+      // F1 #100: preskok dejavnosti je veljaven odgovor — korak je rešen.
+      verticalChosen: shareOrg.verticalChosenAt != null || shareOrg.verticalSkipped,
       catalogTouched: touchedServices > 0 || touchedProducts > 0,
       catalogCapable:
         profile.capabilities.services !== "disabled" ||

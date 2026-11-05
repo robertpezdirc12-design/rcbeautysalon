@@ -90,6 +90,16 @@ model Organization {
   // terminology. Validated by src/lib/profiles/secondary.ts before any write.
   secondaryVertical String?
 
+  // F1 #100 (AD-05): SKD 2025 izbira je NASVET, ne zaklep. skdCodes hranijo
+  // izbrane šifre iz kataloga (src/lib/skd/catalog.ts — raven 1 sekcije A-V,
+  // kasneje tudi oddelki), customTags pa lastne oznake najemnika. Izbira
+  // predlaga module in NIKOLI ne zaklene funkcij (izklop ostane prosto-
+  // voljen prek profilOverrides / moduleStates). verticalSkipped označi
+  // ekspliciten preskok izbire dejavnosti v čarovniku (podlaga F5 razlike B).
+  skdCodes        String[] @default([])
+  customTags      String[] @default([])
+  verticalSkipped Boolean  @default(false)
+
   // Configuration history (EPIC #2 E2-5, G5): append-only audit of config
   // changes (profile overrides, form/workflow definitions). A revert NEVER
   // rewrites or deletes history — it appends a NEW version entry.

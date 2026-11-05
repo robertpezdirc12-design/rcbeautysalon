@@ -6,14 +6,20 @@ import { auth, unstable_update } from "@/lib/auth/auth"
 import { prisma } from "@/lib/prisma"
 import { isReservedSlug, isSlugAvailable, slugify } from "@/lib/tenant"
 import { PALETTES, seedOrganizationCatalog, verticalSiteContent, getVertical, presetStaffImage } from "@/lib/verticals"
-import { listProfileOptions, getProfile, isCapabilityEnabled } from "@/lib/profiles/registry"
+import { listProfileOptions, getProfile, isCapabilityEnabled, GENERIC_PROFILE_ID } from "@/lib/profiles/registry"
 import { validateSecondaryVertical } from "@/lib/profiles/secondary"
 import { materializeProfileAssets } from "@/lib/profiles/materialize"
+import { sanitizeSkdInput } from "@/lib/skd/catalog"
 import { PALETTE_OPTIONS } from "@/lib/palettes-client"
 
 export interface CreateSalonInput {
   name: string
   slug: string
+  /**
+   * F1 #100 (AD-05): dejavnost ni obvezna. vertical je lahko prazen,
+   * ko je verticalSkipped=true — potem platforma ustvari generično
+   * osnovo brez zaklepa (moduli ostajajo prosto-vklopljivi).
+   */
   vertical: string
   /** Optional secondary activity (E2-4): capability union, primary keeps terminology. */
   secondaryVertical: string | null
@@ -30,6 +36,14 @@ export interface CreateSalonInput {
    */
   teamSize?: "solo" | "small" | "team" | null
   onlineBooking?: "yes" | "no" | null
+  /**
+   * F1 #100 — SKD 2025 izbira (nasvet, ne zaklep): izbrane šifre iz
+   * kataloga ("A".."V" sekcije, "area:<key>" področja), lastne oznake
+   * in ekspliciten preskok dejavnosti. Strežnik sanitizira proti katalogu.
+   */
+  skdCodes?: string[]
+  customTags?: string[]
+  verticalSkipped?: boolean
 }
 
 export interface CreateSalonResult {
@@ -79,17 +93,25 @@ export async function createSalonOrganization(input: CreateSalonInput): Promise<
       return { success: false, error: "Ta URL naslov je že zaseden. Izberite drugega." }
     }
 
+    // F1 #100 (AD-05): dejavnost ni obvezna — ekspliciten preskok ustvari
+    // generično osnovo. Brez preskoka ostane validacija profila kot doslej.
+    const verticalSkipped = input.verticalSkipped === true && !input.vertical
+    const profileId = verticalSkipped ? GENERIC_PROFILE_ID : input.vertical
+
     // Validate the activity profile against the single-source registry
     // (EPIC #1) — the profile determines modules, terminology, forms and
     // workflows, not just appearance.
-    const profile = listProfileOptions().find((p) => p.id === input.vertical)
+    const profile = listProfileOptions().find((p) => p.id === profileId)
     if (!profile) {
       return { success: false, error: "Izberite veljavno dejavnost." }
     }
 
     // Secondary activity (E2-4): same pure rules as the settings action —
     // unknown ids and same-as-primary are rejected before any write.
-    const secondaryCode = validateSecondaryVertical(input.vertical, input.secondaryVertical)
+    // F1: ob preskoku dejavnosti sekundarna ni smiselna (potihem izpraznjena).
+    const secondaryCode = verticalSkipped
+      ? "OK"
+      : validateSecondaryVertical(input.vertical, input.secondaryVertical)
     if (secondaryCode === "UNKNOWN_PROFILE") {
       return { success: false, error: "Izberite veljavno dodatno dejavnost." }
     }
@@ -99,7 +121,7 @@ export async function createSalonOrganization(input: CreateSalonInput): Promise<
         error: "Dodatna dejavnost mora biti različna od primarne dejavnosti.",
       }
     }
-    const secondaryVertical = input.secondaryVertical || null
+    const secondaryVertical = verticalSkipped ? null : input.secondaryVertical || null
 
     const palette = PALETTES[input.palette] ? input.palette : undefined
     if (!palette) {
@@ -197,6 +219,11 @@ export async function createSalonOrganization(input: CreateSalonInput): Promise<
       input.onlineBooking === "yes" || input.onlineBooking === "no" ? input.onlineBooking : null
     const onboardingAnswers =
       teamSize || onlineBooking ? { ...(teamSize ? { teamSize } : {}), ...(onlineBooking ? { onlineBooking } : {}) } : undefined
+
+    // F1 #100: SKD izbira je nasvet — sanitizacija proti katalogu (neznane
+    // vrednosti tiho izpustimo, omejitve števila/dolžine proti zlorabi).
+    const skd = sanitizeSkdInput(input.skdCodes, input.customTags)
+
     const org = await prisma.organization.create({
       data: {
         slug,
@@ -205,7 +232,12 @@ export async function createSalonOrganization(input: CreateSalonInput): Promise<
         secondaryVertical,
         palette,
         publishState: "DRAFT",
-        verticalChosenAt: new Date(),
+        // P2 #42 + F1: časovni žig samo pri DEJANSKI izbiri dejavnosti —
+        // preskok pusti null (razlika B) in označi verticalSkipped.
+        ...(verticalSkipped ? {} : { verticalChosenAt: new Date() }),
+        verticalSkipped,
+        ...(skd.codes.length > 0 ? { skdCodes: skd.codes } : {}),
+        ...(skd.tags.length > 0 ? { customTags: skd.tags } : {}),
         ...(onboardingAnswers ? { onboardingAnswers } : {}),
       },
     })

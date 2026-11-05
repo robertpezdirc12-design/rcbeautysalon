@@ -28,6 +28,15 @@ export const WIZARD_DRAFT_VERSION = 1
 /** Small clock-skew allowance: a slightly-future savedAt is tolerated. */
 const CLOCK_SKEW_MS = 5 * 60 * 1000
 
+import { SKD_AREA_KEYS, SKD_SECTION_CODES } from "@/lib/skd/catalog"
+
+// F1 #100 — SKD katalog je čista podatkovna datoteka (varna na odjemalcu);
+// draft preslikuje izbire prek istih allowlist kot panoge.
+const ALLOWED_SKD_CODES: readonly string[] = [
+  ...SKD_SECTION_CODES,
+  ...[...SKD_AREA_KEYS].map((k) => `area:${k}`),
+]
+
 /**
  * The persisted shape — deliberately WITHOUT password/confirmPassword.
  * Everything here is non-secret onboarding context the owner already
@@ -47,6 +56,14 @@ export interface WizardDraftData {
   teamSize: "solo" | "small" | "team" | null
   /** P2 #88 — online-booking answer (null = not answered / older draft). */
   onlineBooking: "yes" | "no" | null
+  /**
+   * F1 #100 — SKD 2025 izbira (nasvet): sekcije "A".."V" + področja
+   * "area:<key>"; lastne oznake; ekspliciten preskok dejavnosti.
+   * Starejši drafti brez teh polj se preslikajo v prazno/ne-skočeno.
+   */
+  skdCodes: string[]
+  customTags: string[]
+  verticalSkipped: boolean
 }
 
 export interface WizardDraftEnvelope {
@@ -72,6 +89,10 @@ const CAPS = {
   slug: 40,
   ownerName: 80,
   email: 120,
+  skdCodes: 10,
+  skdCode: 20, // sekcija "A".."V" oz. "area:<key>" (najdaljši ključ 17)
+  customTags: 10,
+  customTag: 40,
 } as const
 
 export interface WizardDraftContext {
@@ -117,6 +138,9 @@ export function sanitizeWizardDraftData(
   let secondary = optionalId(obj.secondary, ctx.allowedVerticalIds)
   // E2-4 invariant: the secondary activity must differ from the primary.
   if (secondary !== null && secondary === vertical) secondary = null
+  // F1 #100 — SKD izbire: whitelist proti katalogu, cap števila/dolžine.
+  const skdCodes = clampCodeList(obj.skdCodes, CAPS.skdCodes, CAPS.skdCode, ALLOWED_SKD_CODES)
+  const customTags = clampStringList(obj.customTags, CAPS.customTags, CAPS.customTag)
   return {
     step,
     vertical,
@@ -131,7 +155,34 @@ export function sanitizeWizardDraftData(
     // organization; older drafts (and tampered values) degrade to null.
     teamSize: optionalAnswer(obj.teamSize, ["solo", "small", "team"] as const),
     onlineBooking: optionalAnswer(obj.onlineBooking, ["yes", "no"] as const),
+    skdCodes,
+    customTags,
+    verticalSkipped: obj.verticalSkipped === true && vertical === null,
   }
+}
+
+/** Whitelist + cap seznam kod (F1) — neznane/tujе vrednosti strukturno padejo. */
+function clampCodeList(value: unknown, maxCount: number, maxLen: number, allowed: readonly string[]): string[] {
+  if (!Array.isArray(value)) return []
+  const out: string[] = []
+  for (const raw of value.slice(0, maxCount)) {
+    if (typeof raw !== "string") continue
+    const v = raw.slice(0, maxLen)
+    if (allowed.includes(v) && !out.includes(v)) out.push(v)
+  }
+  return out
+}
+
+/** Cap seznam prostih oznak (F1 customTags) — samo nizi, dolžina + dedup. */
+function clampStringList(value: unknown, maxCount: number, maxLen: number): string[] {
+  if (!Array.isArray(value)) return []
+  const out: string[] = []
+  for (const raw of value.slice(0, maxCount)) {
+    if (typeof raw !== "string") continue
+    const v = raw.trim().slice(0, maxLen)
+    if (v && !out.includes(v)) out.push(v)
+  }
+  return out
 }
 
 /**
@@ -145,7 +196,11 @@ export function isDraftSubstantial(data: WizardDraftData): boolean {
       data.name.trim().length > 0 ||
       data.slug.trim().length > 0 ||
       data.ownerName.trim().length > 0 ||
-      data.email.trim().length > 0
+      data.email.trim().length > 0 ||
+      // F1 #100 — preskok in SKD izbira sta tudi pravi napredek.
+      data.verticalSkipped ||
+      data.skdCodes.length > 0 ||
+      data.customTags.length > 0
   )
 }
 
@@ -192,7 +247,8 @@ export function parseWizardDraft(
  * Honest resume: never further than the saved data allows.
  */
 export function safeResumeStep(data: WizardDraftData): number {
-  if (!data.vertical) return 1
+  // F1 #100: preskok dejavnosti je veljavna pot naprej — kot izbrana panoga.
+  if (!data.vertical && !data.verticalSkipped) return 1
   if (data.name.trim().length < 2 || data.slug.trim().length < 2) {
     return Math.min(data.step, 2)
   }

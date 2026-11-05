@@ -56,6 +56,9 @@ function fullDraft(overrides?: Partial<WizardDraftData>): WizardDraftData {
     email: "nika@studionika.si",
     teamSize: null,
     onlineBooking: null,
+    skdCodes: [],
+    customTags: [],
+    verticalSkipped: false,
     ...overrides,
   }
 }
@@ -211,6 +214,9 @@ describe("isDraftSubstantial (E4-4 honest resume)", () => {
       email: "",
       teamSize: null,
       onlineBooking: null,
+      skdCodes: [],
+      customTags: [],
+      verticalSkipped: false,
     }
     expect(isDraftSubstantial(empty)).toBe(false)
   })
