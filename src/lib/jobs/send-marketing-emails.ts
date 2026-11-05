@@ -12,6 +12,7 @@ import { prisma } from "@/lib/prisma"
 import { addDays } from "date-fns"
 import {
   interpolate,
+  pickBirthdayTargets,
   pickNoShowTargets,
   pickReactivationTargets,
   type CampaignTarget,
@@ -104,7 +105,7 @@ export async function sendMarketingEmails(now: Date = new Date()): Promise<JobRu
         business,
         bookingLink,
       })
-    } else {
+    } else if (campaign.kind === "NO_SHOW") {
       // NO_SHOW: včeraj (salon-lokalno) ne-prisotni termini z e-pošto.
       // #93-vzorec: UTC meje iz salon-lokalnega dnevnega ključa (dayBounds),
       // nikoli Z-konkatenacija.
@@ -140,6 +141,25 @@ export async function sendMarketingEmails(now: Date = new Date()): Promise<JobRu
         })
         .filter((r): r is NonNullable<typeof r> => r !== null)
       targets = pickNoShowTargets(rows, { today: now, business, bookingLink })
+    } else if (campaign.kind === "BIRTHDAY") {
+      // #95: rojstni dnevi — stranke z datumom rojstva in e-pošto.
+      // Mesec-dan iz UTC dela datuma (rojstvo je koledarski podatek,
+      // ne trenutek); "danes" je salon-lokalni datum.
+      const customers = await prisma.customer.findMany({
+        where: {
+          organizationId: org.id,
+          dateOfBirth: { not: null },
+          email: { not: null },
+        },
+        select: { id: true, name: true, email: true, dateOfBirth: true },
+      })
+      const rows = customers.map((c) => ({
+        id: c.id,
+        email: c.email as string,
+        name: c.name,
+        birthdayOn: (c.dateOfBirth as Date).toISOString().slice(5, 10),
+      }))
+      targets = pickBirthdayTargets(rows, { today: now, business, bookingLink })
     }
 
     // #95 (AD-03): funkcionalna odjava — odjavljeni prejemniki izpadajo

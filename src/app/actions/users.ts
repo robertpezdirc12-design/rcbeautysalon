@@ -207,6 +207,53 @@ export async function updateCustomerTags(
   }
 }
 
+/**
+ * #95 BIRTHDAY: rojstni dan stranke (datum brez časa) — BIRTHDAY kampanja
+ * ga bere kot koledarski mesec-dan. null = izbris (kampanja ne kontaktira).
+ * Org-scoped, isti vzorec kot updateCustomerTags.
+ */
+export async function updateCustomerBirthday(
+  customerId: string,
+  dateOfBirth: string | null
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { org } = await requirePermissionOrg("customers.manage")
+
+    const customer = await prisma.customer.findFirst({
+      where: { id: customerId, organizationId: org.id },
+      select: { id: true },
+    })
+    if (!customer) {
+      return { success: false, error: "Stranka ni najdena ali ni vaša." }
+    }
+
+    // Vnos "yyyy-MM-dd" (input type=date) — shranimo kot polnoč UTC;
+    // mesec-dan se bere iz koledarskega dela (nikoli prek časovnega pasu).
+    let parsed: Date | null = null
+    if (dateOfBirth) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth)) {
+        return { success: false, error: "Datum naj ima obliko leto-mesec-dan." }
+      }
+      const d = new Date(`${dateOfBirth}T00:00:00Z`)
+      if (Number.isNaN(d.getTime())) {
+        return { success: false, error: "Neveljaven datum." }
+      }
+      parsed = d
+    }
+
+    await prisma.customer.update({
+      where: { id: customer.id },
+      data: { dateOfBirth: parsed },
+    })
+
+    revalidatePath("/dashboard/users")
+    return { success: true }
+  } catch (error) {
+    console.error("updateCustomerBirthday failed:", error)
+    return { success: false, error: "Shranjevanje rojstnega dne ni uspelo. Poskusite znova." }
+  }
+}
+
 // Admin: Get user by ID with full details
 // Cached to avoid duplicate fetches in generateMetadata + page component
 export const getUserById = cache(async (id: string) => {

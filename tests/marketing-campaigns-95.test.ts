@@ -10,8 +10,10 @@ import { describe, expect, it } from "vitest"
 import {
   pickReactivationTargets,
   pickNoShowTargets,
+  pickBirthdayTargets,
   interpolate,
   defaultCampaignCopy,
+  CAMPAIGN_KINDS,
   PLACEHOLDERS,
   type VisitRef,
 } from "../src/lib/marketing/campaigns"
@@ -125,5 +127,45 @@ describe("#95 struktura: org-scope, dedup na uspeh, cron žica", () => {
     const schema = read("prisma/schema.prisma")
     expect(schema).toContain("@@unique([campaignId, email, triggerKey])")
     expect(schema).toContain("@@unique([organizationId, kind])")
+  })
+})
+
+// ============================================================
+// #95 v3 — BIRTHDAY kampanja (rojstni dnevi)
+// ============================================================
+
+describe("#95 v3 pickBirthdayTargets (rojstni dnevi)", () => {
+  const opts = { today: new Date("2026-11-05T03:00:00Z"), business: "Luna", bookingLink: "https://b" }
+
+  it("rojstni dan DANES (salon-lokalno) → cilj s triggerKeyom na leto", () => {
+    const targets = pickBirthdayTargets(
+      [{ id: "c1", email: "ana@x.si", name: "Ana", birthdayOn: "11-05" }],
+      opts
+    )
+    expect(targets.length).toBe(1)
+    expect(targets[0].triggerKey).toBe("bday:c1:2026")
+    expect(targets[0].vars.name).toBe("Ana")
+  })
+
+  it("včeraj/jutri/neobstojče → nič; enkrat na leto (drugo leto = nov žeton)", () => {
+    expect(pickBirthdayTargets([{ id: "c1", email: "a@x", name: "A", birthdayOn: "11-04" }], opts)).toEqual([])
+    expect(pickBirthdayTargets([{ id: "c1", email: "a@x", name: "A", birthdayOn: "11-06" }], opts)).toEqual([])
+    expect(pickBirthdayTargets([{ id: "c1", email: "a@x", name: "A", birthdayOn: "02-29" }], opts)).toEqual([])
+    const nextYear = pickBirthdayTargets(
+      [{ id: "c1", email: "a@x", name: "A", birthdayOn: "11-05" }],
+      { ...opts, today: new Date("2027-11-05T03:00:00Z") }
+    )
+    expect(nextYear[0].triggerKey).toBe("bday:c1:2027")
+  })
+
+  it("privzeta BIRTHDAY besedila: čestitka brez prodajnega pritiska in brez obljube odjave", () => {
+    const copy = defaultCampaignCopy("BIRTHDAY", "Luna")
+    expect(copy.subject).toContain("rojstnem dnevu")
+    expect(copy.body).toContain("{name}")
+    expect(copy.body).not.toContain("odgovorite na to e-pošto")
+  })
+
+  it("CAMPAIGN_KINDS vključuje BIRTHDAY (pregled/job/UI izpeljejo iz njega)", () => {
+    expect(CAMPAIGN_KINDS).toContain("BIRTHDAY")
   })
 })

@@ -38,6 +38,10 @@ const KIND_LABELS: Record<CampaignKind, { title: string; desc: string }> = {
     title: "Sledenje po ne-prihodu",
     desc: "Dan po zamujenem terminu stranka vljudno povabi k novi rezervaciji.",
   },
+  BIRTHDAY: {
+    title: "Čestitka ob rojstnem dnevu",
+    desc: "Stranke, ki danes slavijo rojstni dan (nastavite ga pri stranki), prejmejo čestitko enkrat na leto.",
+  },
 }
 
 export function MarketingClient({

@@ -7,6 +7,7 @@ import { EnvelopeIcon } from "@/components/icons"
 import { getAdminUsers, getCustomerLeads, getCustomerTagOptions, getUserStats } from "@/app/actions/users"
 import { UserSearch } from "@/components/dashboard/user-search"
 import { CustomerTags } from "@/components/dashboard/customer-tags"
+import { CustomerBirthday } from "@/components/dashboard/customer-birthday"
 import { TagFilterBar } from "@/components/dashboard/tag-filter-bar"
 import { ExportUsersButton } from "@/components/dashboard/export-users-button"
 import { getServerI18n } from "@/lib/i18n/server"
@@ -109,6 +110,7 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
                     <th className="pb-3 font-medium">{t.users.table.email}</th>
                     <th className="pb-3 font-medium">{t.users.table.role}</th>
                     <th className="pb-3 font-medium">{t.users.tags.column}</th>
+                    <th className="pb-3 font-medium">Rojstni dan</th>
                     <th className="pb-3 font-medium">{t.users.table.appointments}</th>
                     <th className="pb-3 font-medium">{t.users.table.orders}</th>
                     <th className="pb-3 font-medium">{t.users.table.joined}</th>
@@ -166,6 +168,26 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
                           <span className="text-muted-foreground text-sm">—</span>
                         )}
                       </td>
+                      <td className="py-4">
+                        {user.customer ? (
+                          <CustomerBirthday
+                            customerId={user.customer.id}
+                            // #95: koledarski datum iz UTC dela (brez časovnega pasu).
+                            dateOfBirth={
+                              user.customer.dateOfBirth
+                                ? user.customer.dateOfBirth.toISOString().slice(0, 10)
+                                : null
+                            }
+                            labels={{
+                              edit: "Rojstni dan stranke",
+                              save: "Rojstni dan shranjen.",
+                              cancel: "Prekliči",
+                            }}
+                          />
+                        ) : (
+                          <span className="text-muted-foreground text-sm">—</span>
+                        )}
+                      </td>
                       <td className="py-4 text-sm">{user.customer?._count.appointments || 0}</td>
                       <td className="py-4 text-sm">{user.customer?._count.orders || 0}</td>
                       <td className="py-4 text-sm">
@@ -208,6 +230,7 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
                     <th className="pb-3 font-medium">{t.users.leads.table.customer}</th>
                     <th className="pb-3 font-medium">{t.users.table.email}</th>
                     <th className="pb-3 font-medium">{t.users.tags.column}</th>
+                    <th className="pb-3 font-medium">Rojstni dan</th>
                     <th className="pb-3 font-medium">{t.users.table.appointments}</th>
                     <th className="pb-3 font-medium">{t.users.table.orders}</th>
                     <th className="pb-3 font-medium">{t.users.leads.table.submissions}</th>
@@ -249,6 +272,22 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
                           customerId={lead.id}
                           tags={lead.tags}
                           labels={t.users.tags}
+                        />
+                      </td>
+                      <td className="py-4">
+                        <CustomerBirthday
+                          customerId={lead.id}
+                          // #95: koledarski datum iz UTC dela (brez časovnega pasu).
+                          dateOfBirth={
+                            lead.dateOfBirth
+                              ? lead.dateOfBirth.toISOString().slice(0, 10)
+                              : null
+                          }
+                          labels={{
+                            edit: "Rojstni dan stranke",
+                            save: "Rojstni dan shranjen.",
+                            cancel: "Prekliči",
+                          }}
                         />
                       </td>
                       <td className="py-4 text-sm">{lead._count.appointments}</td>

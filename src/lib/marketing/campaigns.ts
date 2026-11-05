@@ -6,7 +6,7 @@
 // opombo za odjavo (v1: odgovor na e-pošto — brez lažnih povezav).
 // ============================================================
 
-export const CAMPAIGN_KINDS = ["REACTIVATION", "NO_SHOW"] as const
+export const CAMPAIGN_KINDS = ["REACTIVATION", "NO_SHOW", "BIRTHDAY"] as const
 export type CampaignKind = (typeof CAMPAIGN_KINDS)[number]
 
 /** Vstavitve, ki jih lastnik lahko uporabi v subject/body. */
@@ -113,6 +113,47 @@ export function pickNoShowTargets(
     }))
 }
 
+export interface BirthdayRef {
+  /** Id stranke — del dedup triggerKeya (enemail na leto). */
+  id: string
+  email: string
+  name: string
+  /**
+   * Koledarski mesec-dan rojstva ("MM-dd") — iz UTC dela datuma
+   * (rojstni dan je koledarski podatek, ne trenutek v časovnem pasu).
+   */
+  birthdayOn: string
+}
+
+/**
+ * BIRTHDAY: cilj = stranka, ki danes (salon-lokalno) slavi rojstni dan.
+ * TriggerKey = `bday:<id>:<leto>` — ena čestitka na stranko/leto (dedup
+ * na unikatnem CampaignSend). Poštenost: 29. 2. se v ne-prestopnem letu
+ * ne sproži (koledarsko enačenje mesec-dan, brez "popravljanja" rojstnega
+ * dneva).
+ */
+export function pickBirthdayTargets(
+  birthdays: BirthdayRef[],
+  opts: { today: Date; business: string; bookingLink: string }
+): CampaignTarget[] {
+  const todayKey = dayKey(opts.today)
+  const monthDay = todayKey.slice(5) // "MM-dd"
+  const year = todayKey.slice(0, 4)
+  return birthdays
+    .filter((b) => b.birthdayOn === monthDay)
+    .map((b) => ({
+      email: b.email,
+      name: b.name,
+      triggerKey: `bday:${b.id}:${year}`,
+      vars: {
+        name: b.name,
+        business: opts.business,
+        date: todayKey,
+        bookingLink: opts.bookingLink,
+      },
+    }))
+}
+
 /** Zamenjava {name}/{business}/{days}/{date}/{bookingLink} — neznane vstavitve pustijo. */
 export function interpolate(
   template: string,
@@ -138,6 +179,13 @@ export function defaultCampaignCopy(
     return {
       subject: `Že nekaj časa vas ni bilo — ${business}`,
       body: `Pozdravljeni {name},\n\nže {days} dni vas nismo videli. Vaša ponudba se je morda spremenila — si oglejte in rezervirajte nov termin:\n{bookingLink}\n\nSe vidimo kmalu,\nekipo ${business}`,
+    }
+  }
+  if (kind === "BIRTHDAY") {
+    // Čestitka brez prodajnega pritiska, z vljudnim povabljenjem.
+    return {
+      subject: `Vse najboljše ob rojstnem dnevu — ${business}`,
+      body: `Pozdravljeni {name},\n\nob vašem rojstnem dnevu vam iz srca čestitamo! Če si veselem dneva želite privoščiti obisk, smo vam na voljo:\n{bookingLink}\n\nVse najboljše,\nekipo ${business}`,
     }
   }
   return {

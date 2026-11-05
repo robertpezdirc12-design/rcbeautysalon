@@ -668,6 +668,10 @@ model Customer {
   // samo prek updateCustomerTags (whitelist sanitizacija, org-scoped).
   tags String[] @default([])
 
+  // #95: rojstni dan (datum brez časa) — BIRTHDAY kampanja ga bere kot
+  // koledarski mesec-dan; null = kampanja stranke ne kontaktira.
+  dateOfBirth DateTime?
+
   // OPTIONAL one-to-one relationship with User
   userId String? @unique
   user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
@@ -769,6 +773,7 @@ model ServiceAddon {
 enum CampaignKind {
   REACTIVATION
   NO_SHOW
+  BIRTHDAY
 }
 
 model MarketingCampaign {
