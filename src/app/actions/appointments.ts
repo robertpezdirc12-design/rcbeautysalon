@@ -25,6 +25,8 @@ import {
 import { sendAppointmentConfirmationEmail } from "@/lib/email/appointment-confirmation"
 import { resolveAddonSelection, computeAddonTotals, type AddonLike } from "@/lib/booking/addons"
 import { acquireBookingLocks, bookingLockKeys } from "@/lib/booking/locking"
+import { validateIntakeAnswers } from "@/lib/forms/intake"
+import type { ProfileFieldDef } from "@/lib/profiles/types"
 import { Prisma } from "@prisma/client"
 import { AppointmentStatus } from "@/lib/types"
 import { AdminAppointmentsFilter } from "@/lib/interfaces"
@@ -487,6 +489,46 @@ export async function getServiceForBooking(serviceSlug: string) {
   }
 }
 
+// #96: sprejemni obrazec storitve za rezervacijo (org-scoped, aktiven).
+export async function getIntakeFormForService(serviceId: string) {
+  const org = await resolveRequestOrg()
+  if (!org) return null
+
+  const service = await prisma.service.findFirst({
+    where: { id: serviceId, organizationId: org.id },
+    select: {
+      intakeFormDefinition: {
+        select: { id: true, name: true, description: true, fields: true },
+      },
+    },
+  })
+  if (!service?.intakeFormDefinition) return null
+
+  let fields: unknown = service.intakeFormDefinition.fields
+  if (typeof fields === "string") {
+    try {
+      fields = JSON.parse(fields)
+    } catch {
+      return null
+    }
+  }
+  if (!Array.isArray(fields) || fields.length === 0) return null
+
+  return {
+    id: service.intakeFormDefinition.id,
+    name: service.intakeFormDefinition.name,
+    description: service.intakeFormDefinition.description,
+    fields: fields as {
+      key: string
+      label: string
+      type: "text" | "textarea" | "number" | "date" | "select" | "checkbox"
+      required: boolean
+      options?: string[]
+      placeholder?: string
+    }[],
+  }
+}
+
 //Get multiple services for multi-service booking
 export async function getServicesForBooking(serviceIds: string[]) {
   const org = await resolveRequestOrg()
@@ -507,6 +549,8 @@ export async function getServicesForBooking(serviceIds: string[]) {
       // #79: pravilo pologa na storitvi — razreši ga EN helper.
       depositType: true,
       depositValue: true,
+      // #96: sprejemni obrazec (ce obstaja, gost izpolni ob rezervaciji)
+      intakeFormDefinitionId: true,
     },
   })
 
@@ -937,6 +981,45 @@ export async function createAppointment(
             where: { id: prepaidPurchaseId },
             data: { status: "EXHAUSTED" },
           })
+        }
+      }
+
+      // #96: sprejemni obrazec — validacija + FormSubmission v ISTI
+      // transakciji (padec = rollback = brez termina brez polnega
+      // obrazca). Servis mora imeti povezan aktiven FormDefinition.
+      if (data.intakeAnswers) {
+        const intakeService = services.find((s) => s.intakeFormDefinitionId)
+        if (intakeService?.intakeFormDefinitionId) {
+          const def = await tx.formDefinition.findFirst({
+            where: {
+              id: intakeService.intakeFormDefinitionId,
+              organizationId: org.id,
+              isActive: true,
+            },
+            select: { fields: true },
+          })
+          if (def) {
+            const fields = (Array.isArray(def.fields)
+              ? def.fields
+              : []) as unknown as ProfileFieldDef[]
+            const check = validateIntakeAnswers(fields, data.intakeAnswers)
+            if (!check.ok) {
+              throw new BookingConflictError(
+                "Sprejemni obrazec ni popolnoma izpolnjen. Preverite obvezna polja."
+              )
+            }
+            await tx.formSubmission.create({
+              data: {
+                organizationId: org.id,
+                formDefinitionId: intakeService.intakeFormDefinitionId,
+                status: "NEW",
+                data: check.data as Prisma.InputJsonValue,
+                customerId,
+                contextType: "appointment",
+                contextId: created.id,
+              },
+            })
+          }
         }
       }
 

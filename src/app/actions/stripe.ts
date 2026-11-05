@@ -9,6 +9,8 @@ import { getServicesForBooking, getSalonConfig, getOrgTimezone } from "./appoint
 // #79: polog kot pravilo — isti helper kot booking in webhook.
 import { resolveDepositForServices } from "@/lib/booking/deposit"
 import { acquireBookingLocks, bookingLockKeys } from "@/lib/booking/locking"
+import { validateIntakeAnswers } from "@/lib/forms/intake"
+import type { ProfileFieldDef } from "@/lib/profiles/types"
 import { Prisma } from "@prisma/client"
 import { instantFromParts, formatSalonTime } from "@/lib/booking-time"
 import { getPublicOrg, getSessionOrg, getOrgById } from "@/lib/tenant"
@@ -182,6 +184,44 @@ export async function createCheckoutSession(
       success_url: `${baseUrl}/booking/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}/booking/cancel`,
     })
+
+    // #96: odgovori sprejemnega obrazca — FormSubmission povezan z
+    // sejo (contextType "checkout-session"); webhook/verify ga po
+    // kreaciji termina poveže z terminom. Validacija org-scoped
+    // (definicija mora pripadati izbrani storitvi tega najemnika).
+    if (data.intakeAnswers) {
+      const intakeService = services.find((s) => s.intakeFormDefinitionId)
+      if (intakeService?.intakeFormDefinitionId) {
+        const def = await prisma.formDefinition.findFirst({
+          where: {
+            id: intakeService.intakeFormDefinitionId,
+            organizationId: org.id,
+            isActive: true,
+          },
+          select: { fields: true },
+        })
+        if (def) {
+          const check = validateIntakeAnswers(
+            (Array.isArray(def.fields)
+              ? def.fields
+              : []) as unknown as ProfileFieldDef[],
+            data.intakeAnswers
+          )
+          if (check.ok) {
+            await prisma.formSubmission.create({
+              data: {
+                organizationId: org.id,
+                formDefinitionId: intakeService.intakeFormDefinitionId,
+                status: "NEW",
+                data: check.data as Prisma.InputJsonValue,
+                contextType: "checkout-session",
+                contextId: checkoutSession.id,
+              },
+            })
+          }
+        }
+      }
+    }
 
     return {
       success: true,
@@ -547,6 +587,19 @@ export async function verifyAndCreateAppointment(sessionId: string) {
           "Ta termin ni več prost. Kontaktirajte salon za prestavitev rezervacije ali vračilo plačila.",
       }
     }
+
+    // #96: FormSubmission iz checkout seje poveži z ustvarjenim terminom
+    // (webhook to stori vzporedno — updateMany je idempotenten).
+    await prisma.formSubmission
+      .updateMany({
+        where: {
+          organizationId: org.id,
+          contextType: "checkout-session",
+          contextId: sessionId,
+        },
+        data: { contextType: "appointment", contextId: appointment.id, customerId },
+      })
+      .catch(() => undefined)
 
     // Send confirmation email in background (non-blocking)
     const customerEmail = guestEmail || checkoutSession.customer_email

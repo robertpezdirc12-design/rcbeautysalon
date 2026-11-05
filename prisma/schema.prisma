@@ -490,6 +490,12 @@ model Service {
 
   categoryId String?
 
+  // #96: sprejemni/konsultacijski obrazec (FormDefinition) — gost izpolni
+  // ob rezervaciji; odgovori grejo v FormSubmission s contextType
+  // "appointment" + contextId (ali "checkout-session" do webhooka).
+  intakeFormDefinitionId String?
+  intakeFormDefinition   FormDefinition? @relation(fields: [intakeFormDefinitionId], references: [id], onDelete: SetNull)
+
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
@@ -1047,6 +1053,8 @@ model FormDefinition {
 
   organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   submissions  FormSubmission[]
+  // #96: storitve, ki zahtevajo ta obrazec pred obiskom
+  intakeServices Service[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

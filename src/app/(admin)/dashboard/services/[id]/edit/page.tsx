@@ -4,11 +4,13 @@ import { Button } from "@/components/ui/button"
 import { ArrowLeftIcon } from "@/components/icons"
 import { ServiceForm } from "@/components/dashboard/service-form"
 import { ServiceAddonsEditor } from "@/components/dashboard/service-addons-editor"
+import { ServiceIntakeFormPicker } from "@/components/dashboard/service-intake-form-picker"
 import {
   getServiceById,
   getAllCategories,
   getAllActiveStaff,
   getServiceAddonsForEdit,
+  getIntakeFormOptions,
 } from "@/app/actions/services"
 import { getServerI18n } from "@/lib/i18n/server"
 import { requirePagePermission } from "@/lib/auth/guards"
@@ -22,13 +24,15 @@ export default async function EditServicePage({ params }: EditServicePageProps) 
   await requirePagePermission("services.manage")
   const { id } = await params
 
-  // Fetch service, categories, staff and addons in parallel
-  const [service, categories, staff, addons, { t }] = await Promise.all([
+  // Fetch service, categories, staff, addons and intake options in parallel
+  const [service, categories, staff, addons, intakeOptions, { t }] = await Promise.all([
     getServiceById(id),
     getAllCategories(),
     getAllActiveStaff(),
     // #92: dodatki za urejevalnik (org-scoped)
     getServiceAddonsForEdit(id),
+    // #96: sprejemni obrazci za izbiro (org-scoped)
+    getIntakeFormOptions(),
     getServerI18n(),
   ])
 
@@ -61,6 +65,13 @@ export default async function EditServicePage({ params }: EditServicePageProps) 
 
       {/* #92: dodatki — urejajo se ločeno od storitve (replace-all) */}
       <ServiceAddonsEditor serviceId={service.id} initialAddons={addons} />
+
+      {/* #96: sprejemni obrazec — gost izpolni ob rezervaciji */}
+      <ServiceIntakeFormPicker
+        serviceId={service.id}
+        currentFormId={service.intakeFormDefinitionId}
+        options={intakeOptions}
+      />
     </div>
   )
 }

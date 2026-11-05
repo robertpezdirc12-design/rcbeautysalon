@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
+import { prisma } from "@/lib/prisma"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
@@ -74,6 +75,29 @@ export default async function AppointmentDetailPage({ params }: PageProps) {
   if (!appointment) {
     notFound()
   }
+
+  // #96: sprejemni obrazec (odgovori gostov ob rezervaciji) — org-scoped
+  // prek getAppointmentById (org.zid) … posamična poizvedba po povezani
+  // prijavi; brez nje sekcija ne renderira.
+  const intakeSubmission = await prisma.formSubmission.findFirst({
+    where: {
+      contextType: "appointment",
+      contextId: appointment.id,
+    },
+    include: { formDefinition: { select: { name: true, fields: true } } },
+    orderBy: { createdAt: "desc" },
+  })
+  const intakeFields = Array.isArray(intakeSubmission?.formDefinition.fields)
+    ? (intakeSubmission.formDefinition.fields as {
+        key: string
+        label: string
+        required: boolean
+      }[])
+    : []
+  const intakeData =
+    intakeSubmission && typeof intakeSubmission.data === "object"
+      ? (intakeSubmission.data as Record<string, unknown>)
+      : {}
 
   const totalDuration = appointment.services.reduce(
     (sum, s) => sum + (s.service.duration || 0),
@@ -364,6 +388,28 @@ export default async function AppointmentDetailPage({ params }: PageProps) {
           </Card>
         </div>
       </div>
+
+      {/* #96: sprejemni obrazec — odgovori, ki jih je gost izpolnil
+          ob rezervaciji (povezani prek FormSubmission contextId). */}
+      {intakeSubmission && intakeFields.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              {intakeSubmission.formDefinition.name}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {intakeFields.map((f) => (
+              <div key={f.key} className="flex justify-between gap-4 text-sm">
+                <span className="text-muted-foreground">{f.label}</span>
+                <span className="text-foreground font-medium">
+                  {String(intakeData[f.key] ?? "—")}
+                </span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

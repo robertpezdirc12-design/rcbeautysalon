@@ -505,6 +505,18 @@ export async function POST(req: Request) {
         return NextResponse.json({ received: true })
       }
 
+      // #96: FormSubmission iz checkout seje poveži z ustvarjenim terminom.
+      await prisma.formSubmission
+        .updateMany({
+          where: {
+            organizationId: org.id,
+            contextType: "checkout-session",
+            contextId: session.id,
+          },
+          data: { contextType: "appointment", contextId: appointment.id, customerId },
+        })
+        .catch(() => undefined)
+
       // Send confirmation email (non-blocking, never fails the webhook)
       const customerEmail = guestEmail || session.customer_email
       if (customerEmail) {

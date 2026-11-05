@@ -403,6 +403,10 @@ export interface CreateAppointmentData {
   // #92: izbrani dodatki (ID-ji) — strežnik razreši cene/trajanje iz DB
   // (org-scoped, aktiven), nikoli ne zaupa klientu.
   addonIds?: string[]
+  // #96: odgovori sprejemnega obrazca (če storitev ga ima) — validirani
+  // proti FormDefinition ZNOTRAJ transakcije; zapis kot FormSubmission
+  // s contextType "appointment" (ali "checkout-session" do webhooka).
+  intakeAnswers?: Record<string, string>
 }
 
 export interface AppointmentCreationResult {
@@ -471,6 +475,11 @@ export interface CreateCheckoutSessionData {
   // webhook jih ponovno razreši org-scoped iz DB (cene iz metadate
   // se NIKOLI ne zaupajo).
   addonIds?: string[]
+  // #96: odgovori sprejemnega obrazca — zapišejo se kot FormSubmission
+  // z contextType "checkout-session" že ob ustvarjanju seje (Stripe
+  // metadata limit 500 znakov ne prenese odgovorov); webhook jih
+  // poveže z ustvarjenim terminom.
+  intakeAnswers?: Record<string, string>
 }
 
 export interface CreateCheckoutSessionResult {

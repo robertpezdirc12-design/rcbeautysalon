@@ -8,7 +8,12 @@ import {
   buildAuthenticatedBookingSchema,
 } from "@/lib/validations/booking"
 import { createCheckoutSession } from "@/app/actions/stripe"
-import { createAppointment, listBookingResources, type BookingResource } from "@/app/actions/appointments"
+import {
+  createAppointment,
+  getIntakeFormForService,
+  listBookingResources,
+  type BookingResource,
+} from "@/app/actions/appointments"
 import { ServiceStep } from "./steps/service-step"
 import { toast } from "sonner"
 import { useI18n } from "@/lib/i18n/provider"
@@ -51,6 +56,26 @@ export function BookingForm(props: BookingFormProps) {
   const availableAddons = props.addons ?? []
   const selectedAddons = availableAddons.filter((a) => selectedAddonIds.includes(a.id))
   const addonDurationMin = selectedAddons.reduce((s, a) => s + a.durationMin, 0)
+  // #96: sprejemni obrazec storitve (service-first) + odgovori.
+  const [intakeForm, setIntakeForm] = useState<
+    | {
+        name: string
+        description: string | null
+        fields: {
+          key: string
+          label: string
+          type: "text" | "textarea" | "number" | "date" | "select" | "checkbox"
+          required: boolean
+          options?: string[]
+          placeholder?: string
+          unit?: string
+        }[]
+      }
+    | null
+  >(null)
+  const [intakeAnswers, setIntakeAnswers] = useState<Record<string, string>>({})
+
+
 
   useEffect(() => {
     let cancelled = false
@@ -76,6 +101,25 @@ export function BookingForm(props: BookingFormProps) {
   }
 
   const selectedService = getSelectedService()
+
+  const serviceIdForIntake = isStaffFirst ? selectedServiceId : props.mode === "service-first" ? props.service.id : ""
+  useEffect(() => {
+    let cancelled = false
+    if (!serviceIdForIntake) {
+      setIntakeForm(null)
+      return
+    }
+    getIntakeFormForService(serviceIdForIntake)
+      .then((form) => {
+        if (!cancelled) setIntakeForm(form)
+      })
+      .catch(() => {
+        if (!cancelled) setIntakeForm(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [serviceIdForIntake])
 
   // Use appropriate schema based on authentication status — locale-aware
   // factory keeps validation messages in the visitor's language.
@@ -218,6 +262,7 @@ export function BookingForm(props: BookingFormProps) {
             isEmployee: true, // Apply 20% discount, no deposit
             resourceRecordId: selectedResourceId,
             addonIds: selectedAddonIds,
+          intakeAnswers,
           })
 
           if (result.success && result.appointmentId) {
@@ -240,6 +285,7 @@ export function BookingForm(props: BookingFormProps) {
           bookingTime,
           resourceRecordId: selectedResourceId,
           addonIds: selectedAddonIds,
+          intakeAnswers,
           guestName: !isAuthenticated
             ? `${parsed.data.firstName} ${parsed.data.lastName}`
             : undefined,
@@ -272,6 +318,7 @@ export function BookingForm(props: BookingFormProps) {
             notes: parsed.data.notes || undefined,
             resourceRecordId: selectedResourceId,
             addonIds: selectedAddonIds,
+          intakeAnswers,
           })
 
           if (fallback.success && fallback.appointmentId) {
@@ -415,6 +462,13 @@ export function BookingForm(props: BookingFormProps) {
             // schema as the server action (explicit single-field check —
             // RHF trigger() skips unregistered fields).
             onBlurField={validateCustomerField}
+            // #96: sprejemni obrazec storitve (samo service-first; staff-first
+            // ga v1 ne ponuja, ker se storitev šele izbira)
+            intakeForm={intakeForm}
+            intakeAnswers={intakeAnswers}
+            onIntakeChange={(key, value) =>
+              setIntakeAnswers((prev) => ({ ...prev, [key]: value }))
+            }
           />
         </div>
 

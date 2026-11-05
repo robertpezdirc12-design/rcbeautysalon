@@ -798,3 +798,55 @@ export async function toggleServiceStatus(id: string) {
     return { success: false, error: "Failed to toggle service status." }
   }
 }
+
+// ============================================================
+// #96 — SPREJEMNI OBRAZEC STORITVE (admin)
+// Poveže storitev z obstoječim FormDefinition najemnika (ali odveže).
+// ============================================================
+export async function setServiceIntakeForm(
+  serviceId: string,
+  formDefinitionId: string | null
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { org } = await requirePermissionOrg("services.manage")
+
+    const service = await prisma.service.findFirst({
+      where: { id: serviceId, organizationId: org.id },
+      select: { id: true },
+    })
+    if (!service) {
+      return { success: false, error: "Storitev ni najdena ali ni vaša." }
+    }
+
+    if (formDefinitionId) {
+      const def = await prisma.formDefinition.findFirst({
+        where: { id: formDefinitionId, organizationId: org.id, isActive: true },
+        select: { id: true },
+      })
+      if (!def) {
+        return { success: false, error: "Obrazec ni najden ali ni vaš." }
+      }
+    }
+
+    await prisma.service.update({
+      where: { id: service.id },
+      data: { intakeFormDefinitionId: formDefinitionId },
+    })
+
+    revalidatePath("/dashboard/services")
+    return { success: true }
+  } catch (error) {
+    console.error("setServiceIntakeForm failed:", error)
+    return { success: false, error: "Shranjevanje ni uspelo. Poskusite znova." }
+  }
+}
+
+/** Aktivni FormDefinition-i najemnika za izbiro sprejemnega obrazca. */
+export async function getIntakeFormOptions() {
+  const { org } = await requirePermissionOrg("services.manage")
+  return prisma.formDefinition.findMany({
+    where: { organizationId: org.id, isActive: true },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  })
+}

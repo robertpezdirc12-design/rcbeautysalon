@@ -23,9 +23,34 @@ interface CustomerInfoStepProps {
   isAuthenticated: boolean
   /** P1 #9 (audit-2026-11): validate a single field on blur (RHF trigger). */
   onBlurField?: (field: "firstName" | "lastName" | "email" | "phone") => void
+  // #96: sprejemni obrazec storitve (neobvezen — samo ko storitev ga ima)
+  intakeForm?: {
+    name: string
+    description: string | null
+    fields: {
+      key: string
+      label: string
+      type: "text" | "textarea" | "number" | "date" | "select" | "checkbox"
+      required: boolean
+      options?: string[]
+      placeholder?: string
+      unit?: string
+    }[]
+  } | null
+  intakeAnswers?: Record<string, string>
+  onIntakeChange?: (key: string, value: string) => void
 }
 
-export function CustomerInfoStep({ values, onChange, errors, isAuthenticated, onBlurField }: CustomerInfoStepProps) {
+export function CustomerInfoStep({
+  values,
+  onChange,
+  errors,
+  isAuthenticated,
+  onBlurField,
+  intakeForm = null,
+  intakeAnswers = {},
+  onIntakeChange,
+}: CustomerInfoStepProps) {
   const { t } = useI18n()
 
   // P1 #9: inline error slots get stable ids wired via aria-describedby, so
@@ -157,6 +182,77 @@ export function CustomerInfoStep({ values, onChange, errors, isAuthenticated, on
           />
           {errors.notes && <p className="text-sm text-destructive">{errors.notes.message}</p>}
         </div>
+
+        {/* #96: sprejemni obrazec storitve — gost izpolni ob rezervaciji;
+            odgovori grejo kot FormSubmission (contextType appointment). */}
+        {intakeForm && intakeForm.fields.length > 0 && onIntakeChange && (
+          <div className="rounded-xl border bg-muted/30 p-4">
+            <p className="text-sm font-semibold">{intakeForm.name}</p>
+            {intakeForm.description && (
+              <p className="text-muted-foreground mt-1 text-xs">{intakeForm.description}</p>
+            )}
+            <div className="mt-3 space-y-3">
+              {intakeForm.fields.map((field) => {
+                const id = `intake-${field.key}`
+                const value = intakeAnswers[field.key] ?? ""
+                return (
+                  <div key={field.key} className="space-y-1.5">
+                    <Label htmlFor={id} className="text-xs font-medium">
+                      {field.label}
+                      {field.required ? " *" : ""}
+                      {field.unit ? ` (${field.unit})` : ""}
+                    </Label>
+                    {field.type === "textarea" ? (
+                      <textarea
+                        id={id}
+                        value={value}
+                        onChange={(e) => onIntakeChange(field.key, e.target.value)}
+                        placeholder={field.placeholder}
+                        rows={3}
+                        className="border-input bg-background placeholder:text-muted-foreground focus-visible:ring-ring flex w-full rounded-md border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
+                      />
+                    ) : field.type === "select" ? (
+                      <select
+                        id={id}
+                        value={value}
+                        onChange={(e) => onIntakeChange(field.key, e.target.value)}
+                        className="border-input bg-background flex h-10 w-full rounded-md border px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
+                      >
+                        <option value="">—</option>
+                        {(field.options ?? []).map((o) => (
+                          <option key={o} value={o}>
+                            {o}
+                          </option>
+                        ))}
+                      </select>
+                    ) : field.type === "checkbox" ? (
+                      <label htmlFor={id} className="flex items-center gap-2 text-sm">
+                        <input
+                          id={id}
+                          type="checkbox"
+                          checked={value === "true"}
+                          onChange={(e) =>
+                            onIntakeChange(field.key, e.target.checked ? "true" : "false")
+                          }
+                          className="h-4 w-4 rounded border-input"
+                        />
+                        {field.placeholder ?? "Da"}
+                      </label>
+                    ) : (
+                      <Input
+                        id={id}
+                        type={field.type === "number" ? "number" : field.type === "date" ? "date" : "text"}
+                        value={value}
+                        onChange={(e) => onIntakeChange(field.key, e.target.value)}
+                        placeholder={field.placeholder}
+                      />
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   )
