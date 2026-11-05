@@ -195,6 +195,65 @@ test("F0-S custom domain — anonymous visitor sees the RIGHT tenant, never a 40
   const unverifiedText = await unverified.text()
   expect(unverifiedText).not.toContain(c.name)
 
+  // ---- PR #103 round 4 (owner edge case): UNVERIFIED/unknown host +
+  // /s/<slug> path. A slug URL must NEVER serve that slug's tenant under
+  // a foreign host — verified OR not. The proxy 404s every /s/<slug>
+  // path on any non-platform host BEFORE any host resolution runs. ----
+  const slugOnUnverified = await request.get(`/s/${a.slug}`, {
+    headers: { host: `unverified-slug-${Date.now()}.example` },
+  })
+  expect(
+    slugOnUnverified.status(),
+    "/s/<slug> under an unverified host must be a real 404"
+  ).toBe(404)
+  const slugOnUnverifiedText = await slugOnUnverified.text()
+  // NOTE: only the NAME is asserted (same as the verified-domain /s/<slug>
+  // 404 above) — the URL echo (`/s/<slug>` segments) unavoidably appears in
+  // the RSC flight payload of the 404 page; the slug must never surface as
+  // rendered tenant CONTENT (the name is the foreign-branding signal).
+  expect(slugOnUnverifiedText).not.toContain(a.name)
+  const foreignSlugOnUnverified = await request.get(`/s/${b.slug}`, {
+    headers: { host: `unverified-slug-2-${Date.now()}.example` },
+  })
+  expect(foreignSlugOnUnverified.status()).toBe(404)
+  expect(await foreignSlugOnUnverified.text()).not.toContain(b.name)
+
+  // ---- PR #103 round 4 (owner edge case, other direction): an
+  // UNVERIFIED (PENDING) CustomDomain row changes NOTHING for slug
+  // access on the platform host — /s/<slug> keeps serving the org —
+  // and the pending host itself keeps bare-path pass-through. ----
+  const pendingDom = `pending-${a.slug}.example`
+  await e2eDb.customDomain.create({
+    data: { domain: pendingDom, organizationId: orgA.id, status: "PENDING" },
+  })
+  // The dashboard header PREFETCHES /s/<slug> while the tenant is still
+  // DRAFT (registration); the proxy caches that positive answer (with the
+  // old publishState) for 15 s — the documented poison window (see
+  // visitPublished). Poll until it clears instead of racing it.
+  await expect
+    .poll(
+      async () => {
+        const res = await request.get(`/s/${a.slug}`)
+        return res.status() === 200 && (await res.text()).includes(a.name)
+          ? "ok"
+          : "waiting"
+      },
+      { timeout: 30_000, intervals: [1_000, 2_000, 3_000] }
+    )
+    .toBe("ok")
+  const slugOnPlatform = await request.get(`/s/${a.slug}`)
+  expect(
+    slugOnPlatform.status(),
+    "a PENDING custom domain must not affect /s/<slug> on the platform host"
+  ).toBe(200)
+  expect(await slugOnPlatform.text()).toContain(a.name)
+  const pendingBare = await request.get("/", { headers: { host: pendingDom } })
+  expect(
+    pendingBare.status(),
+    "an unverified (PENDING) host keeps bare-path pass-through"
+  ).toBe(200)
+  expect(await pendingBare.text()).not.toContain(c.name)
+
   // ---- The resolver endpoint is proxy-only for hosts too (V-4):
   // a direct visitor call is rejected 401 ----
   const directResolver = await request.get(
