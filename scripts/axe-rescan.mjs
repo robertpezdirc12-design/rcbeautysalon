@@ -1,6 +1,8 @@
 // P1 #22 (re-audit DoD): axe-core 4.x re-skeniranje javnih rut v svetli
 // in temni temi. Izhod: število critical/serious kršitev na ruto.
-import { chromium } from "playwright"
+// #94: uvoz prek deklarirane odvisnosti — "playwright" ni direkten dep
+// (pnpm strict layout ga ne hoistira), "playwright-core"/"@playwright/test" pa.
+import { chromium } from "@playwright/test"
 import { readFileSync, writeFileSync } from "fs"
 
 const BASE = process.env.BASE_URL || "https://rcbeautysalon-phi.vercel.app"

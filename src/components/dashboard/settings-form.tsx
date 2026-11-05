@@ -407,7 +407,7 @@ export function SettingsForm({ initialSettings, appointmentsEnabled = true }: Se
                     onValueChange={(value) => setValue("country", value)}
                     disabled={isSubmitting}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id="country">
                       <SelectValue placeholder={t.settings.form.selectCountry} />
                     </SelectTrigger>
                     <SelectContent>
@@ -438,7 +438,7 @@ export function SettingsForm({ initialSettings, appointmentsEnabled = true }: Se
                     onValueChange={(value) => setValue("timezone", value)}
                     disabled={isSubmitting}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id="timezone">
                       <SelectValue placeholder={t.settings.form.selectTimezone} />
                     </SelectTrigger>
                     <SelectContent>
@@ -457,7 +457,7 @@ export function SettingsForm({ initialSettings, appointmentsEnabled = true }: Se
                     onValueChange={(value) => setValue("currency", value)}
                     disabled={isSubmitting}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id="currency">
                       <SelectValue placeholder={t.settings.form.selectCurrency} />
                     </SelectTrigger>
                     <SelectContent>
@@ -537,6 +537,9 @@ export function SettingsForm({ initialSettings, appointmentsEnabled = true }: Se
                     checked={watchDepositRefundable}
                     onCheckedChange={(checked) => setValue("depositRefundable", checked)}
                     disabled={isSubmitting}
+                    // #94 §G: stikalo brez vidne oznake v label-for povezavi
+                    // mora imeti dostopno ime (axe button-name, WCAG 4.1.2).
+                    aria-label={t.settings.form.depositRefundable}
                   />
                 </div>
               </div>
