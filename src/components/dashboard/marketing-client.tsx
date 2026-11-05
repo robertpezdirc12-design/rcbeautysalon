@@ -27,6 +27,10 @@ export interface MarketingCampaignView {
   sentCount: number
   /** Zgodovina — zadnjih 5 poslanih sporočil te kampanje. */
   recentSends: { email: string; sentAt: string }[]
+  /** #95: neobvezen segment (oznaka strank) — null = vse stranke. */
+  tagFilter: string | null
+  /** Razpoložljive oznake najemnika. */
+  tagOptions: string[]
 }
 
 const KIND_LABELS: Record<CampaignKind, { title: string; desc: string }> = {
@@ -69,6 +73,7 @@ export function MarketingClient({
         thresholdDays: c.thresholdDays,
         subject: c.subject,
         body: c.body,
+        tagFilter: c.tagFilter,
       })
       if (res.success) {
         toast.success("Kampanja shranjena.")
@@ -136,6 +141,32 @@ export function MarketingClient({
                   maxLength={120}
                   disabled={pending}
                 />
+              </div>
+
+              {/* #95: neobvezen segment po oznaki (#91) — izklopljen = vse stranke. */}
+              <div className="space-y-2">
+                <Label htmlFor={`tag-${c.kind}`} className="text-xs">
+                  Segment (neobvezno — samo stranke z oznako)
+                </Label>
+                <select
+                  id={`tag-${c.kind}`}
+                  value={c.tagFilter ?? ""}
+                  onChange={(e) => update(c.kind, { tagFilter: e.target.value || null })}
+                  disabled={pending}
+                  className="border-input bg-background flex h-10 w-full rounded-md border px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
+                >
+                  <option value="">Vse stranke</option>
+                  {c.tagOptions.map((tag) => (
+                    <option key={tag} value={tag}>
+                      {tag}
+                    </option>
+                  ))}
+                </select>
+                {c.tagFilter && c.tagOptions.length === 0 && (
+                  <p className="text-muted-foreground text-xs">
+                    Oznake dodate pri Strankah; segment se uporabi, ko oznaka obstaja.
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">

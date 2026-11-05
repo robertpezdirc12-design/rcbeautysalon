@@ -791,6 +791,9 @@ model MarketingCampaign {
   enabled        Boolean          @default(false)
   // Samo REACTIVATION uporablja (dnevi od zadnjega zaključenega obiska).
   thresholdDays  Int              @default(60)
+  // #95: neobvezen segment — kampanja kontaktira samo stranke z to
+  // oznako (#91). null = vse stranke najemnika (privzeto v1).
+  tagFilter      String?
   subject        String
   body           String           @db.Text
   lastRunAt      DateTime?

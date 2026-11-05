@@ -11,6 +11,7 @@
 import { prisma } from "@/lib/prisma"
 import { addDays } from "date-fns"
 import {
+  filterByTag,
   interpolate,
   pickBirthdayTargets,
   pickNoShowTargets,
@@ -47,6 +48,21 @@ export async function sendMarketingEmails(now: Date = new Date()): Promise<JobRu
     const bookingLink = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/s/${org.slug}/booking`
     const business = org.name
     let targets: CampaignTarget[] = []
+
+    // #95: segment po oznaki — zemljevid e-pošta → oznake strank (za
+    // filterByTag). Gostje brez stranskega zapisa izpadejo pri filtru.
+    const tagFilter = campaign.tagFilter
+    const customerTags = tagFilter
+      ? await prisma.customer.findMany({
+          where: { organizationId: org.id },
+          select: { email: true, tags: true },
+        })
+      : []
+    const tagsByEmail = new Map(
+      customerTags
+        .filter((c) => c.email)
+        .map((c) => [c.email!.toLowerCase(), c.tags])
+    )
 
     if (campaign.kind === "REACTIVATION") {
       // Vsi zaključeni termini najemnika z znano e-pošto (stranka ali gost).
@@ -105,6 +121,10 @@ export async function sendMarketingEmails(now: Date = new Date()): Promise<JobRu
         business,
         bookingLink,
       })
+      targets = filterByTag(
+        targets.map((t) => ({ ...t, tags: tagsByEmail.get(t.email.toLowerCase()) ?? null })),
+        tagFilter
+      )
     } else if (campaign.kind === "NO_SHOW") {
       // NO_SHOW: včeraj (salon-lokalno) ne-prisotni termini z e-pošto.
       // #93-vzorec: UTC meje iz salon-lokalnega dnevnega ključa (dayBounds),
@@ -141,6 +161,10 @@ export async function sendMarketingEmails(now: Date = new Date()): Promise<JobRu
         })
         .filter((r): r is NonNullable<typeof r> => r !== null)
       targets = pickNoShowTargets(rows, { today: now, business, bookingLink })
+      targets = filterByTag(
+        targets.map((t) => ({ ...t, tags: tagsByEmail.get(t.email.toLowerCase()) ?? null })),
+        tagFilter
+      )
     } else if (campaign.kind === "BIRTHDAY") {
       // #95: rojstni dnevi — stranke z datumom rojstva in e-pošto.
       // Mesec-dan iz UTC dela datuma (rojstvo je koledarski podatek,
@@ -151,15 +175,20 @@ export async function sendMarketingEmails(now: Date = new Date()): Promise<JobRu
           dateOfBirth: { not: null },
           email: { not: null },
         },
-        select: { id: true, name: true, email: true, dateOfBirth: true },
+        select: { id: true, name: true, email: true, dateOfBirth: true, tags: true },
       })
       const rows = customers.map((c) => ({
         id: c.id,
         email: c.email as string,
         name: c.name,
         birthdayOn: (c.dateOfBirth as Date).toISOString().slice(5, 10),
+        tags: c.tags,
       }))
-      targets = pickBirthdayTargets(rows, { today: now, business, bookingLink })
+      targets = pickBirthdayTargets(filterByTag(rows, tagFilter), {
+        today: now,
+        business,
+        bookingLink,
+      })
     }
 
     // #95 (AD-03): funkcionalna odjava — odjavljeni prejemniki izpadajo

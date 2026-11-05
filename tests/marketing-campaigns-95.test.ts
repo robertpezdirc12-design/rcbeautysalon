@@ -11,6 +11,7 @@ import {
   pickReactivationTargets,
   pickNoShowTargets,
   pickBirthdayTargets,
+  filterByTag,
   interpolate,
   defaultCampaignCopy,
   CAMPAIGN_KINDS,
@@ -167,5 +168,33 @@ describe("#95 v3 pickBirthdayTargets (rojstni dnevi)", () => {
 
   it("CAMPAIGN_KINDS vključuje BIRTHDAY (pregled/job/UI izpeljejo iz njega)", () => {
     expect(CAMPAIGN_KINDS).toContain("BIRTHDAY")
+  })
+})
+
+describe("#95 segmenti po oznakah (ciljanje, spec: oznake #91)", () => {
+  it("filterByTag: obdrži samo stranke z oznako, gostje (brez) izpadejo; null = vse", () => {
+    const rows = [
+      { email: "a@x", tags: ["VIP"] },
+      { email: "b@x", tags: ["rdeča"] },
+      { email: "c@x", tags: null },
+    ]
+    expect(filterByTag(rows, "VIP").map((r) => r.email)).toEqual(["a@x"])
+    expect(filterByTag(rows, null).length).toBe(3)
+    expect(filterByTag(rows, undefined).length).toBe(3)
+  })
+
+  it("shema: MarketingCampaign.tagFilter obstaja (neobvezen segment)", () => {
+    const schema = read("prisma/schema.prisma")
+    const block = schema.slice(
+      schema.indexOf("model MarketingCampaign"),
+      schema.indexOf("}", schema.indexOf("model MarketingCampaign"))
+    )
+    expect(block).toContain("tagFilter      String?")
+  })
+
+  it("pregled ponudi oznake najemnika; shranjevanje whitelist-ne neznan segment", () => {
+    const actions = read("src/app/actions/marketing.ts")
+    expect(actions).toContain("tagOptions")
+    expect(actions).toContain("includes(rawTag)")
   })
 })

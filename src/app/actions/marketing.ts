@@ -26,6 +26,10 @@ export interface MarketingCampaignView {
   sentCount: number
   /** #95: zgodovina — zadnjih 5 poslanih sporočil te kampanje. */
   recentSends: { email: string; sentAt: string }[]
+  /** #95: neobvezen segment (oznaka strank, #91) — null = vse stranke. */
+  tagFilter: string | null
+  /** #95: razpoložljive oznake najemnika za izbiro segmenta. */
+  tagOptions: string[]
 }
 
 export async function getMarketingOverview(): Promise<{
@@ -37,18 +41,25 @@ export async function getMarketingOverview(): Promise<{
 }> {
   const { org } = await requirePermissionOrg("customers.manage")
 
-  const rows = await prisma.marketingCampaign.findMany({
-    where: { organizationId: org.id },
-    include: {
-      _count: { select: { sends: true } },
-      // #95: zgodovina pošiljk — zadnjih 5 na kampanjo (novejše naprej).
-      sends: { orderBy: { sentAt: "desc" }, take: 5, select: { email: true, sentAt: true } },
-    },
-  })
+  const [rows, tagRows, unsubscribedCount] = await Promise.all([
+    prisma.marketingCampaign.findMany({
+      where: { organizationId: org.id },
+      include: {
+        _count: { select: { sends: true } },
+        // #95: zgodovina pošiljk — zadnjih 5 na kampanjo (novejše naprej).
+        sends: { orderBy: { sentAt: "desc" }, take: 5, select: { email: true, sentAt: true } },
+      },
+    }),
+    prisma.customer.findMany({
+      where: { organizationId: org.id },
+      select: { tags: true },
+    }),
+    prisma.marketingUnsubscribe.count({ where: { organizationId: org.id } }),
+  ])
   const byKind = new Map(rows.map((r) => [r.kind, r]))
-  const unsubscribedCount = await prisma.marketingUnsubscribe.count({
-    where: { organizationId: org.id },
-  })
+  const tagOptions = Array.from(new Set(tagRows.flatMap((r) => r.tags))).sort((a, b) =>
+    a.localeCompare(b, "sl")
+  )
 
   const campaigns: MarketingCampaignView[] = CAMPAIGN_KINDS.map((kind) => {
     const row = byKind.get(kind)
@@ -65,6 +76,8 @@ export async function getMarketingOverview(): Promise<{
         email: s.email,
         sentAt: s.sentAt.toISOString(),
       })),
+      tagFilter: row?.tagFilter ?? null,
+      tagOptions,
     }
   })
 
@@ -78,7 +91,14 @@ export async function getMarketingOverview(): Promise<{
 
 export async function updateMarketingCampaign(
   kind: CampaignKind,
-  input: { enabled: boolean; thresholdDays: number; subject: string; body: string }
+  input: {
+    enabled: boolean
+    thresholdDays: number
+    subject: string
+    body: string
+    /** #95: neobvezen segment (oznaka) — null/prazno = vse stranke. */
+    tagFilter?: string | null
+  }
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const { org } = await requirePermissionOrg("customers.manage")
@@ -97,6 +117,19 @@ export async function updateMarketingCampaign(
       365
     )
 
+    // #95: segment — whitelist proti oznakam najemnika (neznan = null).
+    const rawTag = typeof input.tagFilter === "string" ? input.tagFilter.trim() : ""
+    let tagFilter: string | null = null
+    if (rawTag) {
+      const orgTags = await prisma.customer.findMany({
+        where: { organizationId: org.id },
+        select: { tags: true },
+      })
+      tagFilter = Array.from(new Set(orgTags.flatMap((r) => r.tags))).includes(rawTag)
+        ? rawTag
+        : null
+    }
+
     const defaults = defaultCampaignCopy(kind, org.name)
 
     await prisma.marketingCampaign.upsert({
@@ -108,12 +141,14 @@ export async function updateMarketingCampaign(
         thresholdDays,
         subject: subject || defaults.subject,
         body: body || defaults.body,
+        tagFilter,
       },
       update: {
         enabled: input.enabled,
         thresholdDays: kind === "REACTIVATION" ? thresholdDays : undefined,
         subject: subject || defaults.subject,
         body: body || defaults.body,
+        tagFilter,
       },
     })
 

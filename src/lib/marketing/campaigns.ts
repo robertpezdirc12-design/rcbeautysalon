@@ -167,6 +167,19 @@ export function interpolate(
     .replaceAll("{bookingLink}", vars.bookingLink)
 }
 
+/**
+ * #95: segment po oznaki (#91) — kampanja kontaktira samo stranke z
+ * oznako `tagFilter`. Gostje brez strankinega zapisa z oznako izpadejo.
+ * null filter = vse stranke (v1 privzeto).
+ */
+export function filterByTag<T extends { tags?: string[] | null }>(
+  rows: T[],
+  tagFilter: string | null | undefined
+): T[] {
+  if (!tagFilter) return rows
+  return rows.filter((r) => (r.tags ?? []).includes(tagFilter))
+}
+
 /** Privzeto pošteno besedilo (SL) — lastnik ga lahko preglasi.
  * #95 (AD-03): noga vsake e-pošte nosi DEJANSKO odjavno povezavo
  * (doda jo predloga), zato besedilo ne obljublja odjave "z odgovorom".
