@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test"
 import { PrismaClient } from "@prisma/client"
+import bcrypt from "bcryptjs"
 import { makeTenant, publishSite, registerTenant } from "./helpers"
 
 // ============================================================
@@ -18,6 +19,20 @@ import { makeTenant, publishSite, registerTenant } from "./helpers"
 // header it mints for /s/<slug> — the whole public surface works on
 // custom domains, gates included (DRAFT tenants 404 for strangers,
 // member preview for the owner).
+//
+// PR #103 review round 4 (two NEW Codex findings):
+//  1. "Začasno onemogočeno podjetje na lastni domeni" — resolve-host
+//     answers matched:true, exists:false (NO slug) for a VERIFIED
+//     domain of a SUSPENDED org; the old `hostTenant.slug` condition
+//     silently skipped the gates and the request continued WITHOUT
+//     tenant context — the app fell back to the DEFAULT PUBLISHED
+//     company under the dead tenant's domain. Now: REAL HTTP 404.
+//  2. "Administrativne pravice na lastni domeni" — the custom-domain
+//     branch returned NextResponse.next() for denylist paths
+//     (/dashboard, /staff-portal, …) and SKIPPED the standard
+//     login/role gates entirely. Now denylist paths fall through to
+//     them: STAFF cannot open /dashboard (redirected to their own
+//     surface), ADMIN can; anonymous users go to /login.
 //
 // Two published tenants with distinct verticals (real isolation) plus
 // a DRAFT tenant: A = beauty, B = tire-service, C = seamstress (DRAFT).
@@ -189,4 +204,200 @@ test("F0-S custom domain — anonymous visitor sees the RIGHT tenant, never a 40
   const directText = await directResolver.text()
   expect(directText).not.toContain("orgId")
   expect(directText).not.toContain(a.slug)
+})
+
+// ============================================================
+// PR #103 review round 4 — Codex najdba "začasno onemogočeno
+// podjetje na lastni domeni".
+//
+// resolve-host answers { matched: true, exists: false } (NO slug) for a
+// VERIFIED domain whose organization is SUSPENDED. The old proxy
+// condition required hostTenant.slug before running the gates, so the
+// request CONTINUED without tenant context and the app fell back to
+// the default published company — a live competitor's branding served
+// under the suspended tenant's own domain.
+//
+// Fix: a verified host whose org is not live stops with a REAL HTTP
+// 404 (the proxy is the only place that can set the status in Next 16
+// streaming) — never another company's page, never a soft 200.
+// ============================================================
+test("F0-S round 4 — suspended org on its VERIFIED domain is a REAL 404, never another company", async ({
+  page,
+  request,
+}) => {
+  // ---- Live tenant A (the "wrong company" the old bug leaked) ----
+  const a = makeTenant("beauty", "F0S-SUS-A")
+  await registerTenant(page, a)
+  await publishSite(page)
+  const orgA = await e2eDb.organization.findUniqueOrThrow({
+    where: { slug: a.slug },
+    select: { id: true },
+  })
+
+  // ---- Tenant S: really onboarded + published, then SUSPENDED by the
+  // platform (E3-5 precondition arranged server-side — the vulnerability
+  // under test is the proxy resolution of the dead tenant's domain) ----
+  const s = makeTenant("tire-service", "F0S-SUS-S")
+  const ctxS = await page.context().browser()!.newContext()
+  const pageS = await ctxS.newPage()
+  await registerTenant(pageS, s)
+  await publishSite(pageS)
+  await ctxS.close()
+  const orgS = await e2eDb.organization.findUniqueOrThrow({
+    where: { slug: s.slug },
+    select: { id: true },
+  })
+  await e2eDb.organization.update({
+    where: { id: orgS.id },
+    data: {
+      status: "SUSPENDED",
+      suspendedAt: new Date(),
+      suspendedReason: "E2E round 4 — suspended domain scenario",
+    },
+  })
+
+  // ---- VERIFIED custom domains for both (server-side truth) ----
+  const domA = `live-a-${a.slug}.example`
+  const domS = `dead-s-${s.slug}.example`
+  await e2eDb.customDomain.create({
+    data: { domain: domA, organizationId: orgA.id, status: "VERIFIED" },
+  })
+  await e2eDb.customDomain.create({
+    data: { domain: domS, organizationId: orgS.id, status: "VERIFIED" },
+  })
+
+  // ---- THE FINDING: every public path on the SUSPENDED tenant's own
+  // verified domain is a REAL 404 — never A's (or any fallback
+  // company's) content, never a soft 200. ----
+  for (const path of ["/", "/services", "/shop", "/staff"]) {
+    const res = await request.get(path, { headers: { host: domS }, maxRedirects: 0 })
+    expect(
+      res.status(),
+      `${path} on a suspended org's verified domain must be a real 404`
+    ).toBe(404)
+    const text = await res.text()
+    // THE wrong-company signal the old bug produced:
+    expect(text).not.toContain(a.name)
+    expect(text).not.toContain(a.slug)
+    // The suspended company's site is OFF — no content either:
+    expect(text).not.toContain(s.name)
+  }
+
+  // ---- Sanity: the LIVE tenant's verified domain keeps working
+  // (the 404 is scoped to dead orgs, not to custom domains) ----
+  const liveHome = await request.get("/", { headers: { host: domA } })
+  expect(liveHome.status()).toBe(200)
+  const liveText = await liveHome.text()
+  expect(liveText).toContain(a.name)
+  expect(liveText).not.toContain(s.name)
+})
+
+// ============================================================
+// PR #103 review round 4 — Codex najdba "administrativne pravice na
+// lastni domeni".
+//
+// The custom-domain branch removed the tenant header for
+// CUSTOM_DOMAIN_HEADER_DENYLIST paths and immediately returned
+// NextResponse.next() — SKIPPING the standard login/role gates that
+// run later in the proxy. On any non-platform host (verified custom
+// domains AND preview hosts) the auth/admin surfaces therefore bypassed
+// the role matrix.
+//
+// Fix: denylist paths fall through to the standard gates (tenant
+// context stays stripped). Proven outcomes: a STAFF employee cannot
+// open /dashboard (redirected to their own surface), an ADMIN can;
+// anonymous visitors are sent to /login.
+// ============================================================
+test("F0-S round 4 — admin paths on a custom domain run the standard role gates (STAFF out, ADMIN in)", async ({
+  page,
+  request,
+  browser,
+}) => {
+  // ---- Tenant A (published) with a VERIFIED custom domain ----
+  const a = makeTenant("beauty", "F0S-GATE-A")
+  await registerTenant(page, a)
+  await publishSite(page)
+  const orgA = await e2eDb.organization.findUniqueOrThrow({
+    where: { slug: a.slug },
+    select: { id: true },
+  })
+  const domA = `gate-a-${a.slug}.example`
+  await e2eDb.customDomain.create({
+    data: { domain: domA, organizationId: orgA.id, status: "VERIFIED" },
+  })
+  const hostA = { host: domA }
+
+  // ---- A STAFF member of org A (account arranged via DB — the creation
+  // form is an RHF handleSubmit form that hangs in production builds, a
+  // documented pre-existing E2E limitation, see
+  // e2e/f0s-media-removed-staff.spec.ts; login + access paths under test
+  // are fully real) ----
+  const staffName = `Ekipa ${a.slug}`
+  const staffEmail = `staff-${a.slug}@example.com`
+  await e2eDb.user.create({
+    data: {
+      name: staffName,
+      email: staffEmail,
+      role: "STAFF",
+      password: bcrypt.hashSync("E2e-staff-pass-1!", 4),
+      emailVerified: new Date(),
+      organization: { connect: { id: orgA.id } },
+    },
+  })
+
+  const staffCtx = await browser.newContext()
+  const staffPage = await staffCtx.newPage()
+  await staffPage.goto("/login")
+  await staffPage.getByLabel(/E-pošta/).first().fill(staffEmail)
+  await staffPage.getByLabel(/Geslo/).first().fill("E2e-staff-pass-1!")
+  await staffPage.getByRole("button", { name: /Prijava/ }).click()
+  await staffPage.waitForURL(/staff-portal|dashboard/, { timeout: 30_000 })
+
+  // ---- THE FINDING: STAFF cannot open /dashboard on the custom domain —
+  // the standard proxy gate runs (redirect to their own surface), the
+  // admin shell never renders ----
+  const staffDash = await staffPage.request.get("/dashboard", {
+    headers: hostA,
+    maxRedirects: 0,
+  })
+  expect(staffDash.status(), "STAFF must be redirected away from /dashboard").toBe(307)
+  expect(staffDash.headers()["location"]).toContain("/staff-portal")
+  const staffDashText = await staffDash.text()
+  expect(staffDashText).not.toContain("Dashboard")
+
+  // STAFF is equally gated on the other admin surfaces:
+  const staffAccount = await staffPage.request.get("/my-account", {
+    headers: hostA,
+    maxRedirects: 0,
+  })
+  expect(staffAccount.status(), "STAFF must be redirected away from /my-account").toBe(307)
+  expect(staffAccount.headers()["location"]).toContain("/staff-portal")
+
+  const staffPlatform = await staffPage.request.get("/platform", {
+    headers: hostA,
+    maxRedirects: 0,
+  })
+  expect(staffPlatform.status(), "STAFF must be redirected away from /platform").toBe(307)
+  expect(staffPlatform.headers()["location"]).toContain("/staff-portal")
+  await staffCtx.close()
+
+  // ---- Anonymous visitor on an admin path → standard /login redirect
+  // (previously the branch returned next() before the gates ran) ----
+  const anonDash = await request.get("/dashboard", { headers: hostA, maxRedirects: 0 })
+  expect(anonDash.status(), "anonymous must be redirected to /login").toBe(307)
+  expect(anonDash.headers()["location"]).toContain("/login")
+
+  // ---- POSITIVE: the ADMIN (owner) CAN open /dashboard on the custom
+  // domain — the fix must not lock administrators out ----
+  const adminDash = await page.request.get("/dashboard", { headers: hostA })
+  expect(adminDash.status(), "ADMIN keeps access to /dashboard").toBe(200)
+  const adminDashText = await adminDash.text()
+  expect(adminDashText).not.toContain("Prijava")
+
+  // ---- Sanity: the tenant PUBLIC surface on the same domain still
+  // serves A's branding (the denylist fall-through changed nothing
+  // there) ----
+  const publicHome = await request.get("/", { headers: hostA })
+  expect(publicHome.status()).toBe(200)
+  expect(await publicHome.text()).toContain(a.name)
 })

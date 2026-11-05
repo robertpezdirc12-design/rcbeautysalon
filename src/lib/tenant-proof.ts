@@ -85,6 +85,25 @@ export function resolverExpectedOrigin(request: { url: string }): string | null 
 }
 
 /**
+ * PR #103 review round 4 (owner): proxy-side mirror of resolverExpectedOrigin —
+ * the origin the PROXY uses for its internal resolver fetches.
+ *   - configured deployment → the trusted env origin (never request data),
+ *   - no config + NOT production → the request's own origin (local
+ *     sandboxes without env keep working; confers no production trust),
+ *   - no config + production → null → the proxy performs NO internal
+ *     fetch at all: it must never deliver the signed proof to an address
+ *     derived from the incoming request (attacker-controlled `Host` / IP
+ *     on a self-hosted deployment), even though the resolver would reject
+ *     the proof anyway (fail-closed, same stance as the resolver side).
+ */
+export function proxyResolverOrigin(request: { nextUrl: URL }): string | null {
+  const trusted = trustedInternalOrigin()
+  if (trusted) return trusted
+  if (process.env.NODE_ENV === "production") return null
+  return request.nextUrl.origin
+}
+
+/**
  * Dev-only fallback secret (owner review of PR #103, round 2): the FIXED
  * value must NEVER sign or verify in production — an attacker reaching the
  * app through a path that bypasses the proxy could forge valid proofs with

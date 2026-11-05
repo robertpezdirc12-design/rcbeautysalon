@@ -75,6 +75,27 @@ export const getCustomDomainOrg = cache(async (): Promise<Organization | null> =
 })
 
 /**
+ * PR #103 review round 4 (Codex — suspendirano podjetje na lastni domeni):
+ * je trenutni gostitelj PREVERJENA custom domena — ne glede na stanje
+ * najemnika? getCustomDomainOrg vrne null TUDI za preverjeno domeno z
+ * onemogočenim (SUSPENDED) najemnikom, klicatelj pa ne more ločiti "ni
+ * custom domena" od "custom domena z mrtvim najemnikom". Ta razlika je
+ * ključna za fail-closed: platformski korenski fallback (prva objavljena
+ * org) sme delovati SAMO na gostiteljih platforme — pod preverjeno tujim
+ * gustiteljem nikoli (sicer bi mrtva domena serveirala privzeto
+ * podjetje — napačna blagovna znamka).
+ */
+const currentHostIsVerifiedDomain = cache(async (): Promise<boolean> => {
+  const requestHost = hostFromHostHeader((await headers()).get("host"))
+  if (!requestHost || isPlatformHost(requestHost, getPlatformHosts())) return false
+  const matched = await prisma.customDomain.findFirst({
+    where: { domain: requestHost, status: "VERIFIED" },
+    select: { id: true },
+  })
+  return !!matched
+})
+
+/**
  * The organization that serves the CURRENT public page:
  * either the tenant from /s/[slug] (x-org-slug header set AND signed by
  * the proxy) or the default (first) organization for bare routes.
@@ -106,6 +127,13 @@ export const getPublicOrg = cache(async (): Promise<Organization | null> => {
   // tenant's content). Platform hosts skip the lookup entirely.
   const customOrg = await getCustomDomainOrg()
   if (customOrg) return customOrg
+
+  // PR #103 review round 4 (Codex — suspendirano podjetje na lastni
+  // domeni): preverjena domena z najemnikom, ki ni dosegljaven (SUSPENDED
+  // ali neobjavljen za tujce), se konča tukaj — vzdrževalni zaslon.
+  // NIKOLI platformski fallback: privzeto objavljeno podjetje ne sme
+  // serveirati pod tujim preverjenim gustiteljem.
+  if (await currentHostIsVerifiedDomain()) return null
 
   // Platform-root fallback: only a PUBLISHED tenant may serve the bare domain
   // (a DRAFT tenant's site is private — EPIC #3 E3-1).
@@ -202,6 +230,11 @@ export async function getResolvedOrg(): Promise<Organization | null> {
   // ADMIN/STAFF returned in branch 2 above (their dashboard context).
   const customOrg = await getCustomDomainOrg()
   if (customOrg) return customOrg
+  // PR #103 review round 4 (Codex — suspendirano podjetje na lastni
+  // domeni): preverjena domena z neaktivnim najemnikom nikoli ne pade na
+  // prvo ACTIVE org — javna akcija pod mrtvo domeno mora odpovedati
+  // (fail-closed), ne ciljati napačnega podjetja.
+  if (await currentHostIsVerifiedDomain()) return null
   return prisma.organization.findFirst({
     where: { status: "ACTIVE" },
     orderBy: { createdAt: "asc" },

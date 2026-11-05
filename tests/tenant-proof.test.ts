@@ -3,6 +3,7 @@ import {
   ORG_PROOF_HEADER,
   ORG_HEADER,
   RESOLVER_PROOF_HEADER,
+  proxyResolverOrigin,
   signOrgSlug,
   signResolverQueryForOrigin,
   trustedInternalOrigin,
@@ -224,5 +225,56 @@ describe("trusted internal origin (resolver proof origin binding)", () => {
     expect(resolverExpectedOrigin({ url: "https://markec.example/api/public/resolve-tenant" })).toBe(null)
     // A null expected origin must reject every proof:
     expect(await verifyResolverQueryForOrigin(null as unknown as string, "slug=x", "a".repeat(64))).toBe(false)
+  })
+})
+
+// ------------------------------------------------------------
+// PR #103 review round 4 (owner): the PROXY must never deliver the
+// signed resolver proof to an address derived from the incoming
+// request — production without a trusted env origin performs NO
+// internal fetch at all; the request-derived fallback exists ONLY
+// outside production (local sandboxes).
+// ------------------------------------------------------------
+
+describe("proxyResolverOrigin (round 4 — no fetch to request-derived origins in production)", () => {
+  const APP = "https://markec.example"
+  const ATTACKER = "http://attacker.example"
+
+  it("configured deployment ALWAYS fetches the env origin (never request data)", () => {
+    vi.stubEnv("NODE_ENV", "production")
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", APP)
+    vi.stubEnv("NEXTAUTH_URL", "")
+    // Even a request arriving under an attacker-controlled Host —
+    // the fetch target is the DEPLOYMENT origin, nothing else:
+    expect(proxyResolverOrigin({ nextUrl: new URL(ATTACKER + "/s/salon") })).toBe(APP)
+  })
+
+  it("production WITHOUT a trusted env origin → null (NO internal fetch, no proof delivery)", () => {
+    vi.stubEnv("NODE_ENV", "production")
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "")
+    vi.stubEnv("NEXTAUTH_URL", "")
+    // The old fallback (req.nextUrl.origin) would have delivered the
+    // signed proof to the request-derived address — forbidden now:
+    expect(proxyResolverOrigin({ nextUrl: new URL(ATTACKER + "/s/salon") })).toBe(null)
+  })
+
+  it("outside production the dev fallback keeps local sandboxes working", () => {
+    vi.stubEnv("NODE_ENV", "development")
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "")
+    vi.stubEnv("NEXTAUTH_URL", "")
+    expect(proxyResolverOrigin({ nextUrl: new URL("http://localhost:3000/s/salon") })).toBe(
+      "http://localhost:3000"
+    )
+    vi.stubEnv("NODE_ENV", "test")
+    expect(proxyResolverOrigin({ nextUrl: new URL("http://localhost:3000/s/salon") })).toBe(
+      "http://localhost:3000"
+    )
+  })
+
+  it("NEXTAUTH_URL alone is a valid trusted origin in production", () => {
+    vi.stubEnv("NODE_ENV", "production")
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "")
+    vi.stubEnv("NEXTAUTH_URL", APP)
+    expect(proxyResolverOrigin({ nextUrl: new URL(ATTACKER + "/s/salon") })).toBe(APP)
   })
 })

@@ -5,9 +5,9 @@ import {
   ORG_HEADER,
   ORG_PROOF_HEADER,
   RESOLVER_PROOF_HEADER,
+  proxyResolverOrigin,
   signOrgSlug,
   signResolverQueryForOrigin,
-  trustedInternalOrigin,
   verifyOrgSlug,
 } from "@/lib/tenant-proof"
 import { hostFromHostHeader, isPlatformHost } from "@/lib/domains/normalize"
@@ -77,18 +77,25 @@ const hostCache = new Map<string, { info: HostTenantInfo | null; exp: number }>(
  * ki je dosegljiva pod napadalčevim ali IP Host, bi interni fetch sicer
  * ODPOSLAL podpisan dokaz na tuj strežnik (ta ga nato lahko replika proti
  * pravi aplikaciji). Vezava HMAC na izvor naredi pobran dokaz neuporabnega
- * kjerkoli drugje — tudi ko env ni nastavljen (produkcija brez env:
- * resolver vsak dokaz zavrne — fail-closed), je fletka neškodljiva.
- * Dev brez env pade nazaj na izvor zahteve (brez produkcijskega zaupanja).
+ * kjerkoli drugje.
+ *
+ * PR #103 review round 4 (lastnik): izvor iz ZAHTEVE je dovoljen SAMO
+ * izven produkcije (lokalni peskovniki brez env). V PRODUKCIJI brez
+ * zaupanja vrednega env izvora proxy NE izvede internega fetch-a SPLOH
+ * (null) — podpisan dokaz nikoli ne odide na naslov, izpeljan iz
+ * vhodne zahteve, tudi če bi resolver dokaz vseeno zavrnul.
  */
-function resolverOrigin(req: { nextUrl: URL }): string {
-  return trustedInternalOrigin() ?? req.nextUrl.origin
+function resolverOrigin(req: { nextUrl: URL }): string | null {
+  return proxyResolverOrigin(req)
 }
 
 async function resolveTenant(
-  origin: string,
+  origin: string | null,
   slug: string
 ): Promise<TenantInfo | null> {
+  // PR #103 review round 4: produkcija brez zaupanja vrednega izvora —
+  // brez internega fetch-a (dokaz nikoli ne odide na izvor iz zahteve).
+  if (!origin) return null
   const hit = tenantCache.get(slug)
   if (hit && hit.exp > Date.now()) return hit.info
   try {
@@ -128,9 +135,13 @@ async function resolveTenant(
  * temu najemniku.
  */
 async function resolveTenantByHost(
-  origin: string,
+  origin: string | null,
   host: string
 ): Promise<HostTenantInfo | null> {
+  // PR #103 review round 4: glej resolveTenant — brez zaupanja vrednega
+  // izvora v produkciji NI internega fetch-a (pass-through, aplikacijska
+  // razrešitev custom domene v tenant.ts je druga linija).
+  if (!origin) return null
   const hit = hostCache.get(host)
   if (hit && hit.exp > Date.now()) return hit.info
   try {
@@ -154,11 +165,14 @@ async function resolveTenantByHost(
 }
 
 async function entityExists(
-  origin: string,
+  origin: string | null,
   orgId: string,
   type: "service" | "staff" | "product",
   slug: string
 ): Promise<boolean> {
+  // PR #103 review round 4: brez zaupanja vrednega izvora v produkciji NI
+  // internega fetch-a; enak fail-open kot pri nedosegljivem resolverju.
+  if (!origin) return true
   const key = `${type}:${orgId}:${slug}`
   const hit = entityCache.get(key)
   if (hit && hit.exp > Date.now()) return hit.exists
@@ -219,7 +233,7 @@ async function runTenantGates(opts: {
   tenant: TenantInfo | null
   sub: string
   requestHeaders: Headers
-  origin: string
+  origin: string | null
   isCustomHost: boolean
 }): Promise<Response | null> {
   const { req, tenant, sub, requestHeaders, origin, isCustomHost } = opts
@@ -343,32 +357,58 @@ export default auth(async (req) => {
     // domeni deluje enako kot pod /s/<slug>. Neznana/nepreverjena
     // domena → brez glave (pass-through, kot doslej — Vercel preview
     // gostitelji in dev naslovi ostanejo delujoči).
-    const origin = resolverOrigin(req)
-    const hostTenant = await resolveTenantByHost(origin, requestHost!)
-    if (hostTenant?.matched && hostTenant.slug && !CUSTOM_DOMAIN_HEADER_DENYLIST.test(pathname)) {
-      const gates = await runTenantGates({
-        req,
-        slug: hostTenant.slug,
-        tenant: hostTenant,
-        sub: pathname || "/",
-        requestHeaders,
-        origin,
-        isCustomHost: true,
-      })
-      if (gates) return gates
+    //
+    // PR #103 review round 4 (Codex — "administrativne pravice na lastni
+    // domeni"): denylist poti (auth/admin površine) NE smejo preskočiti
+    // običajnih preverjanj prijave in vlog, zapisanih spodaj. Prej je ta
+    // veja za denylist takoj vrnila NextResponse.next() in obšla cela
+    // vrata (anonimen obiskovalec je dosegel lupino /dashboard, STAFF ni
+    // bil preusmerjen na svojo površino). Zdaj se denylist pot spusti do
+    // standardnih vrat spodaj — glava najemnika ostane odstranjena
+    // (sejska pravilo), preverjanja pa se izvedejo kot na gostitelju
+    // platforme.
+    if (!CUSTOM_DOMAIN_HEADER_DENYLIST.test(pathname)) {
+      const origin = resolverOrigin(req)
+      const hostTenant = await resolveTenantByHost(origin, requestHost!)
 
-      // Glava je podpisana SAMO za slug, ki v bazi res pripada temu
-      // preverjenemu gostitelju (isto zaupanje kot URL-pot /s/<slug>).
-      // Brez konfigurirane skrivnosti v produkciji se nič ne podpiše →
-      // brez glave (fail-closed, aplikačna razrešitev iz tenant.ts je
-      // druga linija).
-      const signedProof = await signOrgSlug(hostTenant.slug)
-      if (signedProof) {
-        requestHeaders.set(ORG_HEADER, hostTenant.slug)
-        requestHeaders.set(ORG_PROOF_HEADER, signedProof)
+      // PR #103 review round 4 (Codex — "začasno onemogočeno podjetje na
+      // lastni domeni"): preverjena domena z NEZNANIM ALI SUSPENDIRANIM
+      // najemnikom (resolve-host: matched:true, exists:false — brez sluga)
+      // se MORA ustaviti s PRAVIM HTTP 404. Prej je zahteva nadaljevala
+      // brez najemniškega konteksta in aplikacija padla na privzeto
+      // objavljeno podjetje — tuja blagovna znamka pod mrtvo domeno.
+      if (hostTenant?.matched && (!hostTenant.exists || !hostTenant.slug)) {
+        return rewriteTo404(req, requestHeaders)
       }
+
+      if (hostTenant?.matched && hostTenant.slug) {
+        const gates = await runTenantGates({
+          req,
+          slug: hostTenant.slug,
+          tenant: hostTenant,
+          sub: pathname || "/",
+          requestHeaders,
+          origin,
+          isCustomHost: true,
+        })
+        if (gates) return gates
+
+        // Glava je podpisana SAMO za slug, ki v bazi res pripada temu
+        // preverjenemu gostitelju (isto zaupanje kot URL-pot /s/<slug>).
+        // Brez konfigurirane skrivnosti v produkciji se nič ne podpiše →
+        // brez glave (fail-closed, aplikačna razrešitev iz tenant.ts je
+        // druga linija).
+        const signedProof = await signOrgSlug(hostTenant.slug)
+        if (signedProof) {
+          requestHeaders.set(ORG_HEADER, hostTenant.slug)
+          requestHeaders.set(ORG_PROOF_HEADER, signedProof)
+        }
+      }
+      return NextResponse.next({ request: { headers: requestHeaders } })
     }
-    return NextResponse.next({ request: { headers: requestHeaders } })
+    // Denylist pot (auth/admin površina): najemniški kontekst je
+    // odstranjen zgoraj; NADALJUJ do običajnih preverjanj prijave in
+    // vlog spodaj (ni zgodnjega NextResponse.next()).
   }
 
   // ---- TENANT RESOLUTION: /s/[slug]/* -> /* with a FRESH signed header ----
