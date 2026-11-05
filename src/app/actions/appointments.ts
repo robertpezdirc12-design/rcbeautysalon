@@ -700,6 +700,15 @@ export async function createAppointment(
       ? "CONFIRMED"
       : "PENDING"
 
+    // #97 (AD-07): garancija s kartico — polog NI bremenjen ob
+    // rezervaciji; kartica (SetupIntent) je garancija, polog se zaračuna
+    // le ob no-show (cron). Termin nastane PENDING; SAVED ga potrdi.
+    const noShowGuarantee = data.noShowGuarantee === true && !isEmployeeBooking
+    if (noShowGuarantee) {
+      appointmentStatus = "PENDING"
+      depositPaid = false
+    }
+
     // Verify the requested time slot is available
     const slots = await getAvailableTimeSlots(
       data.staffId,
@@ -947,6 +956,10 @@ export async function createAppointment(
           endTime,
           status: appointmentStatus,
           notes: data.notes,
+          // #97: privolitev + stanje setupa (SI/Customer doda webhook).
+          ...(noShowGuarantee
+            ? { noShowConsent: true, noShowSetupStatus: "PENDING" }
+            : {}),
           totalPrice,
           depositAmount,
           depositPaid,

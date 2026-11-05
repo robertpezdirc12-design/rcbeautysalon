@@ -15,6 +15,7 @@ import { prisma } from "@/lib/prisma"
 import { isEmailServiceConfigured } from "@/lib/email/config"
 import { sendAppointmentExpiredEmail } from "@/lib/email/appointment-expired"
 import { formatSalonTime } from "@/lib/booking-time"
+import { chargeNoShowFee } from "@/lib/booking/no-show-charge"
 
 const BATCH_SIZE = 100
 
@@ -34,11 +35,20 @@ export async function expireStalePending(
 async function cancelStale(
   now: Date,
   notify: boolean
-): Promise<{ cancelled: number; noShow: number; notified: number; notifyFailed: number }> {
+): Promise<{
+  cancelled: number
+  noShow: number
+  notified: number
+  notifyFailed: number
+  charged: number
+  chargeFailed: number
+}> {
   let cancelled = 0
   let noShow = 0
   let notified = 0
   let notifyFailed = 0
+  let charged = 0
+  let chargeFailed = 0
 
   // --- PENDING + endTime v preteklosti → CANCELLED (+ opis o preteku) ---
   const stale = await prisma.appointment.findMany({
@@ -88,5 +98,26 @@ async function cancelStale(
   })
   noShow = noShowResult.count
 
-  return { cancelled, noShow, notified, notifyFailed }
+  // --- #97 (AD-07): bremenitev pologa ob no-show (garancija s kartico)
+  // Samo kandidati z veljavnimi pogoji (shouldChargeOnNoShow v helperju);
+  // vsak poskus neodvisen — neuspeh enega ne ustavi ostalih.
+  const chargeCandidates = await prisma.appointment.findMany({
+    where: {
+      status: "NO_SHOW",
+      noShowConsent: true,
+      noShowSetupStatus: "SAVED",
+      noShowChargeStatus: "NONE",
+      depositPaid: false,
+      stripeSetupIntentId: { not: null },
+      stripeCustomerId: { not: null },
+    },
+    select: { id: true },
+  })
+  for (const candidate of chargeCandidates) {
+    const result = await chargeNoShowFee(candidate.id)
+    if (result.charged) charged += 1
+    else if (result.error) chargeFailed += 1
+  }
+
+  return { cancelled, noShow, notified, notifyFailed, charged, chargeFailed }
 }

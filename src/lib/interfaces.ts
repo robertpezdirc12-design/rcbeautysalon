@@ -407,6 +407,10 @@ export interface CreateAppointmentData {
   // proti FormDefinition ZNOTRAJ transakcije; zapis kot FormSubmission
   // s contextType "appointment" (ali "checkout-session" do webhooka).
   intakeAnswers?: Record<string, string>
+  // #97 (AD-07): no-show zaščita — kartica kot garancija (Checkout
+  // setup mode). Termin nastane PENDING s privolitvijo; SetupIntent/
+  // Customer shrani webhook/success verify (SAVED → CONFIRMED).
+  noShowGuarantee?: boolean
 }
 
 export interface AppointmentCreationResult {

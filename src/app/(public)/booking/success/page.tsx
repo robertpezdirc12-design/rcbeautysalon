@@ -5,6 +5,7 @@ import { CheckCircle, CalendarCheck, House, Clock } from "@phosphor-icons/react/
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { verifyAndCreateAppointment } from "@/app/actions/stripe"
+import { getStripeForOrg } from "@/lib/stripe"
 import { getOrgTimezone } from "@/app/actions/appointments"
 import { getPublicSiteData } from "@/lib/public-site"
 import { orgPath } from "@/lib/org-path"
@@ -125,9 +126,97 @@ async function BookingSuccessContent({
 export default async function BookingSuccessPage({
   searchParams,
 }: {
-  searchParams: Promise<{ session_id?: string; appointment?: string }>
+  searchParams: Promise<{
+    session_id?: string
+    appointment?: string
+    setup?: string
+  }>
 }) {
   const params = await searchParams
+
+  // #97 (AD-07): garancija s kartico — Checkout SETUP seja. Verify
+  // (idempotenten z webhookom): shrani SI/Customer na termin (SAVED →
+  // CONFIRMED) in pokaže pošteno sporočilo (kartica shranjena, nič
+  // zaračunano).
+  if (params.setup && params.appointment) {
+    const site = await getPublicSiteData()
+    const orgSlug = site?.org.slug ?? null
+    if (!site?.org.id) {
+      return (
+        <div className="container mx-auto flex min-h-[60vh] items-center justify-center px-4 py-16">
+          <Card className="mx-auto max-w-lg text-center">
+            <CardHeader>
+              <CardTitle className="text-destructive">
+                Rezervacija ni bila najdena
+              </CardTitle>
+            </CardHeader>
+          </Card>
+        </div>
+      )
+    }
+    // Stripe ključ izključno najemnika (E4-3b) — brez platform fallbacka.
+    const stripeOrg = await prisma.organization.findUnique({
+      where: { id: site.org.id },
+      select: { stripeSecretKey: true },
+    })
+    const stripe = getStripeForOrg(stripeOrg)
+    let saved = false
+    if (stripe) {
+      try {
+        const session = await stripe.checkout.sessions.retrieve(params.setup)
+        if (
+          session.mode === "setup" &&
+          session.metadata?.appointmentId === params.appointment
+        ) {
+          const res = await prisma.appointment.updateMany({
+            where: { id: params.appointment, noShowSetupStatus: "PENDING" },
+            data: {
+              stripeSetupIntentId:
+                typeof session.setup_intent === "string"
+                  ? session.setup_intent
+                  : null,
+              stripeCustomerId:
+                typeof session.customer === "string" ? session.customer : null,
+              noShowSetupStatus: "SAVED",
+              status: "CONFIRMED",
+            },
+          })
+          saved = res.count > 0
+        }
+      } catch {
+        // webhook bo poskrbel; sporočilo ostane nevtralno
+      }
+    }
+
+    return (
+      <div className="container mx-auto flex min-h-[60vh] items-center justify-center px-4 py-16">
+        <Card className="mx-auto max-w-lg text-center">
+          <CardHeader className="space-y-4">
+            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
+              <CheckCircle size={48} weight="fill" className="text-green-600 dark:text-green-400" />
+            </div>
+            <CardTitle className="text-2xl">
+              {saved ? "Rezervacija potrjena!" : "Rezervacija je oddana"}
+            </CardTitle>
+            <CardDescription className="text-base">
+              {saved
+                ? "Kartica je shranjena kot garancija (ničesar nismo zaračunali). Ob ne-prihodu brez odjave bomo zaračunali polog."
+                : "Rezervacija je oddana; potrditev garancije sledi."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild variant="outline" size="lg">
+              <Link href={orgPath(orgSlug, "/")}>
+                <House size={20} className="mr-2" weight="regular" />
+                Nazaj domov
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
   const sessionId = params.session_id || null
   const appointmentId = params.appointment || null
   const site = await getPublicSiteData()

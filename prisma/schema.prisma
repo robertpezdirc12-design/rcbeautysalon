@@ -934,6 +934,19 @@ model Appointment {
   // zato zeton ni cuid in ni izpeljan iz drugih id.
   intakeToken String? @unique
 
+  // #97 (AD-07): no-show zaščita — kartica na datoteki.
+  // noShowConsent = eksplicitna privolitev gosta (SLO besedilo v UI,
+  // checkout setup mode); SetupIntent/Customer shranita SAMO reference
+  // (nikoli podatkov kartice). Ob no-show cron zaračuna polog off-session.
+  noShowConsent      Boolean @default(false)
+  stripeSetupIntentId String?
+  stripeCustomerId   String?
+  // NONE | PENDING (setup teče) | SAVED (kartica shranjena) | FAILED
+  noShowSetupStatus  String  @default("NONE")
+  // NONE | CHARGED | FAILED | SKIPPED — izid bremenitve ob no-show.
+  noShowChargeStatus String  @default("NONE")
+  noShowChargeId     String? @unique
+
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 

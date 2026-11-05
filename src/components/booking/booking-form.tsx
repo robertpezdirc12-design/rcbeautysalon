@@ -7,7 +7,15 @@ import {
   buildBookingSchema,
   buildAuthenticatedBookingSchema,
 } from "@/lib/validations/booking"
-import { createCheckoutSession } from "@/app/actions/stripe"
+import {
+  createCheckoutSession,
+  createGuaranteeCheckoutSession,
+  getBookingGuaranteeOptions,
+} from "@/app/actions/stripe"
+import {
+  NO_SHOW_CONSENT_LABEL,
+  NO_SHOW_POLICY_TEXT,
+} from "@/lib/booking/no-show-policy"
 import {
   createAppointment,
   getIntakeFormForService,
@@ -75,6 +83,18 @@ export function BookingForm(props: BookingFormProps) {
   >(null)
   const [intakeAnswers, setIntakeAnswers] = useState<Record<string, string>>({})
 
+  // #97 (AD-07): no-show zaščita — izbira načina pologa (plačaj zdaj
+  // prek Checkouta ali garancija s kartico). Na voljo samo ko najemnik
+  // ima Stripe ključ in polog > 0 (javna poglednica z akcije).
+  const [guarantee, setGuarantee] = useState<{
+    available: boolean
+    depositAmount: number
+    currency: string
+  }>({ available: false, depositAmount: 0, currency: "EUR" })
+  const [paymentMode, setPaymentMode] = useState<"deposit" | "guarantee">("deposit")
+  const [noShowConsent, setNoShowConsent] = useState(false)
+
+
 
 
   useEffect(() => {
@@ -106,6 +126,7 @@ export function BookingForm(props: BookingFormProps) {
   useEffect(() => {
     let cancelled = false
     if (!serviceIdForIntake) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIntakeForm(null)
       return
     }
@@ -115,6 +136,26 @@ export function BookingForm(props: BookingFormProps) {
       })
       .catch(() => {
         if (!cancelled) setIntakeForm(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [serviceIdForIntake])
+
+  useEffect(() => {
+    let cancelled = false
+    if (!serviceIdForIntake) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setGuarantee({ available: false, depositAmount: 0, currency: "EUR" })
+      return
+    }
+    getBookingGuaranteeOptions([serviceIdForIntake])
+      .then((opts) => {
+        if (!cancelled) setGuarantee(opts)
+      })
+      .catch(() => {
+        if (!cancelled)
+          setGuarantee({ available: false, depositAmount: 0, currency: "EUR" })
       })
     return () => {
       cancelled = true
@@ -273,6 +314,43 @@ export function BookingForm(props: BookingFormProps) {
             result.error || t.booking.employeeCreateFailed
           setFlowError(employeeError)
           toast.error(employeeError)
+          return { ok: false }
+        }
+
+        // #97 (AD-07): garancija s kartico — brez privolitve ni garancije.
+        if (paymentMode === "guarantee") {
+          if (!noShowConsent) {
+            const consentError = withBusiness(
+              "Za no-show zaščito je obvezna privolitev — izberite plačilo pologa zdaj."
+            )
+            setFlowError(consentError)
+            toast.error(consentError)
+            return { ok: false }
+          }
+          const guaranteeResult = await createGuaranteeCheckoutSession({
+            serviceIds: [serviceId],
+            staffId: parsed.data.staffId,
+            startTime: new Date(),
+            bookingDate,
+            bookingTime,
+            resourceRecordId: selectedResourceId,
+            addonIds: selectedAddonIds,
+            intakeAnswers,
+            guestName: !isAuthenticated
+              ? `${parsed.data.firstName} ${parsed.data.lastName}`
+              : undefined,
+            guestEmail: !isAuthenticated ? parsed.data.email : undefined,
+            guestPhone: parsed.data.phone || undefined,
+            notes: parsed.data.notes || undefined,
+          })
+          if (guaranteeResult.success && guaranteeResult.checkoutUrl) {
+            window.location.assign(guaranteeResult.checkoutUrl)
+            return { ok: true }
+          }
+          const gError =
+            guaranteeResult.error || t.booking.checkoutFailed
+          setFlowError(gError)
+          toast.error(gError)
           return { ok: false }
         }
 
@@ -470,6 +548,64 @@ export function BookingForm(props: BookingFormProps) {
               setIntakeAnswers((prev) => ({ ...prev, [key]: value }))
             }
           />
+
+          {/* #97 (AD-07): no-show zaščita — izbira načina pologa. Privolitev
+              je EKSPPLICITNA (checkbox z pravno formulacijo); brez nje se
+              garancija ne aktivira. */}
+          {guarantee.available && (
+            <div className="rounded-xl border bg-muted/30 p-4">
+              <p className="text-sm font-semibold">
+                Polog — {guarantee.depositAmount.toFixed(2)}{" "}
+                {guarantee.currency}
+              </p>
+              <div className="mt-3 space-y-2">
+                <label className="flex cursor-pointer items-start gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="paymentMode"
+                    checked={paymentMode === "deposit"}
+                    onChange={() => setPaymentMode("deposit")}
+                    className="mt-1 h-4 w-4"
+                  />
+                  <span>Plačaj polog zdaj (varno prek Stripe-a).</span>
+                </label>
+                <label className="flex cursor-pointer items-start gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="paymentMode"
+                    checked={paymentMode === "guarantee"}
+                    onChange={() => setPaymentMode("guarantee")}
+                    className="mt-1 h-4 w-4"
+                  />
+                  <span>
+                    <strong>Garancija s kartico</strong> — ničesar ne zaračunamo
+                    zdaj; polog poravnate ob obisku. Ob ne-prihodu brez odjave
+                    zaračunamo polog.
+                  </span>
+                </label>
+              </div>
+
+              {paymentMode === "guarantee" && (
+                <div className="mt-3 space-y-2 rounded-lg border bg-background p-3">
+                  <label className="flex cursor-pointer items-start gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={noShowConsent}
+                      onChange={(e) => setNoShowConsent(e.target.checked)}
+                      className="mt-1 h-4 w-4"
+                    />
+                    <span>{NO_SHOW_CONSENT_LABEL}</span>
+                  </label>
+                  <details className="text-xs text-muted-foreground">
+                    <summary className="cursor-pointer font-medium">
+                      Pravilnik no-show zaščite
+                    </summary>
+                    <p className="mt-2 whitespace-pre-line">{NO_SHOW_POLICY_TEXT}</p>
+                  </details>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Right Column - Summary & Submit */}

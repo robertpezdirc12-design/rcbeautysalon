@@ -433,6 +433,50 @@ export default async function AppointmentDetailPage({ params }: PageProps) {
           </CardContent>
         </Card>
       )}
+
+      {/* #97 (AD-07): no-show zaščita — stanje garancije in bremenitve.
+          Kartice ni v aplikaciji (samo Stripe reference); FAILED bremenitev
+          lastnik obravnava ročno. */}
+      {appointment.noShowConsent && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">No-show zaščita</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-1 text-sm">
+            <p>
+              <span className="text-muted-foreground">Kartica (garancija):</span>{" "}
+              <span className="font-medium">
+                {appointment.noShowSetupStatus === "SAVED"
+                  ? "shranjena pri Stripe"
+                  : appointment.noShowSetupStatus === "PENDING"
+                    ? "v obdelavi"
+                    : appointment.noShowSetupStatus === "FAILED"
+                      ? "ni uspela"
+                      : "ni shranjena"}
+              </span>
+            </p>
+            <p>
+              <span className="text-muted-foreground">Polog:</span>{" "}
+              <span className="font-medium">
+                {appointment.depositPaid
+                  ? "poravnan"
+                  : `${appointment.depositAmount.toFixed(2)} € — nezaplačen`}
+              </span>
+              {" · "}
+              <span className="text-muted-foreground">Ob no-show:</span>{" "}
+              <span className="font-medium">
+                {appointment.noShowChargeStatus === "CHARGED"
+                  ? "zaračunano"
+                  : appointment.noShowChargeStatus === "FAILED"
+                    ? "bremenitev neuspešna — obravnavaj ročno"
+                    : appointment.noShowChargeStatus === "SKIPPED"
+                      ? "preskočeno"
+                      : "bo zaračunano samodejno"}
+              </span>
+            </p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

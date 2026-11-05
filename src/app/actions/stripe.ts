@@ -764,3 +764,107 @@ export async function createDepositCheckoutForAppointment(appointmentId: string)
     }
   }
 }
+
+// ------------------------------------------------------------
+// #97 (AD-07) — NO-SHOW ZAŠČITA: garancija s kartico
+// Termin ustvari createAppointment (PENDING, privolitev), Checkout v
+// SETUP načinu z client_reference_id = appointmentId zbere in shrani
+// kartico (Stripe); webhook/success verify zapiše SI/Customer (SAVED →
+// CONFIRMED). Polog NI bremenjen ob rezervaciji — cron ga zaračuna
+// izključno ob no-show (no-show-charge.ts). Aplikacija nikoli ne vidi
+// podatkov kartice — samo Stripe reference.
+// ------------------------------------------------------------
+
+import { createAppointment } from "./appointments"
+import { GUARANTEE_METADATA_TYPE } from "@/lib/booking/no-show-policy"
+import type { CreateAppointmentData } from "@/lib/interfaces"
+
+export async function createGuaranteeCheckoutSession(
+  data: CreateAppointmentData
+): Promise<{ success: boolean; checkoutUrl?: string; appointmentId?: string; error?: string }> {
+  try {
+    const org =
+      (await getSessionOrg()) ?? (await getPublicOrg())
+    if (!org) {
+      return { success: false, error: "Rezervacija trenutno ni na voljo." }
+    }
+    const stripe = getStripeForOrg(org)
+    if (!stripe) {
+      return { success: false, error: "No-show zaščita ni na voljo (manjka Stripe povezava)." }
+    }
+
+    // 1) Termin PENDING s privolitvijo (vsa validacija/ključavnice v akciji).
+    const appointment = await createAppointment({ ...data, noShowGuarantee: true })
+    if (!appointment.success || !appointment.appointmentId) {
+      return { success: false, error: appointment.error ?? "Rezervacija ni uspela." }
+    }
+
+    // 2) Checkout SETUP — kartica kot garancija (brez bremenitve).
+    const guestEmail = data.guestEmail ?? null
+    const session = await stripe.checkout.sessions.create({
+      mode: "setup",
+      ...(guestEmail ? { customer_email: guestEmail } : {}),
+      client_reference_id: appointment.appointmentId,
+      metadata: {
+        type: GUARANTEE_METADATA_TYPE,
+        appointmentId: appointment.appointmentId,
+      },
+      success_url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/booking/success?setup={CHECKOUT_SESSION_ID}&appointment=${appointment.appointmentId}`,
+      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/booking/cancel?appointment=${appointment.appointmentId}`,
+    })
+
+    return {
+      success: true,
+      checkoutUrl: session.url ?? undefined,
+      appointmentId: appointment.appointmentId,
+    }
+  } catch (error) {
+    console.error("createGuaranteeCheckoutSession failed:", error)
+    return { success: false, error: "Ustvarjanje garancije ni uspelo. Poskusite znova." }
+  }
+}
+
+/** Javna poglednica za wizard: ali je no-show zaščita na voljo (Stripe
+ * ključ najemnika + polog > 0) in v višini pologa. */
+export async function getBookingGuaranteeOptions(serviceIds: string[]): Promise<{
+  available: boolean
+  depositAmount: number
+  currency: string
+}> {
+  try {
+    const org =
+      (await getSessionOrg()) ?? (await getPublicOrg())
+    const stripe = org ? getStripeForOrg(org) : null
+    if (!org || !stripe || serviceIds.length === 0) {
+      return { available: false, depositAmount: 0, currency: "EUR" }
+    }
+    const services = await prisma.service.findMany({
+      where: { id: { in: serviceIds }, organizationId: org.id, isActive: true },
+      select: { id: true, price: true, depositType: true, depositValue: true },
+    })
+    const depositRules = services.map((s) => ({
+      price: Number(s.price),
+      depositType: s.depositType,
+      depositValue: s.depositValue === null ? null : Number(s.depositValue),
+    }))
+    if (services.length !== serviceIds.length) {
+      return { available: false, depositAmount: 0, currency: "EUR" }
+    }
+    const config = await prisma.salonConfig.findUnique({
+      where: { organizationId: org.id },
+      select: { bookingDeposit: true, bookingDepositType: true, currency: true },
+    })
+    const depositAmount = resolveDepositForServices(depositRules, {
+      bookingDeposit: Number(config?.bookingDeposit ?? 0),
+      bookingDepositType: (config?.bookingDepositType ?? "FIXED") as "FIXED" | "PERCENT",
+    })
+    return {
+      available: depositAmount > 0,
+      depositAmount,
+      currency: config?.currency ?? "EUR",
+    }
+  } catch {
+    return { available: false, depositAmount: 0, currency: "EUR" }
+  }
+}
+

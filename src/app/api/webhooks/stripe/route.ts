@@ -9,6 +9,7 @@ import { sendAppointmentConfirmationEmail } from "@/lib/email/appointment-confir
 import { getOrgById, getPublicOrg } from "@/lib/tenant"
 import { formatSalonTime, safeTimezone } from "@/lib/booking-time"
 import { acquireBookingLocks, bookingLockKeys } from "@/lib/booking/locking"
+import { GUARANTEE_METADATA_TYPE } from "@/lib/booking/no-show-policy"
 import { generateIntakeToken, pickIntakeService } from "@/lib/forms/intake"
 import { Prisma } from "@prisma/client"
 import Stripe from "stripe"
@@ -76,6 +77,35 @@ export async function POST(req: Request) {
   // Handle the checkout.session.completed event
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session
+
+    // #97 (AD-07): garancija s kartico — SETUP način (payment_status je
+    // "unpaid" po zasnovi; kartica se SHRANI, ne zaračuna). Zapiši
+    // SetupIntent/Customer reference na termin (SAVED → CONFIRMED).
+    if (
+      session.mode === "setup" &&
+      session.metadata?.type === GUARANTEE_METADATA_TYPE
+    ) {
+      const appointmentId = session.metadata.appointmentId
+      if (appointmentId) {
+        const updated = await prisma.appointment.updateMany({
+          where: { id: appointmentId, noShowSetupStatus: "PENDING" },
+          data: {
+            stripeSetupIntentId:
+              typeof session.setup_intent === "string"
+                ? session.setup_intent
+                : null,
+            stripeCustomerId:
+              typeof session.customer === "string" ? session.customer : null,
+            noShowSetupStatus: "SAVED",
+            status: "CONFIRMED",
+          },
+        })
+        console.log(
+          `Webhook: no-show guarantee ${updated.count > 0 ? "saved" : "skipped (already handled)"} for appointment ${appointmentId}`
+        )
+      }
+      return NextResponse.json({ received: true })
+    }
 
     // Only process if payment was successful
     if (session.payment_status !== "paid") {
