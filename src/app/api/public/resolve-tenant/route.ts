@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import {
+  RESOLVER_PROOF_HEADER,
+  resolverExpectedOrigin,
+  verifyResolverQueryForOrigin,
+} from "@/lib/tenant-proof"
 import { isBookingEnabled } from "@/lib/public-cta"
 import { getProfile, isCapabilityEnabled } from "@/lib/profiles/registry"
 import { applyOverrides, parseOverrides } from "@/lib/profiles/overrides"
@@ -28,6 +33,29 @@ export async function GET(request: Request) {
   const slug = searchParams.get("slug")?.trim()
   if (!slug) {
     return NextResponse.json({ error: "slug required" }, { status: 400 })
+  }
+
+  // issue #102 (V-1/V-4): PROXY-ONLY endpoint. Every legitimate call comes
+  // from the proxy (which signs the query). A direct visitor call would
+  // confirm the existence of any slug — including DRAFT tenants — so it is
+  // rejected 401 (enumeration closed; the proxy flow is unaffected).
+  //
+  // PR #103 review round 2 (Codex): the proof is BOUND TO THE TRUSTED
+  // ORIGIN — a proof harvested via an attacker-controlled `Host` on a
+  // self-hosted deployment (proxy fetch steered to a foreign server)
+  // cannot be replayed here: this endpoint accepts only proofs minted
+  // for THIS deployment's canonical env origin. Production without the
+  // env configured rejects EVERY proof (fail-closed).
+  const expectedOrigin = resolverExpectedOrigin(request)
+  const proof = request.headers.get(RESOLVER_PROOF_HEADER)
+  if (
+    !expectedOrigin ||
+    !(await verifyResolverQueryForOrigin(expectedOrigin, `slug=${slug}`, proof))
+  ) {
+    return NextResponse.json(
+      { error: "forbidden" },
+      { status: 401, headers: { "Cache-Control": "no-store" } }
+    )
   }
 
   try {
@@ -73,7 +101,11 @@ export async function GET(request: Request) {
           "services"
         ),
       },
-      { headers: { "Cache-Control": "public, max-age=15, stale-while-revalidate=60" } }
+      // PR #103 review round 2: PROXY-ONLY endpoint — responses must not
+      // be stored/served by shared caches. The proxy keeps its own 15 s
+      // in-memory cache, so no-store costs nothing and removes the risk
+      // of a middle cache handing a proof-gated answer to anyone else.
+      { headers: { "Cache-Control": "private, no-store" } }
     )
   } catch {
     // Fail-open: proxy pri napaki NE ugasne najemniških strani;

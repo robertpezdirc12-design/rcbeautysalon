@@ -1,8 +1,7 @@
-import { headers } from "next/headers"
 import { notFound } from "next/navigation"
 import { PublicNavbar } from "@/components/layouts/public-navbar"
 import Footer from "@/components/layouts/footer"
-import { getPublicOrg, ORG_HEADER } from "@/lib/tenant"
+import { getPublicOrg, getTrustedOrgSlug } from "@/lib/tenant"
 import { resolveAvailableSections } from "@/lib/public-site"
 import { resolvePublicCta } from "@/lib/public-cta"
 import { resolvePublishGate } from "@/lib/publish-gate"
@@ -21,7 +20,7 @@ export default async function CustomerLayout({
   // P1 #27 (re-audit 2026-11): enako kot v (public) layoutu — neznana
   // vertikala / suspendiran tenant pod /s/[slug] → pravi HTTP 404 (prej
   // 200 + vzdrževalna stran). Klic v layoutu = shell faza = status 404.
-  const slugHeader = (await headers()).get(ORG_HEADER)
+  const slugHeader = await getTrustedOrgSlug()
   if (slugHeader && !org) {
     notFound()
   }

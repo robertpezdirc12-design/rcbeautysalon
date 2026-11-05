@@ -4,7 +4,7 @@ import Script from "next/script"
 import { prisma } from "@/lib/prisma"
 import { PublicNavbar } from "@/components/layouts/public-navbar"
 import Footer from "@/components/layouts/footer"
-import { getPublicOrg, ORG_HEADER } from "@/lib/tenant"
+import { getPublicOrg, getTrustedOrgSlug } from "@/lib/tenant"
 import { resolveAvailableSections } from "@/lib/public-site"
 import { resolvePublicCta } from "@/lib/public-cta"
 import { resolvePublishGate } from "@/lib/publish-gate"
@@ -40,7 +40,9 @@ async function availableSectionsFor(org: {
  */
 async function isTenantContext(): Promise<boolean> {
   const h = await headers()
-  if (h.get(ORG_HEADER)) return true
+  // V-1 (issue #102): only the proxy-SIGNED header counts — a forged one
+  // must not turn the platform root into a tenant surface.
+  if (await getTrustedOrgSlug()) return true
   const requestHost = hostFromHostHeader(h.get("host"))
   return !!requestHost && !isPlatformHost(requestHost, getPlatformHosts())
 }
@@ -77,7 +79,7 @@ export default async function PublicLayout({
   // blagovno stranjo (app/not-found.tsx). Klic je v LAYOUTU (shell
   // faza), tako da se 404 status pošlje, PREDEN streaming začne.
   // Layout niha ne dostopa do podatkov drugega najemnika (E3-8 ostaja).
-  const slugHeader = (await headers()).get(ORG_HEADER)
+  const slugHeader = await getTrustedOrgSlug()
   if (slugHeader && !org) {
     notFound()
   }

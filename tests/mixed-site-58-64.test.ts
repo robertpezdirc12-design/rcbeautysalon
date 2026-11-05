@@ -378,9 +378,15 @@ describe("#64 — resolution cache honesty", () => {
     expect(negativeBranch).not.toContain("max-age=15")
   })
 
-  it("source guard: positive answers keep the short shared cache", () => {
+  it("source guard: positive answers are proxy-only (private, no-store) — honesty lives in the proxy TTL", () => {
     const route = srcOf("src/app/api/public/resolve-tenant/route.ts")
-    expect(route).toContain("public, max-age=15, stale-while-revalidate=60")
+    // PR #103 review round 2: the endpoint is PROXY-ONLY (HMAC proof
+    // gate) — its answers must never be stored/served by shared caches.
+    // The short-TTL honesty property from #64 (publish visible quickly,
+    // ~15 s worst case) is enforced by the PROXY's own in-memory cache
+    // (pinned by the next guard), not by an HTTP shared-cache header.
+    expect(route).toContain('"Cache-Control": "private, no-store"')
+    expect(route).not.toContain("Cache-Control\": \"public")
   })
 
   it("source guard: proxy caches negatives for ~1 s only (publish visible immediately)", () => {

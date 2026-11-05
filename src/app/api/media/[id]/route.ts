@@ -1,5 +1,21 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { auth } from "@/lib/auth/auth"
+import {
+  decideMediaAccess,
+  type MediaAccessDecision,
+} from "@/lib/media-access"
+import {
+  isPlatformAdminEmail,
+  PLATFORM_ADMIN_EMAILS_ENV,
+} from "@/lib/platform/access"
+
+// ============================================================
+// V-3 (issue #102 — F0-S): media is served ONLY with an access
+// decision — never on the basis of the ID alone. Public images of
+// public sites remain reachable (immutable cache); draft/suspended
+// tenant media is member/operator-only and never cacheable publicly.
+// ============================================================
 
 /** Serves images stored in the DB (Media model) — used when Cloudinary is not configured. */
 export async function GET(
@@ -8,17 +24,72 @@ export async function GET(
 ) {
   try {
     const { id } = await params
-    const media = await prisma.media.findUnique({ where: { id } })
+    const media = await prisma.media.findUnique({
+      where: { id },
+      include: {
+        organization: { select: { status: true, publishState: true } },
+      },
+    })
     if (!media) {
       return NextResponse.json({ error: "Not found" }, { status: 404 })
     }
+
+    const session = await auth()
+    const requesterEmail = session?.user?.email ?? null
+    const requesterRole = session?.user?.role ?? null
+    // PR #103 review round 2 (Codex — odstranjeni zaposleni): role evidence
+    // for the owner decision. A STAFF user must still hold an ACTIVE staff
+    // row in the OWNING org; a removed employee (role demoted to CLIENTE,
+    // organizationId kept) matches neither branch and is denied.
+    let requesterIsOrgStaffActive = false
+    if (
+      requesterRole === "STAFF" &&
+      session?.user?.id &&
+      media.organizationId
+    ) {
+      const staffRow = await prisma.staff.findFirst({
+        where: {
+          userId: session.user.id,
+          organizationId: media.organizationId,
+          isActive: true,
+        },
+        select: { id: true },
+      })
+      requesterIsOrgStaffActive = !!staffRow
+    }
+    const decision: MediaAccessDecision = decideMediaAccess({
+      organizationId: media.organizationId,
+      orgStatus: media.organization?.status ?? null,
+      orgPublishState: media.organization?.publishState ?? null,
+      requesterOrganizationId: session?.user?.organizationId ?? null,
+      requesterRole,
+      requesterIsOrgStaffActive,
+      requesterIsPlatformAdmin: requesterEmail
+        ? isPlatformAdminEmail(requesterEmail, process.env[PLATFORM_ADMIN_EMAILS_ENV])
+        : false,
+    })
+
+    if (decision === "denied") {
+      // 404 (not 403) — do not confirm the ID exists to strangers.
+      return NextResponse.json(
+        { error: "Not found" },
+        { status: 404, headers: { "Cache-Control": "no-store" } }
+      )
+    }
+
     const buffer = Buffer.from(media.data, "base64")
+    // Public media: immutable shared cache. Owner-only media: never
+    // stored in a shared cache (the same URL must not leak via caches).
+    const cacheControl =
+      decision === "public"
+        ? "public, max-age=31536000, immutable"
+        : "private, no-store"
     return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
         "Content-Type": media.mimeType,
         "Content-Length": String(buffer.length),
-        "Cache-Control": "public, max-age=31536000, immutable",
+        "Cache-Control": cacheControl,
       },
     })
   } catch (error) {

@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import {
+  RESOLVER_PROOF_HEADER,
+  resolverExpectedOrigin,
+  verifyResolverQueryForOrigin,
+} from "@/lib/tenant-proof"
 
 // ============================================================
 // P1 #27 (re-audit 2026-11) — OBSTOJ ENTITETE ZA PROXY
@@ -28,6 +33,24 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "orgId, type, slug required" }, { status: 400 })
   }
 
+  // issue #102 (V-1/V-4): PROXY-ONLY endpoint (same rule as resolve-tenant).
+  // Answering arbitrary orgId probes would let a visitor enumerate entities
+  // of any organization — reject everything the proxy did not sign.
+  // PR #103 review round 2 (Codex): proofs are BOUND TO THE TRUSTED ORIGIN
+  // (same contract as resolve-tenant — replay of a proof harvested via an
+  // attacker-controlled Host is rejected).
+  const expectedOrigin = resolverExpectedOrigin(request)
+  const proof = request.headers.get(RESOLVER_PROOF_HEADER)
+  if (
+    !expectedOrigin ||
+    !(await verifyResolverQueryForOrigin(expectedOrigin, `${orgId}:${type}:${slug}`, proof))
+  ) {
+    return NextResponse.json(
+      { error: "forbidden" },
+      { status: 401, headers: { "Cache-Control": "no-store" } }
+    )
+  }
+
   try {
     let exists = false
     if (type === "service") {
@@ -50,7 +73,9 @@ export async function GET(request: Request) {
 
     return NextResponse.json(
       { exists },
-      { headers: { "Cache-Control": "public, max-age=60, stale-while-revalidate=300" } }
+      // PR #103 review round 2: PROXY-ONLY endpoint — private, no-store
+      // (the proxy keeps its own 30 s in-memory entity cache).
+      { headers: { "Cache-Control": "private, no-store" } }
     )
   } catch {
     // Fail-open — glej resolve-tenant.

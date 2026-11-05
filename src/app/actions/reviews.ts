@@ -3,9 +3,8 @@
 import { auth } from "@/lib/auth/auth"
 import { prisma } from "@/lib/prisma"
 import { revalidatePath } from "next/cache"
-import { headers } from "next/headers"
 import { ReviewFormData } from "@/lib/interfaces"
-import { getPublicOrg, ORG_HEADER } from "@/lib/tenant"
+import { getPublicOrg, getTrustedOrgSlug } from "@/lib/tenant"
 import { isValidRating, isValidReviewComment } from "@/lib/reviews/rules"
 
 // Create a new review for a service
@@ -147,7 +146,7 @@ export async function getUserReviews() {
   // render under this brand. Unknown slug -> empty list. On the platform
   // root the user sees all their own reviews (own data, platform domain).
   let organizationId: string | null = null
-  const slug = (await headers()).get(ORG_HEADER)
+  const slug = await getTrustedOrgSlug()
   if (slug) {
     const org = await prisma.organization.findUnique({
       where: { slug },
