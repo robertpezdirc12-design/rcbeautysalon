@@ -313,10 +313,20 @@ export async function getPublicShopProducts(orgId: string) {
   }))
 }
 
-/** Product by id (tenant-scoped). */
+/**
+ * Product by id (tenant-scoped) — PUBLIC detail page only.
+ *
+ * #105 (incident hardening): the gate must mirror the shop LIST query
+ * (`isActive: true, forSale: true`) — previously a deactivated (or
+ * not-for-sale) product stayed reachable via its direct URL: the list
+ * filtered it out, but this detail read had no state conditions, so the
+ * public detail page (name, description, stock, buy button) rendered a
+ * product the owner had removed from the offering. Deactivated products
+ * are served by the dashboard (getProductById), never by the public site.
+ */
 export async function getPublicProductById(orgId: string, id: string) {
   const product = await prisma.product.findFirst({
-    where: { organizationId: orgId, id },
+    where: { organizationId: orgId, id, isActive: true, forSale: true },
     include: { category: true },
   })
   if (!product) return null

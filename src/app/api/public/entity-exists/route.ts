@@ -36,8 +36,11 @@ export async function GET(request: Request) {
         select: { id: true },
       }))
     } else if (type === "product") {
+      // #105: forSale joins the gate (detail page must match the shop LIST
+      // filter) — a tracked-but-not-sellable product is not publicly
+      // openable either, so the proxy serves a real 404 for it too.
       exists = !!(await prisma.product.findFirst({
-        where: { organizationId: orgId, id: slug, isActive: true },
+        where: { organizationId: orgId, id: slug, isActive: true, forSale: true },
         select: { id: true },
       }))
     } else {
