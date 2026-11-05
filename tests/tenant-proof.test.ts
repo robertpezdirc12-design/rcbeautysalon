@@ -278,3 +278,72 @@ describe("proxyResolverOrigin (round 4 — no fetch to request-derived origins i
     expect(proxyResolverOrigin({ nextUrl: new URL(ATTACKER + "/s/salon") })).toBe(APP)
   })
 })
+
+// ============================================================
+// PR #103 review round 5 (Codex P2 — "Require HTTPS for production
+// resolver origins"): in production a non-loopback `http://` app URL
+// would send resolver HMAC proofs in cleartext; an on-path observer
+// could capture a proof for a chosen slug and replay it. Production
+// accepts https:// always and http:// ONLY on loopback hosts (local
+// production-mode verification). Non-production: unchanged.
+// ============================================================
+describe("trustedInternalOrigin — production rejects non-loopback HTTP (round 5)", () => {
+  const stub = (appUrl: string, authUrl: string) => {
+    vi.stubEnv("NODE_ENV", "production")
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", appUrl)
+    vi.stubEnv("NEXTAUTH_URL", authUrl)
+  }
+
+  it("rejects a non-loopback http:// app URL in production (fail-closed)", () => {
+    stub("http://markec.example", "")
+    expect(trustedInternalOrigin()).toBe(null)
+  })
+
+  it("rejects a public IP http:// origin in production", () => {
+    stub("http://10.0.0.5:3100", "")
+    expect(trustedInternalOrigin()).toBe(null)
+  })
+
+  it("rejects a non-loopback http:// NEXTAUTH_URL in production", () => {
+    stub("", "http://app.lan:3100")
+    expect(trustedInternalOrigin()).toBe(null)
+  })
+
+  it("accepts https:// in production (the real deployment shape)", () => {
+    stub("https://markec.example", "")
+    expect(trustedInternalOrigin()).toBe("https://markec.example")
+  })
+
+  it("keeps local production-mode verification working (loopback http)", () => {
+    stub("http://localhost:3100", "")
+    expect(trustedInternalOrigin()).toBe("http://localhost:3100")
+    stub("http://127.0.0.1:3100", "")
+    expect(trustedInternalOrigin()).toBe("http://127.0.0.1:3100")
+    stub("http://[::1]:3100", "")
+    expect(trustedInternalOrigin()).toBe("http://[::1]:3100")
+  })
+
+  it("falls back to the NEXT candidate when the first is rejected", () => {
+    // NEXT_PUBLIC_APP_URL misconfigured cleartext on a LAN host, but
+    // NEXTAUTH_URL is https — the trusted origin survives.
+    stub("http://app.lan:3100", "https://markec.example")
+    expect(trustedInternalOrigin()).toBe("https://markec.example")
+  })
+
+  it("outside production http:// stays accepted (sandbox flexibility)", () => {
+    vi.stubEnv("NODE_ENV", "test")
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "http://any-host.example:3100")
+    vi.stubEnv("NEXTAUTH_URL", "")
+    expect(trustedInternalOrigin()).toBe("http://any-host.example:3100")
+  })
+
+  it("downstream fail-closed mirrors the gate (proxy + resolver in production)", () => {
+    vi.stubEnv("NODE_ENV", "production")
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "http://markec.example")
+    vi.stubEnv("NEXTAUTH_URL", "")
+    expect(resolverExpectedOrigin({ url: "https://markec.example/x" })).toBe(null)
+    expect(proxyResolverOrigin({ nextUrl: new URL("https://markec.example/s/salon") })).toBe(
+      null
+    )
+  })
+})

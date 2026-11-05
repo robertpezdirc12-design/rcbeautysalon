@@ -49,14 +49,38 @@ const RESOLVER_PAYLOAD_SEPARATOR = "|"
  * / NEXTAUTH_URL — the same sources the platform-host list uses), so no
  * NEW env is introduced. Unset in production → null → callers FAIL CLOSED:
  * the resolver rejects every proof, the proxy signs/fetches nothing.
+ *
+ * PR #103 review round 5 (Codex P2 — "Require HTTPS for production resolver
+ * origins"): a production `http:` origin on a NON-loopback host would send
+ * resolver HMAC proofs in cleartext across an untrusted network — an on-path
+ * observer could capture a proof for a chosen slug and replay it against the
+ * resolver to retrieve tenant metadata. Production therefore accepts only:
+ *   - `https:` origins (the real deployment shape), and
+ *   - `http:` LOOPBACK hosts (localhost/127.0.0.1/::1/*.localhost) so local
+ *     production-mode verification (`next start` on 127.0.0.1) keeps working.
+ * Outside production the behavior is unchanged (sandbox flexibility).
  */
+function isLoopbackHost(hostname: string): boolean {
+  const host = hostname.toLowerCase().replace(/^\[/, "").replace(/\]$/, "")
+  return (
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    host === "::1" ||
+    host.endsWith(".localhost")
+  )
+}
+
 export function trustedInternalOrigin(): string | null {
+  const production = process.env.NODE_ENV === "production"
   const candidates = [process.env.NEXT_PUBLIC_APP_URL, process.env.NEXTAUTH_URL]
   for (const candidate of candidates) {
     if (!candidate) continue
     try {
       const url = new URL(candidate)
-      if (url.protocol === "http:" || url.protocol === "https:") return url.origin
+      if (url.protocol === "https:") return url.origin
+      if (url.protocol !== "http:") continue
+      if (production && !isLoopbackHost(url.hostname)) continue
+      return url.origin
     } catch {
       // Not a URL — try the next candidate.
     }
