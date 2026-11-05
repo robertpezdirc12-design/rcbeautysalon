@@ -4,6 +4,7 @@ import { getTrustedOrgSlug, getOrgBySlug } from "@/lib/tenant"
 import { prisma } from "@/lib/prisma"
 import { hasUnpublishedChanges, parsePublishState } from "@/lib/publication"
 import { mergeSiteContent } from "@/lib/site-content"
+import { upgradeLegacyDefaultCopy } from "@/lib/verticals"
 import {
   getPublicFeaturedProducts,
   getPublicFeaturedServices,
@@ -43,7 +44,12 @@ export default async function PreviewPage() {
   })
 
   // ALWAYS the live working content — that is the point of the preview.
-  const content = mergeSiteContent(config?.siteContent, org.vertical)
+  // #100 MARKEC: zastarela platformsko privzeta besedila demo najemnika se
+  // nadgradijo enako kot na javni strani — predogled je resničen (WYSIWYG).
+  const content = upgradeLegacyDefaultCopy(
+    mergeSiteContent(config?.siteContent, org.vertical),
+    org.slug
+  )
   const [featuredServices, featuredProducts, featuredStaff] = await Promise.all([
     getPublicFeaturedServices(org.id),
     getPublicFeaturedProducts(org.id),

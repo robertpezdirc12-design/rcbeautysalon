@@ -17,6 +17,9 @@ import {
   Flame,
   Star,
   Clock,
+  LayoutGrid,
+  MessageCircle,
+  FileText,
   type LucideIcon,
 } from "lucide-react"
 import type { FeatureContent } from "@/lib/site-content"
@@ -36,6 +39,9 @@ const ICONS: Record<string, LucideIcon> = {
   Flame,
   Star,
   Clock,
+  LayoutGrid,
+  MessageCircle,
+  FileText,
 }
 
 interface FeatureCardsProps {

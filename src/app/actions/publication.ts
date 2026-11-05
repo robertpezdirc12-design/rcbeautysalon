@@ -13,7 +13,7 @@ import {
   mergeSiteContent,
   type ContentActivityMismatch,
 } from "@/lib/site-content"
-import { isSampleImageUrl } from "@/lib/verticals"
+import { isSampleImageUrl, upgradeLegacyDefaultCopy } from "@/lib/verticals"
 import { revalidatePath } from "next/cache"
 
 export interface PublicationStatus {
@@ -42,7 +42,10 @@ export async function getPublicationStatus(): Promise<PublicationStatus> {
 
   // P2 #61: pre-publish advisories computed with the SAME validator the
   // publish action uses — behavior can never drift between surfaces.
-  const rendered = mergeSiteContent(config?.siteContent, org.vertical)
+  const rendered = upgradeLegacyDefaultCopy(
+    mergeSiteContent(config?.siteContent, org.vertical),
+    org.slug
+  )
   const usesOnlySampleImages =
     isSampleImageUrl(rendered.hero.imageUrl) &&
     isSampleImageUrl(rendered.about.imageUrl) &&
@@ -103,7 +106,10 @@ export async function publishSite(): Promise<
   // P2 #61: what the site will actually RENDER is the merged content —
   // sample-imagery detection runs on that view (missing fields fall back
   // to the preset samples).
-  const rendered = mergeSiteContent(config?.siteContent, org.vertical)
+  const rendered = upgradeLegacyDefaultCopy(
+    mergeSiteContent(config?.siteContent, org.vertical),
+    org.slug
+  )
   const usesOnlySampleImages =
     isSampleImageUrl(rendered.hero.imageUrl) &&
     isSampleImageUrl(rendered.about.imageUrl) &&

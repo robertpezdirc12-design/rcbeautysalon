@@ -96,6 +96,9 @@ const ICON_OPTIONS = [
   "Flame",
   "Star",
   "Clock",
+  "LayoutGrid",
+  "MessageCircle",
+  "FileText",
 ] as const
 
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0]

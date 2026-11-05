@@ -10,7 +10,7 @@ import "./globals.css"
 import { auth } from "@/lib/auth/auth"
 import { getOrgBySlug, getOrgById, getTrustedOrgSlug } from "@/lib/tenant"
 import { prisma } from "@/lib/prisma"
-import { paletteCssVars, paletteDarkTextVars, PALETTES, type Palette } from "@/lib/verticals"
+import { paletteCssVars, paletteDarkTextVars, PALETTES, type Palette, upgradeLegacyDefaultCopy } from "@/lib/verticals"
 import { mergeSiteContent } from "@/lib/site-content"
 import { CurrencyProvider } from "@/lib/currency"
 import { platformThemeCss } from "@/lib/platform-theme"
@@ -131,7 +131,10 @@ export async function generateMetadata(): Promise<Metadata> {
     prisma.salonConfig.findUnique({ where: { organizationId: org.id } }),
     resolvePublishGate(org),
   ])
-  const content = mergeSiteContent(config?.siteContent, org.vertical)
+  const content = upgradeLegacyDefaultCopy(
+    mergeSiteContent(config?.siteContent, org.vertical),
+    org.slug
+  )
 
   // Kontekst: /s/[slug] prek proxyja > goli javni dostop (prva objavljena) >
   // prijavljena seja (dashboard) — zasebno.
@@ -190,7 +193,10 @@ export default async function RootLayout({
     if (context !== "private") {
       const gate = await resolvePublishGate(org)
       if (gate === "published") {
-        const content = mergeSiteContent(config?.siteContent, org.vertical)
+        const content = upgradeLegacyDefaultCopy(
+          mergeSiteContent(config?.siteContent, org.vertical),
+          org.slug
+        )
         // P2 #75: realna povprečna ocena (samo aktivne vrstice) v JSON-LD.
         const aggregateRating = await aggregateRatingForTenant(org.id)
         jsonLd = buildTenantJsonLd({

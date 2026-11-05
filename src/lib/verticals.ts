@@ -425,6 +425,115 @@ export function upgradeLegacyImagery(content: SiteContent, vertical: string): Si
   }
 }
 
+// ============================================================
+// #100 MARKEC — nadgradnja ZASTARELE PLATFORMSKE PRIVZETE VSEBINE
+// (dopolnitev rebranda: „vmesnik ne sme več dajati vtisa, da je
+// platforma namenjena samo lepotnim salonom“).
+//
+// Demo najemnik (DEMO_TENANT_SLUG) je bil ustvarjen s starimi
+// privzetimi besedili panoge (hero „Vaša lepota, naša strast“,
+// „Zmerno luksuzna izkušnja …“), ki so jih seedali OB USTVARJANJU —
+// lastnik jih nikoli ni urejal. Ta vsebina NI lastniška izbira, pač
+// pa platformska privzeta vrednost iz starejše različice, zato jo —
+// po istem načelu kot upgradeLegacyImagery pri slikah — nadomestimo
+// z novo platformsko privzeto vsebino (MARKEC, nevtralno).
+//
+// VARNOST: nadgradnja teče SAMO za demo najemnika in SAMO, kadar se
+// shranjena vsebina TOČNO ujema s starimi platformskimi privzetimi
+// vrednostmi (razdelek po razdelku, all-or-nothing). Karkoli koli
+// lastniško urejeno ostane nedotaknjeno. Funkcija je čista in
+// idempotentna — po shranjevanju nove vsebine je no-op.
+// ============================================================
+
+/** Demo / platformska najemniška stran (seed-orgs.ts, legacy default org). */
+export const DEMO_TENANT_SLUG = "rc-beauty"
+
+/** Novo platformsko privzeto besedilo (izhodišče = generic privzeti v site-content.ts). */
+function markecDefaults(): Pick<SiteContent, "hero" | "about" | "features" | "cta"> {
+  const d = defaultSiteContent("generic")
+  return { hero: d.hero, about: d.about, features: d.features, cta: d.cta }
+}
+
+/** Stara platformska privzeta besedila (bd532f4 seed + trenutne privzete različice), ki jih nadomešča MARKEC. */
+const LEGACY_COPY = {
+  beauty: {
+    heroEyebrow: "Dobrodošli",
+    heroTitle: "Vaša lepota, naša strast",
+    heroSubtitle:
+      "Izkušnja vrhunske lepote in premium izdelkov na enem mestu. Rezervirajte svoj termin že danes.",
+    aboutTitle: "Dobrodošli v našem salonu",
+    featuresTitle: "Zakaj izbrati nas",
+    // featuresSubtitle je v zgodovini spremenjen (7c1c7fa) — obe platformski
+    // privzeti različici veljata za „nikoli lastniško urejeno“.
+    featuresSubtitles: [
+      "Zmerno luksuzna izkušnja, prilagojena vam",
+      "Dostopno razkošje, prilagojeno vam",
+    ] as readonly string[],
+    ctaTitle: "Pripravljeni na spremembo?",
+    ctaText: "Rezervirajte svoj termin še danes — vaši lasje in koža vam bodo hvaležni.",
+  },
+  generic: {
+    heroEyebrow: "Dobrodošli",
+    heroTitle: "Vaše delo, predstavljeno kot si zasluži",
+    heroSubtitle:
+      "Predstavite svoje storitve, sprejmite povpraševanja in objavite svojo stran — brez klicanja in brez posrednikov.",
+    aboutTitle: "O našem podjetju",
+    featuresTitle: "Zakaj izbrati nas",
+    featuresSubtitles: ["Preprosto, pošteno, brez presenečenj"] as readonly string[],
+    ctaTitle: "Povejte nam, kaj potrebujete",
+    ctaText: "Oddajte povpraševanje in pripravili bomo ponudbo.",
+  },
+} as const
+
+export function upgradeLegacyDefaultCopy(content: SiteContent, orgSlug: string): SiteContent {
+  if (orgSlug !== DEMO_TENANT_SLUG) return content
+  const m = markecDefaults()
+  const l = LEGACY_COPY
+  const out: SiteContent = { ...content }
+
+  // HERO — all-or-nothing: niz se nadomesti samo, če so VSE ključne
+  // vrednosti še vedno enake stari platformski privzeti vrednosti.
+  const heroIsLegacy =
+    content.hero?.eyebrow === l.beauty.heroEyebrow ||
+    content.hero?.eyebrow === l.generic.heroEyebrow
+  const heroTitleIsLegacy =
+    content.hero?.title === l.beauty.heroTitle || content.hero?.title === l.generic.heroTitle
+  if (heroTitleIsLegacy && heroIsLegacy) {
+    out.hero = { ...m.hero, imageUrl: IMG.heroWorkspace, videoUrl: undefined, posterUrl: undefined }
+  }
+
+  // ABOUT
+  if (
+    content.about?.title === l.beauty.aboutTitle ||
+    content.about?.title === l.generic.aboutTitle
+  ) {
+    out.about = { ...m.about, imageUrl: IMG.workspace }
+  }
+
+  // FEATURES
+  const featuresMatches = [
+    { l: l.beauty, c: content.features },
+    { l: l.generic, c: content.features },
+  ].some(
+    (x) =>
+      x.c?.title === x.l.featuresTitle &&
+      x.l.featuresSubtitles.includes(x.c?.subtitle ?? "")
+  )
+  if (featuresMatches) {
+    out.features = m.features
+  }
+
+  // CTA
+  if (
+    (content.cta?.title === l.beauty.ctaTitle && content.cta?.text === l.beauty.ctaText) ||
+    (content.cta?.title === l.generic.ctaTitle && content.cta?.text === l.generic.ctaText)
+  ) {
+    out.cta = m.cta
+  }
+
+  return out
+}
+
 export const VERTICALS: VerticalPreset[] = [
   {
     id: "beauty",

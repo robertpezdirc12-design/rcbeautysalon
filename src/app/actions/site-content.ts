@@ -8,7 +8,7 @@ import { recordConfigChange } from "@/lib/config-history/record"
 import { mergeSiteContent, type SiteContent } from "@/lib/site-content"
 import { computeRevert, hasUnpublishedChanges, parsePublishState } from "@/lib/publication"
 import type { PublicationStatus } from "@/app/actions/publication"
-import { PALETTES, verticalSiteContent } from "@/lib/verticals"
+import { PALETTES, verticalSiteContent, upgradeLegacyDefaultCopy } from "@/lib/verticals"
 import type { CatalogSeedReport } from "@/lib/verticals"
 
 /**
@@ -63,7 +63,10 @@ export async function getOrgBranding() {
         palette: org.palette,
         siteUrl: `/s/${org.slug}`,
       },
-      siteContent: mergeSiteContent(config?.siteContent, org.vertical),
+      siteContent: upgradeLegacyDefaultCopy(
+        mergeSiteContent(config?.siteContent, org.vertical),
+        org.slug
+      ),
       publication: {
         state: parsePublishState(org.publishState),
         publishedAt: org.publishedAt,

@@ -10,7 +10,7 @@ import {
   getCustomDomainOrg,
 } from "@/lib/tenant"
 import { mergeSiteContent, type SiteContent } from "@/lib/site-content"
-import { upgradeLegacyImagery } from "@/lib/verticals"
+import { upgradeLegacyImagery, upgradeLegacyDefaultCopy } from "@/lib/verticals"
 import { parsePublishState } from "@/lib/publication"
 import { resolveEffectiveProfile } from "@/lib/profiles/resolve"
 import { sectionsForProfile, type HomeSectionFlags } from "@/lib/home-sections"
@@ -65,9 +65,9 @@ export const getPublicSiteData = cache(
       parsePublishState(org.publishState) === "PUBLISHED" &&
       config?.publishedSiteContent != null
     const rawContent = published ? config.publishedSiteContent : config?.siteContent
-    const content = upgradeLegacyImagery(
-      mergeSiteContent(rawContent, org.vertical),
-      org.vertical
+    const content = upgradeLegacyDefaultCopy(
+      upgradeLegacyImagery(mergeSiteContent(rawContent, org.vertical), org.vertical),
+      org.slug
     )
     return { org, config, content }
   }

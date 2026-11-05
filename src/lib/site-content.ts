@@ -540,40 +540,41 @@ export function defaultSiteContent(vertical: string): SiteContent {
         buttonHref: "/shop",
       },
     },
-    // P2 #85: nevtralna vsebina za „Univerzalno“ — prej je generic padal na
-    // beauty (najbolj SPECIFIČEN profil), kar je vodovodniku povedalo
-    // „Vaša lepota, naša strast“. Vsebina je napisana tako, da drži za
-    // KATERO KOPI podjetij; CTA kaže na /inquiry, ker generic ima
-    // appointments: "optional" in privzeto brez koledarja.
+    // #100 MARKEC (dopolnitev rebranda): nevtralna vsebina za „Univerzalno“
+    // je zdaj predstavitev platforme same — vmesnik pove, da gre za
+    // univerzalno poslovno platformo, ne za vnaprej določeno dejavnost
+    // (zahteva iz issue #100: „Nova identiteta mora biti nevtralna in
+    // primerna za katerokoli dejavnost“). CTA kaže na /inquiry, ker generic
+    // ima appointments: "optional" in privzeto brez koledarja.
     generic: {
       hero: {
-        eyebrow: "Dobrodošli",
-        title: "Vaše delo, predstavljeno kot si zasluži",
+        eyebrow: "MY BUSINESS PLATFORM",
+        title: "MARKEC, univerzalna poslovna platforma",
         subtitle:
-          "Predstavite svoje storitve, sprejmite povpraševanja in objavite svojo stran — brez klicanja in brez posrednikov.",
+          "Spletna stran, trgovina, rezervacije, povpraševanja in dokumenti — ena platforma. Vklopite module, ki jih vaše podjetje potrebuje, in si sestavite svoj program.",
         primaryCta: { label: "Oddaj povpraševanje", href: "/inquiry" },
         secondaryCta: { label: "Poglej storitve", href: "/services" },
       },
       about: {
-        title: "O našem podjetju",
+        title: "Ena platforma, vaši moduli",
         paragraphs: [
-          "Smo majhno podjetje, ki ceni pošteno delo in jasno dogovorjeno ceno. Vsako povpraševanje preberemo in odgovorimo osebno.",
-          "Katalog storitev in pogoje uredite v svojem nadzornem panelu — stran se posodobi, ko jo objavite.",
+          "MARKEC je univerzalna poslovna platforma: ista osnova, isti vmesnik in isti sistem upravljanja za vsako podjetje. Dejavnost ni obvezna izbira — začnete s spletno stranjo in module vklopite, ko jih potrebujete.",
+          "Izklop modula nikoli ne izbriše podatkov. Nastavitve, vsebine in zgodovina ostanejo ohranjene — modul znova vklopite, ko ga spet potrebujete.",
         ],
         stats: [],
       },
       features: {
-        title: "Zakaj izbrati nas",
-        subtitle: "Preprosto, pošteno, brez presenečenj",
+        title: "Sestavite svoj program",
+        subtitle: "Module vklopite in izklopite — po svoje",
         items: [
-          { icon: "MessageCircle", title: "Hiter odgovor", description: "Na povpraševanje odgovorimo osebno." },
-          { icon: "FileText", title: "Jasna ponudba", description: "Obseg in cena sta dogovorjena vnaprej." },
-          { icon: "CalendarCheck", title: "Dogovorjen termin", description: "Termin potrdimo, ko se uskladimo." },
+          { icon: "LayoutGrid", title: "Spletna stran", description: "Strani, barve, slike in besedila urejate sami, brez razvijalca." },
+          { icon: "ShoppingBag", title: "Spletna trgovina", description: "Artikli, kategorije, naročila in plačila v enem mestu." },
+          { icon: "CalendarCheck", title: "Rezervacije in povpraševanja", description: "Storitve, koledar in stranke — po potrebi vklopite." },
         ],
       },
       cta: {
-        title: "Povejte nam, kaj potrebujete",
-        text: "Oddajte povpraševanje in pripravili bomo ponudbo.",
+        title: "Začnite z MARKEC",
+        text: "Vklopite module, ki jih potrebujete, dodajte svojo vsebino in objavite stran, ko ste pripravljeni.",
         buttonLabel: "Oddaj povpraševanje",
         buttonHref: "/inquiry",
       },
@@ -591,8 +592,8 @@ export function defaultSiteContent(vertical: string): SiteContent {
       subtitle: "Najljubše storitve naših strank",
     },
     about: v.about as AboutContent,
-    team: { title: "Naša ekipa", subtitle: "Strokovnjaki, posvečeni vaši lepoti" },
-    shop: { title: "Izbrani izdelki", subtitle: "Izdelki, ki jih uporabljamo in priporočamo" },
+    team: { title: "Naša ekipa", subtitle: "Ljudje, ki stojijo za vašim poslovanjem" },
+    shop: { title: "Izbrani izdelki", subtitle: "Ponudba, ki jo delite s svojimi strankami" },
     cta: v.cta as CtaContent,
     openingHours: DEFAULT_HOURS.map((h) => ({ ...h })),
     social: {},

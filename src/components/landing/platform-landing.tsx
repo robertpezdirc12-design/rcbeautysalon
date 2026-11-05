@@ -41,19 +41,19 @@ export function PlatformLanding() {
         <section className="container mx-auto px-4 pt-16 pb-12 text-center md:pt-24">
           <p className="text-primary-text mb-4 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-medium">
             <Sparkles className="size-4" aria-hidden="true" />
-            Spletne strani za obrti in storitve
+            MARKEC – MY BUSINESS PLATFORM
           </p>
           <h1 className="mx-auto max-w-3xl text-4xl font-bold tracking-tight md:text-6xl">
-            Vaša spletna stran,{" "}
+            Univerzalna poslovna platforma —{" "}
             <span className="from-primary to-accent bg-linear-to-r bg-clip-text text-transparent">
               vaše podjetje
             </span>{" "}
-            — v nekaj minutah
+            v nekaj minutah
           </h1>
           <p className="text-muted-foreground mx-auto mt-6 max-w-2xl text-lg">
-            Izberite svojo dejavnost, dobite pripravljeno stran s katalogom,
-            povpraševanji in trgovino. Brez razvijalca, brez postavitve —
-            vsebino urejate sami in objavite, ko ste pripravljeni.
+            Vklopite module, ki jih vaše podjetje potrebuje: spletno stran,
+            trgovino, rezervacije, povpraševanja. Brez razvijalca, brez
+            postavitve — vsebino urejate sami in objavite, ko ste pripravljeni.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Button asChild size="lg" className="min-h-12 shadow-lg">
@@ -71,10 +71,11 @@ export function PlatformLanding() {
         {/* Activities — deep-link cards into the wizard */}
         <section id="dejavnosti" className="container mx-auto px-4 py-12">
           <div className="mb-10 text-center">
-            <h2 className="text-3xl font-bold">Izberite svojo dejavnost</h2>
+            <h2 className="text-3xl font-bold">Neobvezna izbira dejavnosti</h2>
             <p className="text-muted-foreground mx-auto mt-3 max-w-xl">
-              Vsaka dejavnost pride s pripravljenim katalogom, obrazci in
-              besedili — prilagodite jih svoji ponudbi.
+              Dejavnost je samo pomočnik pri začetni nastavitvi — lahko jo
+              preskočite. Vsaka predloga prinese pripravljen katalog, obrazce
+              in besedila, ki jih poljubno spreminjate.
             </p>
           </div>
           <ul className="mx-auto grid max-w-5xl grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -112,16 +113,16 @@ export function PlatformLanding() {
             <ol className="mx-auto mt-10 grid max-w-4xl gap-8 md:grid-cols-3">
               {[
                 {
-                  title: "Izberite dejavnost",
-                  text: "Čarovnik pripravi katalog, obrazce in besedila za vašo panogo — v približno dveh minutah.",
+                  title: "Ustvarite podjetje",
+                  text: "Izbira dejavnosti je neobvezna — lahko jo preskočite in začnete z železno osnovo platforme.",
                 },
                 {
-                  title: "Prilagodite vsebino",
-                  text: "Uredite besedila, slike, cene in delovni čas. Spremembe ostanejo v osnutku, dokler ne objavite.",
+                  title: "Vklopite module",
+                  text: "Spletna stran, trgovina, rezervacije, povpraševanja — vklopite, kar potrebujete; izklop ne izbriše podatkov.",
                 },
                 {
                   title: "Objavite in prodajajte",
-                  text: "Stran postane javna s povpraševanji, rezervacijami ali trgovino — odvisno od vaše dejavnosti.",
+                  text: "Vsebino, slike in cene urejate sami. Stran objavite, ko ste pripravljeni.",
                 },
               ].map((s, i) => (
                 <li key={s.title} className="text-center">
@@ -187,7 +188,7 @@ export function PlatformLanding() {
       {/* Minimal platform footer */}
       <footer className="border-border/40 border-t py-8">
         <div className="container mx-auto flex flex-wrap items-center justify-between gap-3 px-4 text-sm text-muted-foreground">
-          <p>© {new Date().getFullYear()} Poslovna platforma</p>
+          <p>© {new Date().getFullYear()} MARKEC – MY BUSINESS PLATFORM</p>
           <nav aria-label="Platformske povezave" className="flex gap-4">
             <Link href="/login" className="hover:text-foreground">
               Prijava
