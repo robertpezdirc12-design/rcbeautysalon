@@ -146,10 +146,22 @@ export async function getPublicFeaturedServices(orgId: string) {
   }))
 }
 
-/** Featured products for the landing page. */
+/**
+ * Featured products for the landing page.
+ *
+ * #105 (Codex review on PR #107): featured products render a details link
+ * to `/shop/${id}` — the same gate as the shop list applies, otherwise a
+ * featured `forSale: false` (or deactivated) product gets a publicly
+ * rendered card whose details link 404s. Mirrors getPublicShopProducts.
+ */
 export async function getPublicFeaturedProducts(orgId: string) {
   const products = await prisma.product.findMany({
-    where: { organizationId: orgId, isActive: true, isFeatured: true },
+    where: {
+      organizationId: orgId,
+      isActive: true,
+      forSale: true,
+      isFeatured: true,
+    },
     include: { category: { select: { name: true } } },
     take: 4,
     orderBy: { name: "asc" },

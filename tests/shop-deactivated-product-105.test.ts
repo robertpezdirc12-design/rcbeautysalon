@@ -66,3 +66,42 @@ describe("#105 entity-exists — proxy vrata za pravi HTTP 404", () => {
     expect(route).toMatch(/organizationId: orgId, isActive: true/)
   })
 })
+
+// ============================================================
+// #105 / Codex review PR #107 — featured izdelki na domači strani
+// renderajo details povezavo na /shop/<id>; če featured poizvedba
+// ne upošteva istih vrat (isActive + forSale), dobi javna stran
+// kartico z mrtvo (404) povezavo. Isti kot getPublicShopProducts.
+// ============================================================
+describe("#105 getPublicFeaturedProducts — domača stran ne sme olajšati ne-prodajnih izdelkov", () => {
+  const src = read("src/lib/public-site.ts")
+
+  it("WHERE vključuje isActive: true", () => {
+    const body = src.slice(src.indexOf("getPublicFeaturedProducts"))
+    expect(body).toMatch(/isActive:\s*true/)
+  })
+
+  it("WHERE vključuje forSale: true (details povezava ne sme 404ati)", () => {
+    const body = src.slice(src.indexOf("getPublicFeaturedProducts"))
+    expect(body).toMatch(/forSale:\s*true/)
+  })
+
+  it("isti where blok vsebuje organizationId + isActive + forSale + isFeatured", () => {
+    const start = src.indexOf("getPublicFeaturedProducts")
+    const whereBlock = src.slice(start, src.indexOf("})", start) + 2)
+    for (const cond of [
+      "organizationId: orgId",
+      "isActive: true",
+      "forSale: true",
+      "isFeatured: true",
+    ]) {
+      expect(whereBlock).toContain(cond)
+    }
+  })
+
+  it("getPublicShopProducts ohrani vrata (regresija)", () => {
+    const body = src.slice(src.indexOf("getPublicShopProducts"))
+    expect(body).toMatch(/isActive:\s*true/)
+    expect(body).toMatch(/forSale:\s*true/)
+  })
+})
