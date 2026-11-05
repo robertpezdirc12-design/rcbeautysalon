@@ -1,10 +1,9 @@
 import "server-only"
 
 import { cache } from "react"
-import { headers } from "next/headers"
 import { notFound, permanentRedirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
-import { ORG_HEADER, getOrgBySlug, getSessionOrg } from "@/lib/tenant"
+import { getTrustedOrgSlug, getOrgBySlug, getSessionOrg } from "@/lib/tenant"
 import { mergeSiteContent, type SiteContent } from "@/lib/site-content"
 import { upgradeLegacyImagery } from "@/lib/verticals"
 import { parsePublishState } from "@/lib/publication"
@@ -30,8 +29,8 @@ export interface PublicSiteData {
 }
 
 async function resolveOrg(): Promise<Organization | null> {
-  const h = await headers()
-  const slug = h.get(ORG_HEADER)
+  // V-1 (issue #102): only the proxy-SIGNED header selects the tenant.
+  const slug = await getTrustedOrgSlug()
   if (slug) {
     const org = await getOrgBySlug(slug)
     if (org) {
@@ -96,9 +95,9 @@ export async function redirectBareToTenant(
   path: string,
   opts: { allowDefaultTenant?: boolean } = {}
 ): Promise<void> {
-  const h = await headers()
-  // Pod najemnikom (/s/{slug}) ali na custom domeni: nič.
-  if (h.get(ORG_HEADER)) return
+  // Pod najemnikom (/s/{slug} — podpisana glava, V-1 #102) ali na
+  // custom domeni: nič.
+  if (await getTrustedOrgSlug()) return
 
   const sessionOrg = await getSessionOrg()
   const org =

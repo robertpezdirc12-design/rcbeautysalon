@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import {
+  RESOLVER_PROOF_HEADER,
+  verifyResolverQuery,
+} from "@/lib/tenant-proof"
 
 // ============================================================
 // P1 #27 (re-audit 2026-11) — OBSTOJ ENTITETE ZA PROXY
@@ -26,6 +30,17 @@ export async function GET(request: Request) {
 
   if (!orgId || !slug || !["service", "staff", "product"].includes(type ?? "")) {
     return NextResponse.json({ error: "orgId, type, slug required" }, { status: 400 })
+  }
+
+  // issue #102 (V-1/V-4): PROXY-ONLY endpoint (same rule as resolve-tenant).
+  // Answering arbitrary orgId probes would let a visitor enumerate entities
+  // of any organization — reject everything the proxy did not sign.
+  const proof = request.headers.get(RESOLVER_PROOF_HEADER)
+  if (!(await verifyResolverQuery(`${orgId}:${type}:${slug}`, proof))) {
+    return NextResponse.json(
+      { error: "forbidden" },
+      { status: 401, headers: { "Cache-Control": "no-store" } }
+    )
   }
 
   try {

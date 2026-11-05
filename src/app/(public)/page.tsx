@@ -15,7 +15,7 @@ import { sectionsForProfile } from "@/lib/home-sections"
 import { prisma } from "@/lib/prisma"
 import { headers } from "next/headers"
 import { auth } from "@/lib/auth/auth"
-import { ORG_HEADER } from "@/lib/tenant"
+import { getTrustedOrgSlug } from "@/lib/tenant"
 import { hostFromHostHeader, isPlatformHost } from "@/lib/domains/normalize"
 import { getPlatformHosts } from "@/lib/domains/provider"
 
@@ -25,7 +25,9 @@ export default async function HomePage() {
   //  - platform root + logged-in owner → their own site (unchanged)
   //  - platform root + anonymous/customer → PRODUCT LANDING
   const h = await headers()
-  const slugHeader = h.get(ORG_HEADER)
+  // V-1 (issue #102): only the proxy-SIGNED header counts — a forged one
+  // must not turn the platform root into a tenant surface.
+  const slugHeader = await getTrustedOrgSlug()
   const requestHost = hostFromHostHeader(h.get("host"))
   const isTenantContext =
     !!slugHeader ||

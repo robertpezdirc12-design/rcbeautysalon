@@ -1,9 +1,7 @@
 "use server"
 
 import { cache } from "react"
-import { headers } from "next/headers"
 import { prisma } from "@/lib/prisma"
-import { ORG_HEADER } from "@/lib/tenant"
 import { auth } from "@/lib/auth/auth"
 import { revalidatePath } from "next/cache"
 import { after } from "next/server"
@@ -37,7 +35,7 @@ import { sendAppointmentCompletedEmail } from "@/lib/email/appointment-completed
 import { sendAppointmentCancelledEmail } from "@/lib/email/appointment-cancelled"
 import { sendAppointmentRescheduledEmail } from "@/lib/email/appointment-rescheduled"
 import { sendAppointmentExpiredEmail } from "@/lib/email/appointment-expired"
-import { getSessionOrg, getResolvedOrg } from "@/lib/tenant"
+import { getSessionOrg, getResolvedOrg, getTrustedOrgSlug } from "@/lib/tenant"
 import { requirePermissionOrg, UnauthorizedError } from "@/lib/auth/guards"
 import { hasPermission } from "@/lib/permissions/roles"
 import { getEffectivePermissions } from "@/lib/permissions/effective"
@@ -1037,7 +1035,7 @@ export async function getUserAppointments() {
   // — their own data, platform domain, not a tenant surface.
   let organizationId: string | null = null
   let unknownTenant = false
-  const slug = (await headers()).get(ORG_HEADER)
+  const slug = await getTrustedOrgSlug()
   if (slug) {
     const org = await prisma.organization.findUnique({
       where: { slug },

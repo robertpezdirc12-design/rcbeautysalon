@@ -7,9 +7,8 @@ import { TooltipProvider } from "@/components/providers/tooltip-provider"
 
 import { Toaster } from "sonner"
 import "./globals.css"
-import { headers } from "next/headers"
 import { auth } from "@/lib/auth/auth"
-import { getOrgBySlug, getOrgById } from "@/lib/tenant"
+import { getOrgBySlug, getOrgById, getTrustedOrgSlug } from "@/lib/tenant"
 import { prisma } from "@/lib/prisma"
 import { paletteCssVars, paletteDarkTextVars, PALETTES, type Palette } from "@/lib/verticals"
 import { mergeSiteContent } from "@/lib/site-content"
@@ -56,21 +55,21 @@ const inter = Inter({ variable: "--font-inter", subsets: ["latin", "latin-ext"],
 const lora = Lora({ variable: "--font-lora", subsets: ["latin", "latin-ext"], display: "swap", preload: false })
 
 /** Resolve which organization brands the current request:
- *  1. tenant from /s/[slug] (header set by proxy) — publish-gated: a draft
- *     tenant brands the page only for its own owner (EPIC #3 E3-1), so guest
- *     metadata/theme never leak an unpublished tenant
+ *  1. tenant from /s/[slug] (header set AND SIGNED by proxy — V-1, issue
+ *     #102: an unsigned visitor-supplied header is ignored) — publish-gated:
+ *     a draft tenant brands the page only for its own owner (EPIC #3 E3-1),
+ *     so guest metadata/theme never leak an unpublished tenant
  *  2. signed-in user's organization (dashboard)
  *
  *  P1 #66/#68: there is NO platform-root fallback. The bare host is a
  *  PRODUCT surface (/, /login, /register, /start) — the oldest published
  *  tenant must not brand it (visible theme, head metadata or JSON-LD).
  *  Bare content paths (/shop, /services, …) are 308-redirected by the
- *  proxy to /s/<slug> and arrive here WITH the x-org-slug header, so no
- *  tenant loses branding; auth is platform-level by design (#53). */
+ *  proxy to /s/<slug> and arrive here WITH the signed x-org-slug header,
+ *  so no tenant loses branding; auth is platform-level by design (#53). */
 async function resolveBrandOrg(): Promise<Organization | null> {
   try {
-    const h = await headers()
-    const slug = h.get("x-org-slug")
+    const slug = await getTrustedOrgSlug()
     if (slug) {
       const org = await getOrgBySlug(slug)
       if (org) {
@@ -96,7 +95,7 @@ export async function generateMetadata(): Promise<Metadata> {
     // P1 #66/#68: platforma govori sama zase. Goli gost (/, /login, /start)
     // dobi produktni naslov IN SME biti indeksiran (izložba platforme);
     // skriti osnutek pod /s/<slug> (glava prisotna) ostane brez indeksa.
-    const barePlatform = !(await headers()).get("x-org-slug")
+    const barePlatform = !(await getTrustedOrgSlug())
     // P3 #73: izložba potrebuje socialni predogled + kanonični URL —
     // v soudeležbi (ogled linka v sporočilu) je to prva točka pridobitve.
     // Skriti osnutek NE sme dobiti platformskih og:* vrednosti (isto
@@ -128,16 +127,15 @@ export async function generateMetadata(): Promise<Metadata> {
     }
   }
 
-  const [config, gate, headersList] = await Promise.all([
+  const [config, gate] = await Promise.all([
     prisma.salonConfig.findUnique({ where: { organizationId: org.id } }),
     resolvePublishGate(org),
-    headers(),
   ])
   const content = mergeSiteContent(config?.siteContent, org.vertical)
 
   // Kontekst: /s/[slug] prek proxyja > goli javni dostop (prva objavljena) >
   // prijavljena seja (dashboard) — zasebno.
-  const tenantSlugHeader = headersList.get("x-org-slug")
+  const tenantSlugHeader = await getTrustedOrgSlug()
   const session = await auth()
   const context: SeoContext = tenantSlugHeader
     ? "tenant"
@@ -182,7 +180,7 @@ export default async function RootLayout({
     orgCurrency = config?.currency || "EUR"
 
     // JSON-LD samo za javne kontekste (tenant/bare) objavljenih najemnikov.
-    const tenantSlugHeader = await headers().then((h) => h.get("x-org-slug"))
+    const tenantSlugHeader = await getTrustedOrgSlug()
     const session = await auth()
     const context: SeoContext = tenantSlugHeader
       ? "tenant"

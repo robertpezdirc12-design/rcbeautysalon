@@ -8,6 +8,7 @@ import type { Organization } from "@prisma/client"
 import { DEFAULT_SALON_TIMEZONE, safeTimezone } from "@/lib/booking-time"
 import { hostFromHostHeader, isPlatformHost } from "@/lib/domains/normalize"
 import { getPlatformHosts } from "@/lib/domains/provider"
+import { ORG_PROOF_HEADER, verifyOrgSlug } from "@/lib/tenant-proof"
 
 export const ORG_HEADER = "x-org-slug"
 
@@ -20,20 +21,49 @@ export const getOrgById = cache(async (id: string) => {
 })
 
 /**
- * The organization that serves the CURRENT public page:
- * either the tenant from /s/[slug] (x-org-slug header set by proxy)
- * or the default (first) organization for bare routes.
+ * V-1 (issue #102): the ONLY trusted source of the tenant header is the
+ * proxy, which re-creates it from the verified /s/<slug> URL path and
+ * SIGNS it (HMAC, x-org-slug-proof). A visitor-supplied header — forged
+ * via curl, devtools or a same-origin fetch — is UNSIGNED and therefore
+ * IGNORED here even on paths that bypass the proxy (API routes).
  */
-export const getPublicOrg = cache(async (): Promise<Organization | null> => {
+export const getTrustedOrgSlug = cache(async (): Promise<string | null> => {
   const h = await headers()
   const slug = h.get(ORG_HEADER)
+  if (!slug) return null
+  const valid = await verifyOrgSlug(slug, h.get(ORG_PROOF_HEADER))
+  return valid ? slug : null
+})
+
+/**
+ * Unpublished-tenant gate for the trusted header branch (V-1/V-4 hardening):
+ * a DRAFT/UNPUBLISHED tenant is visible only to its own signed-in members
+ * (owner preview); everyone else gets no org (maintenance screen). This
+ * mirrors the proxy gate for callers that bypass the proxy.
+ */
+async function headerOrgAccessible(org: Organization): Promise<boolean> {
+  if (org.status !== "ACTIVE") return false
+  if (org.publishState === "PUBLISHED") return true
+  const session = await auth()
+  return session?.user?.organizationId === org.id
+}
+
+/**
+ * The organization that serves the CURRENT public page:
+ * either the tenant from /s/[slug] (x-org-slug header set AND signed by
+ * the proxy) or the default (first) organization for bare routes.
+ */
+export const getPublicOrg = cache(async (): Promise<Organization | null> => {
+  const slug = await getTrustedOrgSlug()
   if (slug) {
     const org = await getOrgBySlug(slug)
     if (org) {
-      if (org.status === "ACTIVE") return org
+      if (await headerOrgAccessible(org)) return org
       // SUSPENDED tenant (EPIC #3 E3-5): its site is OFF — return null so
       // the (public) layout renders the maintenance screen. NEVER fall
       // back to another tenant's content under this URL.
+      // UNPUBLISHED tenant: only its own members may preview (above) —
+      // strangers get null, never another tenant's content (V-1/V-4).
       return null
     }
     // UNKNOWN slug under /s/* (EPIC #3 E3-8 isolation fix): return null —
@@ -48,7 +78,7 @@ export const getPublicOrg = cache(async (): Promise<Organization | null> => {
   // The same gates as path URLs apply: ACTIVE tenant, PUBLISHED site;
   // anything else renders the maintenance screen (never another
   // tenant's content). Platform hosts skip the lookup entirely.
-  const requestHost = hostFromHostHeader(h.get("host"))
+  const requestHost = hostFromHostHeader((await headers()).get("host"))
   if (requestHost && !isPlatformHost(requestHost, getPlatformHosts())) {
     const matched = await prisma.customDomain.findFirst({
       where: { domain: requestHost, status: "VERIFIED" },
@@ -122,14 +152,14 @@ export async function requirePublicOrg(): Promise<Organization> {
  * 3. default (first ACTIVE) organization (bare public routes)
  */
 export async function getResolvedOrg(): Promise<Organization | null> {
-  const h = await headers()
-  const slug = h.get(ORG_HEADER)
+  const slug = await getTrustedOrgSlug()
   if (slug) {
     const org = await getOrgBySlug(slug)
     if (org) {
-      if (org.status === "ACTIVE") return org
+      if (await headerOrgAccessible(org)) return org
       // SUSPENDED tenant (EPIC #3 E3-5): no org context — never leak
       // another tenant's data under this tenant's URL.
+      // UNPUBLISHED tenant: members only (V-1/V-4 hardening).
       return null
     }
     // UNKNOWN slug under /s/* (EPIC #3 E3-8 isolation fix): no org —

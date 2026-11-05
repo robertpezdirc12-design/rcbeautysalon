@@ -1,8 +1,16 @@
 import { auth } from "@/lib/auth/auth"
 import { NextResponse } from "next/server"
 import { isPlatformAdminEmail, PLATFORM_ADMIN_EMAILS_ENV } from "@/lib/platform/access"
-
-const ORG_HEADER = "x-org-slug"
+import {
+  ORG_HEADER,
+  ORG_PROOF_HEADER,
+  RESOLVER_PROOF_HEADER,
+  signOrgSlug,
+  signResolverQuery,
+  verifyOrgSlug,
+} from "@/lib/tenant-proof"
+import { hostFromHostHeader, isPlatformHost } from "@/lib/domains/normalize"
+import { getPlatformHostsFromEnv } from "@/lib/domains/platform-hosts"
 
 // ------------------------------------------------------------
 // P1 #39-5 (re-audit 2026-11): goli javni dostop ("/services", …)
@@ -57,8 +65,11 @@ async function resolveTenant(
   const hit = tenantCache.get(slug)
   if (hit && hit.exp > Date.now()) return hit.info
   try {
+    // issue #102 (V-1/V-4): the resolver is proxy-only — every internal
+    // fetch carries an HMAC proof; direct visitor calls are rejected 401.
     const res = await fetch(`${origin}/api/public/resolve-tenant?slug=${encodeURIComponent(slug)}`, {
       cache: "no-store",
+      headers: { [RESOLVER_PROOF_HEADER]: await signResolverQuery(slug) },
     })
     if (!res.ok) return null
     const info = (await res.json()) as TenantInfo
@@ -90,7 +101,12 @@ async function entityExists(
   try {
     const res = await fetch(
       `${origin}/api/public/entity-exists?orgId=${encodeURIComponent(orgId)}&type=${type}&slug=${encodeURIComponent(slug)}`,
-      { cache: "no-store" }
+      {
+        cache: "no-store",
+        headers: {
+          [RESOLVER_PROOF_HEADER]: await signResolverQuery(`${orgId}:${type}:${slug}`),
+        },
+      }
     )
     if (!res.ok) return true // fail-open
     const data = (await res.json()) as { exists: boolean; unknown?: boolean }
@@ -105,15 +121,61 @@ async function entityExists(
 }
 
 /** Rezervirana 404 pot: neujeta z nobeno smero → pravi HTTP 404 + blagovna stran. */
-function rewriteTo404(req: { nextUrl: URL }) {
+function rewriteTo404(req: { nextUrl: URL }, requestHeaders?: Headers) {
   const url = new URL(RESERVED_404_PATH, req.nextUrl.origin)
-  return NextResponse.rewrite(url)
+  // issue #102 (V-1): the 404 page runs the root layout — the (stripped)
+  // request headers MUST propagate so a forged header cannot brand even
+  // the not-found page with a foreign tenant.
+  return requestHeaders
+    ? NextResponse.rewrite(url, { request: { headers: requestHeaders } })
+    : NextResponse.rewrite(url)
 }
 
 export default auth(async (req) => {
   const { pathname } = req.nextUrl
 
-  // ---- TENANT RESOLUTION: /s/[slug]/* -> /* with x-org-slug header ----
+  // ------------------------------------------------------------
+  // V-1 (issue #102) — TENANT HEADER TRUST GATE
+  // The visitor-supplied x-org-slug is NEVER trusted. A header pair
+  // carrying a VALID HMAC proof was produced by THIS proxy in a
+  // previous processing pass (rewrite double-run) and is preserved;
+  // anything else (missing proof, tampered value, wrong slug binding)
+  // is stripped before anything else runs. The app layer (tenant.ts)
+  // verifies the same proof — defense in depth for paths that bypass
+  // the proxy (API routes).
+  // ------------------------------------------------------------
+  const incomingSlug = req.headers.get(ORG_HEADER)
+  const trustedIncoming = incomingSlug
+    ? await verifyOrgSlug(incomingSlug, req.headers.get(ORG_PROOF_HEADER))
+    : false
+
+  const requestHeaders = new Headers(req.headers)
+  const clearTenantHeader = () => {
+    requestHeaders.delete(ORG_HEADER)
+    requestHeaders.delete(ORG_PROOF_HEADER)
+  }
+  if (incomingSlug && !trustedIncoming) clearTenantHeader()
+
+  // V-1 host binding: on a custom-domain host the tenant context is
+  // chosen by the VERIFIED HOST only (resolved server-side from the
+  // CustomDomain table). No header — not even a proxy-signed one, which
+  // can never originate on this host — may override it.
+  const requestHost = hostFromHostHeader(req.headers.get("host"))
+  const isCustomDomainHost =
+    !!requestHost && !isPlatformHost(requestHost, getPlatformHostsFromEnv())
+  if (isCustomDomainHost) {
+    clearTenantHeader()
+    const cdSlugMatch = pathname.match(/^\/s\/([^/]+)(\/.*)?$/)
+    if (cdSlugMatch) {
+      // A /s/<slug> path on a custom domain would serve the slug's tenant
+      // under someone else's domain — 404. Custom domains serve their own
+      // org on bare paths only.
+      return rewriteTo404(req, requestHeaders)
+    }
+    return NextResponse.next({ request: { headers: requestHeaders } })
+  }
+
+  // ---- TENANT RESOLUTION: /s/[slug]/* -> /* with a FRESH signed header ----
   // Must run BEFORE role guards so rewritten public pages resolve the org.
   const orgMatch = pathname.match(/^\/s\/([^/]+)(\/.*)?$/)
   if (orgMatch) {
@@ -123,20 +185,23 @@ export default auth(async (req) => {
     // ki opisujeta SAMO tega najemnika — nikoli ju ne prepisuj na globalni
     // /sitemap.xml (izpiše VSE najemnike = kršitev osamljenosti) niti na
     // globalni /robots.txt (oglašuje globalni sitemap). Objavljivost
-    // (draft/suspendiran/notranji → 404) uveljavljata sami ruti.
+    // (draft/suspendiran/notranji → 404) uveljavljata sami ruti. Glava jim
+    // ni potrebna (params.slug) — strip zgoraj jo je že odstranil.
     const firstHop = orgMatch[2] || "/"
     if (firstHop === "/sitemap.xml" || firstHop === "/robots.txt") {
-      return NextResponse.next()
+      return NextResponse.next({ request: { headers: requestHeaders } })
     }
 
-    if (req.headers.get(ORG_HEADER) !== slug) {
+    // Gates run on the FIRST pass (no trusted header yet) or whenever the
+    // incoming claim does not match the verified URL slug. A preserved
+    // double-run pass already passed the gates for this exact slug.
+    if (!trustedIncoming || incomingSlug !== slug) {
       // P0 #24 / P1 #27: statusne kode rešuje proxy (glej komentar zgoraj).
-      // Samo na PRVEM prehodu (header še ni nastavljen) — po prepisu gre
-      // zahtevek skozi proxy drugič in takoj nadaljuje.
+      // Samo na PRVEM prehodu (zaupanja vredna glava še ni nastavljena).
       const tenant = await resolveTenant(req.nextUrl.origin, slug)
       if (tenant && !tenant.exists) {
         // Neznan ali suspendiran najemnik → pravi HTTP 404 (blagovna stran).
-        return rewriteTo404(req)
+        return rewriteTo404(req, requestHeaders)
       }
 
       // P2 #44 (audit-2026-11): neobjavljen najemnik (DRAFT/…) je privaten
@@ -151,7 +216,7 @@ export default auth(async (req) => {
         tenant.publishState !== "PUBLISHED" &&
         req.auth?.user?.organizationId !== tenant.orgId
       ) {
-        return rewriteTo404(req)
+        return rewriteTo404(req, requestHeaders)
       }
 
       const sub = orgMatch[2] || "/"
@@ -168,7 +233,7 @@ export default auth(async (req) => {
         } else if (shopMatch) {
           missing = !(await entityExists(req.nextUrl.origin, tenant.orgId, "product", shopMatch[1]))
         }
-        if (missing) return rewriteTo404(req)
+        if (missing) return rewriteTo404(req, requestHeaders)
 
         // P0 #24: booking/inquiry po profilu — pravi 307 (prej 200 + client-nav).
         if (sub === "/booking" && tenant.bookingEnabled === false) {
@@ -183,16 +248,25 @@ export default auth(async (req) => {
         // streamingu ne more spremeniti statusa). Fail-open: ko proxy ne
         // dobi podatka, pusti stran naprej (layout vrata ostanejo rezerva).
         if (sub === "/services" && tenant.servicesEnabled === false) {
-          return rewriteTo404(req)
+          return rewriteTo404(req, requestHeaders)
         }
       }
 
-      const requestHeaders = new Headers(req.headers)
+      // V-1: the header is CREATED here from the verified URL slug and
+      // SIGNED — a visitor-supplied value never survives into the app.
       requestHeaders.set(ORG_HEADER, slug)
+      requestHeaders.set(ORG_PROOF_HEADER, await signOrgSlug(slug))
       const url = req.nextUrl.clone()
       url.pathname = sub
       return NextResponse.rewrite(url, { request: { headers: requestHeaders } })
     }
+
+    // Preserved trusted pass (valid proof for THIS exact slug): rewrite
+    // again without re-resolving — the gates already passed.
+    const sub = orgMatch[2] || "/"
+    const url = req.nextUrl.clone()
+    url.pathname = sub
+    return NextResponse.rewrite(url, { request: { headers: requestHeaders } })
   }
 
   // ---- P2 #72 (Opcija A): gola javna pot → platformska nevtralnost ----
@@ -201,11 +275,11 @@ export default auth(async (req) => {
   // dedno pravilo za zgodovinske povezave, npr. salonove). Prijavljen
   // lastnik si svojo stran odpre prek /dashboard → "Obišči stran" ali
   // /s/<slug> — goli poti niso lastniški vhod. Zahtevki, ki jih je
-  // proxy že prepisal pod najemnika (x-org-slug glava), ne pridejo sem
-  // (orgMatch zanka varovalka).
+  // proxy že prepisal pod najemnika (podpisana glava), ne pridejo sem
+  // (orgMatch oz. trustedIncoming varovalka).
   if (
     !orgMatch &&
-    !req.headers.get(ORG_HEADER) &&
+    !trustedIncoming &&
     BARE_PUBLIC_PATH.test(pathname)
   ) {
     const legacySlug = process.env.LEGACY_DEFAULT_SLUG?.trim()
@@ -335,7 +409,7 @@ export default auth(async (req) => {
     }
   }
 
-  return NextResponse.next()
+  return NextResponse.next({ request: { headers: requestHeaders } })
 })
 
 export const config = {

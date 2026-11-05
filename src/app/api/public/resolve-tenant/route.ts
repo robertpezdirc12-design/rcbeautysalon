@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import {
+  RESOLVER_PROOF_HEADER,
+  verifyResolverQuery,
+} from "@/lib/tenant-proof"
 import { isBookingEnabled } from "@/lib/public-cta"
 import { getProfile, isCapabilityEnabled } from "@/lib/profiles/registry"
 import { applyOverrides, parseOverrides } from "@/lib/profiles/overrides"
@@ -28,6 +32,18 @@ export async function GET(request: Request) {
   const slug = searchParams.get("slug")?.trim()
   if (!slug) {
     return NextResponse.json({ error: "slug required" }, { status: 400 })
+  }
+
+  // issue #102 (V-1/V-4): PROXY-ONLY endpoint. Every legitimate call comes
+  // from the proxy (which signs the query). A direct visitor call would
+  // confirm the existence of any slug — including DRAFT tenants — so it is
+  // rejected 401 (enumeration closed; the proxy flow is unaffected).
+  const proof = request.headers.get(RESOLVER_PROOF_HEADER)
+  if (!(await verifyResolverQuery(slug, proof))) {
+    return NextResponse.json(
+      { error: "forbidden" },
+      { status: 401, headers: { "Cache-Control": "no-store" } }
+    )
   }
 
   try {

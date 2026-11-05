@@ -3,10 +3,9 @@
 import { prisma } from "@/lib/prisma"
 import { requirePermissionOrg } from "@/lib/auth/guards"
 import { revalidatePath } from "next/cache"
-import { headers } from "next/headers"
 import { OrderStatus } from "@prisma/client"
 import { auth } from "@/lib/auth/auth"
-import { ORG_HEADER } from "@/lib/tenant"
+import { getTrustedOrgSlug } from "@/lib/tenant"
 
 // Admin: Get all orders with customer and items
 export async function getAdminOrders(search?: string) {
@@ -203,7 +202,7 @@ export async function getCustomerOrders() {
   // slug -> empty list, never the global one. On the platform root the
   // user sees their own global order history (own data, own consent).
   let organizationId: string | null = null
-  const slug = (await headers()).get(ORG_HEADER)
+  const slug = await getTrustedOrgSlug()
   if (slug) {
     const org = await prisma.organization.findUnique({
       where: { slug },

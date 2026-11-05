@@ -10,6 +10,7 @@ import "server-only"
 // ============================================================
 
 import { vercelDomainProvider } from "./vercel-domains"
+import { getPlatformHostsFromEnv } from "./platform-hosts"
 import type { DomainProvider } from "./types"
 
 const NULL_PROVIDER_SETUP_REQUIRED = {
@@ -64,27 +65,13 @@ export function isDomainsProviderConfigured(): boolean {
  * The platform's own hosts (from env), used by tenant resolution to
  * decide whether a request Host is a custom domain candidate or the
  * platform root. Never throws: blank env simply yields fewer hosts.
+ *
+ * issue #102 (V-1): the pure implementation lives in the client-safe
+ * platform-hosts module so the PROXY (edge) enforces the SAME host
+ * rule as the server — the host/header decision can never drift.
  */
 export function getPlatformHosts(): string[] {
-  const hosts: string[] = []
-  const candidates = [
-    process.env.NEXT_PUBLIC_APP_URL,
-    process.env.NEXTAUTH_URL,
-    process.env.VERCEL_URL,
-  ]
-  for (const candidate of candidates) {
-    if (!candidate) continue
-    try {
-      // hostname (not host): no port — matches hostFromHostHeader output
-      const host = new URL(candidate).hostname.toLowerCase()
-      if (host) hosts.push(host)
-    } catch {
-      // Not a URL (e.g. VERCEL_URL is a bare host) — treat as a host.
-      const bare = candidate.trim().toLowerCase().replace(/:\d+$/, "")
-      if (bare) hosts.push(bare)
-    }
-  }
-  return hosts
+  return getPlatformHostsFromEnv()
 }
 
 export { vercelDomainProvider }

@@ -1,7 +1,6 @@
-import { headers } from "next/headers"
 import { redirect } from "next/navigation"
 import { auth } from "@/lib/auth/auth"
-import { ORG_HEADER, getOrgBySlug } from "@/lib/tenant"
+import { getTrustedOrgSlug, getOrgBySlug } from "@/lib/tenant"
 import { prisma } from "@/lib/prisma"
 import { hasUnpublishedChanges, parsePublishState } from "@/lib/publication"
 import { mergeSiteContent } from "@/lib/site-content"
@@ -25,8 +24,8 @@ import { PreviewBanner } from "@/components/public/preview-banner"
 // ============================================================
 
 export default async function PreviewPage() {
-  const h = await headers()
-  const slug = h.get(ORG_HEADER)
+  // V-1 (issue #102): only the proxy-SIGNED header selects the tenant.
+  const slug = await getTrustedOrgSlug()
   if (!slug) redirect("/")
 
   const org = await getOrgBySlug(slug)
