@@ -89,7 +89,11 @@ export async function GET(request: Request) {
           "services"
         ),
       },
-      { headers: { "Cache-Control": "public, max-age=15, stale-while-revalidate=60" } }
+      // PR #103 review round 2: PROXY-ONLY endpoint — responses must not
+      // be stored/served by shared caches. The proxy keeps its own 15 s
+      // in-memory cache, so no-store costs nothing and removes the risk
+      // of a middle cache handing a proof-gated answer to anyone else.
+      { headers: { "Cache-Control": "private, no-store" } }
     )
   } catch {
     // Fail-open: proxy pri napaki NE ugasne najemniških strani;

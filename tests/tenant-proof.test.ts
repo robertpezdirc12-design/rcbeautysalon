@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi, afterEach } from "vitest"
 import {
   ORG_PROOF_HEADER,
   ORG_HEADER,
@@ -20,6 +20,10 @@ import {
 // ============================================================
 
 const SECRET = "test-only-tenant-proof-secret"
+
+afterEach(() => {
+  vi.unstubAllEnvs()
+})
 
 describe("tenant header proof (V-1, issue #102)", () => {
   it("verifies a proof the proxy produced for the SAME slug", async () => {
@@ -85,5 +89,46 @@ describe("tenant header proof (V-1, issue #102)", () => {
     expect(await verifyOrgSlug("studio-nika", proof)).toBe(true)
     // ...but distinct from an explicit secret:
     expect(await verifyOrgSlug("studio-nika", proof, SECRET)).toBe(false)
+  })
+
+  // --- PR #103 review round 2: fail-closed production ---
+  it("NEVER signs with the known dev fallback in production", async () => {
+    vi.stubEnv("NODE_ENV", "production")
+    vi.stubEnv("TENANT_PROXY_SECRET", "")
+    vi.stubEnv("AUTH_SECRET", "")
+    // No secret configured in production → nothing is signed:
+    expect(await signOrgSlug("studio-nika")).toBe("")
+    expect(await signResolverQuery("studio-nika")).toBe("")
+    // ...and EVERY proof is rejected (fail-closed verification):
+    expect(await verifyOrgSlug("studio-nika", "0".repeat(64))).toBe(false)
+    expect(await verifyResolverQuery("studio-nika", "f".repeat(64))).toBe(false)
+  })
+
+  it("rejects a dev-fallback proof inside production (no replay across envs)", async () => {
+    // Proof produced OUTSIDE production with the dev fallback:
+    const devProof = await signOrgSlug("studio-nika")
+    expect(devProof).not.toBe("")
+    vi.stubEnv("NODE_ENV", "production")
+    vi.stubEnv("TENANT_PROXY_SECRET", "")
+    vi.stubEnv("AUTH_SECRET", "")
+    expect(await verifyOrgSlug("studio-nika", devProof)).toBe(false)
+  })
+
+  it("production WITH a configured secret keeps working", async () => {
+    vi.stubEnv("NODE_ENV", "production")
+    vi.stubEnv("TENANT_PROXY_SECRET", "real-prod-secret")
+    const proof = await signOrgSlug("studio-nika")
+    expect(proof).not.toBe("")
+    expect(await verifyOrgSlug("studio-nika", proof)).toBe(true)
+    expect(await verifyOrgSlug("studio-nika", proof, "other-secret")).toBe(false)
+  })
+
+  it("AUTH_SECRET alone is a valid production secret", async () => {
+    vi.stubEnv("NODE_ENV", "production")
+    vi.stubEnv("TENANT_PROXY_SECRET", "")
+    vi.stubEnv("AUTH_SECRET", "nextauth-prod-secret")
+    const proof = await signOrgSlug("studio-nika")
+    expect(proof).not.toBe("")
+    expect(await verifyOrgSlug("studio-nika", proof)).toBe(true)
   })
 })

@@ -254,8 +254,15 @@ export default auth(async (req) => {
 
       // V-1: the header is CREATED here from the verified URL slug and
       // SIGNED — a visitor-supplied value never survives into the app.
-      requestHeaders.set(ORG_HEADER, slug)
-      requestHeaders.set(ORG_PROOF_HEADER, await signOrgSlug(slug))
+      // PR #103 review round 2: production WITHOUT a configured secret
+      // signs nothing → no trusted header is set at all → tenant pages
+      // fail closed to the maintenance screen (never trust an unsigned
+      // value, never sign with a guessable constant).
+      const signedProof = await signOrgSlug(slug)
+      if (signedProof) {
+        requestHeaders.set(ORG_HEADER, slug)
+        requestHeaders.set(ORG_PROOF_HEADER, signedProof)
+      }
       const url = req.nextUrl.clone()
       url.pathname = sub
       return NextResponse.rewrite(url, { request: { headers: requestHeaders } })

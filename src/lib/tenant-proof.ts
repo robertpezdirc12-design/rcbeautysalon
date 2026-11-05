@@ -31,13 +31,31 @@ export const RESOLVER_PROOF_HEADER = "x-org-resolver-proof"
 const DOMAIN_ORG_SLUG = "org-slug"
 const DOMAIN_RESOLVER = "resolver"
 
-function tenantProofSecret(explicitSecret?: string): string {
+/**
+ * Dev-only fallback secret (owner review of PR #103, round 2): the FIXED
+ * value must NEVER sign or verify in production — an attacker reaching the
+ * app through a path that bypasses the proxy could forge valid proofs with
+ * it. Outside production (local sandboxes without AUTH_SECRET) it keeps
+ * flows working; it confers no production trust.
+ */
+const DEV_FALLBACK_SECRET = "markec-dev-tenant-proof-do-not-use-in-production"
+
+/**
+ * Resolves the HMAC secret. Returns `null` when NOT configured in
+ * production — callers must then FAIL CLOSED:
+ *   - sign* returns "" (the proxy sets NO trusted header → tenant pages
+ *     render the maintenance screen instead of trusting anything),
+ *   - verify* returns false (EVERY proof is rejected — nothing is trusted).
+ * A production deployment without a secret is already broken elsewhere
+ * (NextAuth requires AUTH_SECRET), so fail-closed is the consistent,
+ * safe behavior — never a guessable signature.
+ */
+function tenantProofSecret(explicitSecret?: string): string | null {
   if (explicitSecret) return explicitSecret
-  return (
-    process.env.TENANT_PROXY_SECRET ||
-    process.env.AUTH_SECRET ||
-    "markec-dev-tenant-proof-do-not-use-in-production"
-  )
+  const fromEnv = process.env.TENANT_PROXY_SECRET || process.env.AUTH_SECRET
+  if (fromEnv) return fromEnv
+  if (process.env.NODE_ENV === "production") return null
+  return DEV_FALLBACK_SECRET
 }
 
 const encoder = new TextEncoder()
@@ -49,10 +67,17 @@ function toHex(buffer: ArrayBuffer): string {
   return hex
 }
 
-async function hmacHex(domain: string, value: string, explicitSecret?: string): Promise<string> {
+async function hmacHex(
+  domain: string,
+  value: string,
+  explicitSecret?: string
+): Promise<string> {
+  const secret = tenantProofSecret(explicitSecret)
+  // Fail-closed: production without a configured secret signs NOTHING.
+  if (!secret) return ""
   const key = await crypto.subtle.importKey(
     "raw",
-    encoder.encode(tenantProofSecret(explicitSecret)),
+    encoder.encode(secret),
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign"]
@@ -87,6 +112,9 @@ export async function verifyOrgSlug(
   proof: string | null | undefined,
   explicitSecret?: string
 ): Promise<boolean> {
+  // Fail-closed: production without a configured secret trusts NOTHING —
+  // even a proof signed earlier with the dev fallback is rejected.
+  if (!tenantProofSecret(explicitSecret)) return false
   if (!proof) return false
   const expected = await signOrgSlug(slug, explicitSecret)
   return timingSafeEqual(expected, proof)
@@ -107,6 +135,8 @@ export async function verifyResolverQuery(
   proof: string | null | undefined,
   explicitSecret?: string
 ): Promise<boolean> {
+  // Fail-closed: production without a configured secret trusts NOTHING.
+  if (!tenantProofSecret(explicitSecret)) return false
   if (!proof) return false
   const expected = await signResolverQuery(payload, explicitSecret)
   return timingSafeEqual(expected, proof)

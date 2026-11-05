@@ -65,7 +65,9 @@ export async function GET(request: Request) {
 
     return NextResponse.json(
       { exists },
-      { headers: { "Cache-Control": "public, max-age=60, stale-while-revalidate=300" } }
+      // PR #103 review round 2: PROXY-ONLY endpoint — private, no-store
+      // (the proxy keeps its own 30 s in-memory entity cache).
+      { headers: { "Cache-Control": "private, no-store" } }
     )
   } catch {
     // Fail-open — glej resolve-tenant.
