@@ -36,11 +36,34 @@ export async function GET(
 
     const session = await auth()
     const requesterEmail = session?.user?.email ?? null
+    const requesterRole = session?.user?.role ?? null
+    // PR #103 review round 2 (Codex — odstranjeni zaposleni): role evidence
+    // for the owner decision. A STAFF user must still hold an ACTIVE staff
+    // row in the OWNING org; a removed employee (role demoted to CLIENTE,
+    // organizationId kept) matches neither branch and is denied.
+    let requesterIsOrgStaffActive = false
+    if (
+      requesterRole === "STAFF" &&
+      session?.user?.id &&
+      media.organizationId
+    ) {
+      const staffRow = await prisma.staff.findFirst({
+        where: {
+          userId: session.user.id,
+          organizationId: media.organizationId,
+          isActive: true,
+        },
+        select: { id: true },
+      })
+      requesterIsOrgStaffActive = !!staffRow
+    }
     const decision: MediaAccessDecision = decideMediaAccess({
       organizationId: media.organizationId,
       orgStatus: media.organization?.status ?? null,
       orgPublishState: media.organization?.publishState ?? null,
       requesterOrganizationId: session?.user?.organizationId ?? null,
+      requesterRole,
+      requesterIsOrgStaffActive,
       requesterIsPlatformAdmin: requesterEmail
         ? isPlatformAdminEmail(requesterEmail, process.env[PLATFORM_ADMIN_EMAILS_ENV])
         : false,

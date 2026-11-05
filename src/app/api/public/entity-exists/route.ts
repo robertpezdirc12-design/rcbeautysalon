@@ -2,7 +2,8 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import {
   RESOLVER_PROOF_HEADER,
-  verifyResolverQuery,
+  resolverExpectedOrigin,
+  verifyResolverQueryForOrigin,
 } from "@/lib/tenant-proof"
 
 // ============================================================
@@ -35,8 +36,15 @@ export async function GET(request: Request) {
   // issue #102 (V-1/V-4): PROXY-ONLY endpoint (same rule as resolve-tenant).
   // Answering arbitrary orgId probes would let a visitor enumerate entities
   // of any organization — reject everything the proxy did not sign.
+  // PR #103 review round 2 (Codex): proofs are BOUND TO THE TRUSTED ORIGIN
+  // (same contract as resolve-tenant — replay of a proof harvested via an
+  // attacker-controlled Host is rejected).
+  const expectedOrigin = resolverExpectedOrigin(request)
   const proof = request.headers.get(RESOLVER_PROOF_HEADER)
-  if (!(await verifyResolverQuery(`${orgId}:${type}:${slug}`, proof))) {
+  if (
+    !expectedOrigin ||
+    !(await verifyResolverQueryForOrigin(expectedOrigin, `${orgId}:${type}:${slug}`, proof))
+  ) {
     return NextResponse.json(
       { error: "forbidden" },
       { status: 401, headers: { "Cache-Control": "no-store" } }

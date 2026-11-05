@@ -6,7 +6,8 @@ import {
   ORG_PROOF_HEADER,
   RESOLVER_PROOF_HEADER,
   signOrgSlug,
-  signResolverQuery,
+  signResolverQueryForOrigin,
+  trustedInternalOrigin,
   verifyOrgSlug,
 } from "@/lib/tenant-proof"
 import { hostFromHostHeader, isPlatformHost } from "@/lib/domains/normalize"
@@ -55,8 +56,34 @@ type TenantInfo = {
   /** P2 #46: profil, ki izključuje storitve, ne servira /services. */
   servicesEnabled?: boolean
 }
+
+/** Odgovor /api/public/resolve-host — VERIFIED custom domain najemnik. */
+type HostTenantInfo = TenantInfo & {
+  /** Ta gostitelj je sploh preverjena custom domena (VERIFIED vrstica). */
+  matched: boolean
+  /** Slug najemnika, ki mu domena pripada (samo pri matched: true). */
+  slug?: string
+}
+
 const tenantCache = new Map<string, { info: TenantInfo; exp: number }>()
 const entityCache = new Map<string, { exists: boolean; exp: number }>()
+const hostCache = new Map<string, { info: HostTenantInfo | null; exp: number }>()
+
+/**
+ * PR #103 review round 2 (Codex — dokaz resolverja vezan na izvor):
+ * vsi INTERNI fetchi proxyja gredo na ZAUPANJA VREDEN izvor iz env
+ * (NEXT_PUBLIC_APP_URL / NEXTAUTH_URL — isti vir kot seznam platformskih
+ * gostiteljev), NIKOLI na req.nextUrl.origin. Pri self-hosted postavitvi,
+ * ki je dosegljiva pod napadalčevim ali IP Host, bi interni fetch sicer
+ * ODPOSLAL podpisan dokaz na tuj strežnik (ta ga nato lahko replika proti
+ * pravi aplikaciji). Vezava HMAC na izvor naredi pobran dokaz neuporabnega
+ * kjerkoli drugje — tudi ko env ni nastavljen (produkcija brez env:
+ * resolver vsak dokaz zavrne — fail-closed), je fletka neškodljiva.
+ * Dev brez env pade nazaj na izvor zahteve (brez produkcijskega zaupanja).
+ */
+function resolverOrigin(req: { nextUrl: URL }): string {
+  return trustedInternalOrigin() ?? req.nextUrl.origin
+}
 
 async function resolveTenant(
   origin: string,
@@ -66,10 +93,13 @@ async function resolveTenant(
   if (hit && hit.exp > Date.now()) return hit.info
   try {
     // issue #102 (V-1/V-4): the resolver is proxy-only — every internal
-    // fetch carries an HMAC proof; direct visitor calls are rejected 401.
+    // fetch carries an HMAC proof bound to the TRUSTED origin; direct
+    // visitor calls are rejected 401.
     const res = await fetch(`${origin}/api/public/resolve-tenant?slug=${encodeURIComponent(slug)}`, {
       cache: "no-store",
-      headers: { [RESOLVER_PROOF_HEADER]: await signResolverQuery(slug) },
+      headers: {
+        [RESOLVER_PROOF_HEADER]: await signResolverQueryForOrigin(origin, `slug=${slug}`),
+      },
     })
     if (!res.ok) return null
     const info = (await res.json()) as TenantInfo
@@ -83,6 +113,40 @@ async function resolveTenant(
       info,
       exp: Date.now() + (info.exists ? 15_000 : 1_000),
     })
+    return info
+  } catch {
+    return null
+  }
+}
+
+/**
+ * PR #103 review round 2 (Codex — lastne domene): razreši preverjeno
+ * custom domeno v najemnika SERVER-SIDE (CustomDomain tabela, status
+ * VERIFIED). Obiskovalec nastavi samo Host — kot pri DNS usmerjanju;
+ * podpisan najemniški glavi se ne more nastaviti za poljuben slug,
+ * ker ga proxy podpiše SAMO za gostitelja, ki v bazi res pripada
+ * temu najemniku.
+ */
+async function resolveTenantByHost(
+  origin: string,
+  host: string
+): Promise<HostTenantInfo | null> {
+  const hit = hostCache.get(host)
+  if (hit && hit.exp > Date.now()) return hit.info
+  try {
+    const res = await fetch(`${origin}/api/public/resolve-host?host=${encodeURIComponent(host)}`, {
+      cache: "no-store",
+      headers: {
+        [RESOLVER_PROOF_HEADER]: await signResolverQueryForOrigin(origin, `host=${host}`),
+      },
+    })
+    if (!res.ok) return null
+    const info = (await res.json()) as HostTenantInfo
+    // Pozitiven odgovor 15 s (usklajeno z resolve-tenant); "ni preverjena
+    // domena" / "najemnik ni živ" dobi 1 s — preverjanje domene oz. objava
+    // so vidni takoj, brez zastrupljenega okna.
+    const positive = info.matched && info.exists
+    hostCache.set(host, { info, exp: Date.now() + (positive ? 15_000 : 1_000) })
     return info
   } catch {
     return null
@@ -104,7 +168,10 @@ async function entityExists(
       {
         cache: "no-store",
         headers: {
-          [RESOLVER_PROOF_HEADER]: await signResolverQuery(`${orgId}:${type}:${slug}`),
+          [RESOLVER_PROOF_HEADER]: await signResolverQueryForOrigin(
+            origin,
+            `${orgId}:${type}:${slug}`
+          ),
         },
       }
     )
@@ -130,6 +197,98 @@ function rewriteTo404(req: { nextUrl: URL }, requestHeaders?: Headers) {
     ? NextResponse.rewrite(url, { request: { headers: requestHeaders } })
     : NextResponse.rewrite(url)
 }
+
+type GateRequest = {
+  url: string
+  nextUrl: URL
+  auth?: { user?: { organizationId?: string | null } | null } | null
+}
+
+/**
+ * Skupna VRATA najemnika za OBE najemniški površini: /s/<slug>/* (na
+ * gostitelju platforme) in preverjene custom domene (gola pot). Vrne
+ * Response, ko vrata sprožijo (404/307), sicer null — klicatelj nadaljuje.
+ *
+ * Cilji preusiritev so na /s/<slug> v obliki /s/<slug>/…, na custom
+ * domenah pa GOLI (tam je /s/<slug> vedno 404 — domena servira samo svoj
+ * najemnik na golih poteh).
+ */
+async function runTenantGates(opts: {
+  req: GateRequest
+  slug: string
+  tenant: TenantInfo | null
+  sub: string
+  requestHeaders: Headers
+  origin: string
+  isCustomHost: boolean
+}): Promise<Response | null> {
+  const { req, tenant, sub, requestHeaders, origin, isCustomHost } = opts
+
+  // P2 #44 (audit-2026-11): neobjavljen najemnik (DRAFT/…) je privaten
+  // — prej je layout vrnil vzdrževalni zaslon kot HTTP 200 (soft 404,
+  // indeksirajo ga iskalniki; naslov je padel na generični "Salon
+  // Platform"). Statusne kode zmore SAMO proxy (Next 16 streaming),
+  // zato 404 tukaj. Lastnik/staff TEGA najemnika (pregled pred objavo)
+  // gre naprej — layout servira predogled z rumeno vrstico.
+  if (
+    tenant?.exists &&
+    tenant.publishState &&
+    tenant.publishState !== "PUBLISHED" &&
+    req.auth?.user?.organizationId !== tenant.orgId
+  ) {
+    return rewriteTo404(req, requestHeaders)
+  }
+
+  if (tenant?.orgId) {
+    // Manjkajoče entitete → pravi HTTP 404.
+    let missing = false
+    const serviceMatch = sub.match(/^\/services\/([^/]+)/)
+    const staffMatch = sub.match(/^\/staff\/([^/]+)/)
+    const shopMatch = sub.match(/^\/shop\/([^/]+)/)
+    if (serviceMatch) {
+      missing = !(await entityExists(origin, tenant.orgId, "service", serviceMatch[1]))
+    } else if (staffMatch) {
+      missing = !(await entityExists(origin, tenant.orgId, "staff", staffMatch[1]))
+    } else if (shopMatch) {
+      missing = !(await entityExists(origin, tenant.orgId, "product", shopMatch[1]))
+    }
+    if (missing) return rewriteTo404(req, requestHeaders)
+
+    // P0 #24: booking/inquiry po profilu — pravi 307 (prej 200 + client-nav).
+    // Na custom domeni cilj ostane GOL (domena NE streže /s/<slug> poti).
+    const inTenant = (path: string) =>
+      NextResponse.redirect(
+        new URL(isCustomHost ? path : `/s/${opts.slug}${path}`, req.url),
+        307
+      )
+    if (sub === "/booking" && tenant.bookingEnabled === false) {
+      return inTenant("/inquiry")
+    }
+    if (sub === "/inquiry" && tenant.bookingEnabled === true) {
+      return inTenant("/")
+    }
+
+    // P2 #46: profil brez storitev → PRAVI 404 (prej 200 s praznim
+    // seznamom — soft 404, indeksiran; notFound() v layoutu v Next 16
+    // streamingu ne more spremeniti statusa). Fail-open: ko proxy ne
+    // dobi podatka, pusti stran naprej (layout vrata ostanejo rezerva).
+    if (sub === "/services" && tenant.servicesEnabled === false) {
+      return rewriteTo404(req, requestHeaders)
+    }
+  }
+
+  return null
+}
+
+// ------------------------------------------------------------
+// PR #103 review round 2 (Codex — lastne domene): na preverjeni custom
+// domeni je glava najemnika dovoljena SAMO na najemniški (javni)
+// površini. Auth/admin površine ostanejo SEJSKA — tuj, prijavljen
+// upravnik, ki odpre /dashboard na tuj domeni, mora videti SVOJ
+// dashboard (glava najemnika bi mu servezala tuje podatke).
+// ------------------------------------------------------------
+const CUSTOM_DOMAIN_HEADER_DENYLIST =
+  /^\/(?:dashboard|staff-portal|my-account|platform|login|register|start|forgot-password|reset-password|verify-email)(\/|$)/
 
 export default auth(async (req) => {
   const { pathname } = req.nextUrl
@@ -172,6 +331,43 @@ export default auth(async (req) => {
       // org on bare paths only.
       return rewriteTo404(req, requestHeaders)
     }
+
+    // PR #103 review round 2 (Codex — najdba "lastne domene"): prej je
+    // proxy tu samo odstranil glavo in nadaljeval BREZ najemniškega
+    // konteksta — anonimni obiskovalec je na golih javnih poteh dobil
+    // 404 (redirectBareToTenant), "/" pa je padel na najstarejšega
+    // ACTIVE najemnika (napačna blagovna znamka). Zdaj proxy razreši
+    // preverjeno domeno SERVER-SIDE in nastavi ISTO podpisano glavo,
+    // ki jo uporablja /s/<slug> — celotna aplikacija (landing,
+    // /services, /shop, /booking, /cart, /inquiry, akcije) na lastni
+    // domeni deluje enako kot pod /s/<slug>. Neznana/nepreverjena
+    // domena → brez glave (pass-through, kot doslej — Vercel preview
+    // gostitelji in dev naslovi ostanejo delujoči).
+    const origin = resolverOrigin(req)
+    const hostTenant = await resolveTenantByHost(origin, requestHost!)
+    if (hostTenant?.matched && hostTenant.slug && !CUSTOM_DOMAIN_HEADER_DENYLIST.test(pathname)) {
+      const gates = await runTenantGates({
+        req,
+        slug: hostTenant.slug,
+        tenant: hostTenant,
+        sub: pathname || "/",
+        requestHeaders,
+        origin,
+        isCustomHost: true,
+      })
+      if (gates) return gates
+
+      // Glava je podpisana SAMO za slug, ki v bazi res pripada temu
+      // preverjenemu gostitelju (isto zaupanje kot URL-pot /s/<slug>).
+      // Brez konfigurirane skrivnosti v produkciji se nič ne podpiše →
+      // brez glave (fail-closed, aplikačna razrešitev iz tenant.ts je
+      // druga linija).
+      const signedProof = await signOrgSlug(hostTenant.slug)
+      if (signedProof) {
+        requestHeaders.set(ORG_HEADER, hostTenant.slug)
+        requestHeaders.set(ORG_PROOF_HEADER, signedProof)
+      }
+    }
     return NextResponse.next({ request: { headers: requestHeaders } })
   }
 
@@ -198,59 +394,22 @@ export default auth(async (req) => {
     if (!trustedIncoming || incomingSlug !== slug) {
       // P0 #24 / P1 #27: statusne kode rešuje proxy (glej komentar zgoraj).
       // Samo na PRVEM prehodu (zaupanja vredna glava še ni nastavljena).
-      const tenant = await resolveTenant(req.nextUrl.origin, slug)
+      const tenant = await resolveTenant(resolverOrigin(req), slug)
       if (tenant && !tenant.exists) {
         // Neznan ali suspendiran najemnik → pravi HTTP 404 (blagovna stran).
         return rewriteTo404(req, requestHeaders)
       }
 
-      // P2 #44 (audit-2026-11): neobjavljen najemnik (DRAFT/…) je privaten
-      // — prej je layout vrnil vzdrževalni zaslon kot HTTP 200 (soft 404,
-      // indeksirajo ga iskalniki; naslov je padel na generični "Salon
-      // Platform"). Statusne kode zmore SAMO proxy (Next 16 streaming),
-      // zato 404 tukaj. Lastnik/staff TEGA najemnika (pregled pred objavo)
-      // gre naprej — layout servira predogled z rumeno vrstico.
-      if (
-        tenant?.exists &&
-        tenant.publishState &&
-        tenant.publishState !== "PUBLISHED" &&
-        req.auth?.user?.organizationId !== tenant.orgId
-      ) {
-        return rewriteTo404(req, requestHeaders)
-      }
-
-      const sub = orgMatch[2] || "/"
-      if (tenant?.orgId) {
-        // Manjkajoče entitete → pravi HTTP 404.
-        let missing = false
-        const serviceMatch = sub.match(/^\/services\/([^/]+)/)
-        const staffMatch = sub.match(/^\/staff\/([^/]+)/)
-        const shopMatch = sub.match(/^\/shop\/([^/]+)/)
-        if (serviceMatch) {
-          missing = !(await entityExists(req.nextUrl.origin, tenant.orgId, "service", serviceMatch[1]))
-        } else if (staffMatch) {
-          missing = !(await entityExists(req.nextUrl.origin, tenant.orgId, "staff", staffMatch[1]))
-        } else if (shopMatch) {
-          missing = !(await entityExists(req.nextUrl.origin, tenant.orgId, "product", shopMatch[1]))
-        }
-        if (missing) return rewriteTo404(req, requestHeaders)
-
-        // P0 #24: booking/inquiry po profilu — pravi 307 (prej 200 + client-nav).
-        if (sub === "/booking" && tenant.bookingEnabled === false) {
-          return NextResponse.redirect(new URL(`/s/${slug}/inquiry`, req.url), 307)
-        }
-        if (sub === "/inquiry" && tenant.bookingEnabled === true) {
-          return NextResponse.redirect(new URL(`/s/${slug}`, req.url), 307)
-        }
-
-        // P2 #46: profil brez storitev → PRAVI 404 (prej 200 s praznim
-        // seznamom — soft 404, indeksiran; notFound() v layoutu v Next 16
-        // streamingu ne more spremeniti statusa). Fail-open: ko proxy ne
-        // dobi podatka, pusti stran naprej (layout vrata ostanejo rezerva).
-        if (sub === "/services" && tenant.servicesEnabled === false) {
-          return rewriteTo404(req, requestHeaders)
-        }
-      }
+      const gates = await runTenantGates({
+        req,
+        slug,
+        tenant,
+        sub: orgMatch[2] || "/",
+        requestHeaders,
+        origin: resolverOrigin(req),
+        isCustomHost: false,
+      })
+      if (gates) return gates
 
       // V-1: the header is CREATED here from the verified URL slug and
       // SIGNED — a visitor-supplied value never survives into the app.
@@ -264,7 +423,7 @@ export default auth(async (req) => {
         requestHeaders.set(ORG_PROOF_HEADER, signedProof)
       }
       const url = req.nextUrl.clone()
-      url.pathname = sub
+      url.pathname = orgMatch[2] || "/"
       return NextResponse.rewrite(url, { request: { headers: requestHeaders } })
     }
 

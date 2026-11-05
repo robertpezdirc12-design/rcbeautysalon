@@ -2,7 +2,8 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import {
   RESOLVER_PROOF_HEADER,
-  verifyResolverQuery,
+  resolverExpectedOrigin,
+  verifyResolverQueryForOrigin,
 } from "@/lib/tenant-proof"
 import { isBookingEnabled } from "@/lib/public-cta"
 import { getProfile, isCapabilityEnabled } from "@/lib/profiles/registry"
@@ -38,8 +39,19 @@ export async function GET(request: Request) {
   // from the proxy (which signs the query). A direct visitor call would
   // confirm the existence of any slug — including DRAFT tenants — so it is
   // rejected 401 (enumeration closed; the proxy flow is unaffected).
+  //
+  // PR #103 review round 2 (Codex): the proof is BOUND TO THE TRUSTED
+  // ORIGIN — a proof harvested via an attacker-controlled `Host` on a
+  // self-hosted deployment (proxy fetch steered to a foreign server)
+  // cannot be replayed here: this endpoint accepts only proofs minted
+  // for THIS deployment's canonical env origin. Production without the
+  // env configured rejects EVERY proof (fail-closed).
+  const expectedOrigin = resolverExpectedOrigin(request)
   const proof = request.headers.get(RESOLVER_PROOF_HEADER)
-  if (!(await verifyResolverQuery(slug, proof))) {
+  if (
+    !expectedOrigin ||
+    !(await verifyResolverQueryForOrigin(expectedOrigin, `slug=${slug}`, proof))
+  ) {
     return NextResponse.json(
       { error: "forbidden" },
       { status: 401, headers: { "Cache-Control": "no-store" } }

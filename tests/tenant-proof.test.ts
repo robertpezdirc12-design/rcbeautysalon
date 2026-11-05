@@ -4,9 +4,11 @@ import {
   ORG_HEADER,
   RESOLVER_PROOF_HEADER,
   signOrgSlug,
-  signResolverQuery,
+  signResolverQueryForOrigin,
+  trustedInternalOrigin,
+  resolverExpectedOrigin,
   verifyOrgSlug,
-  verifyResolverQuery,
+  verifyResolverQueryForOrigin,
 } from "@/lib/tenant-proof"
 
 // ============================================================
@@ -17,6 +19,11 @@ import {
 // signature bound to the exact slug. These tests pin the crypto
 // contract: right slug+proof → trusted; tampered/replayed/mismatched
 // → never.
+//
+// PR #103 review round 2 (Codex — resolver proof origin binding):
+// resolver proofs are additionally bound to the TRUSTED origin — a
+// proof harvested via an attacker-controlled Host (self-hosted, IP
+// access) is unusable against the real app and vice versa.
 // ============================================================
 
 const SECRET = "test-only-tenant-proof-secret"
@@ -62,19 +69,26 @@ describe("tenant header proof (V-1, issue #102)", () => {
 
   it("resolver query proofs are domain-separated from org slug proofs", async () => {
     const slugProof = await signOrgSlug("studio-nika", SECRET)
-    const queryProof = await signResolverQuery("studio-nika", SECRET)
+    const queryProof = await signResolverQueryForOrigin(
+      "https://markec.example",
+      "slug=studio-nika",
+      SECRET
+    )
     expect(slugProof).not.toBe(queryProof)
     // A stolen org-slug proof must not authorize resolver queries:
-    expect(await verifyResolverQuery("studio-nika", slugProof, SECRET)).toBe(false)
+    expect(
+      await verifyResolverQueryForOrigin("https://markec.example", "slug=studio-nika", slugProof, SECRET)
+    ).toBe(false)
     expect(await verifyOrgSlug("studio-nika", queryProof, SECRET)).toBe(false)
   })
 
   it("resolver query proof binds the FULL payload (orgId:type:slug)", async () => {
-    const proof = await signResolverQuery("org1:service:massage", SECRET)
-    expect(await verifyResolverQuery("org1:service:massage", proof, SECRET)).toBe(true)
-    expect(await verifyResolverQuery("org2:service:massage", proof, SECRET)).toBe(false)
-    expect(await verifyResolverQuery("org1:product:massage", proof, SECRET)).toBe(false)
-    expect(await verifyResolverQuery("org1:service:massage:extra", proof, SECRET)).toBe(false)
+    const ORIGIN = "https://markec.example"
+    const proof = await signResolverQueryForOrigin(ORIGIN, "org1:service:massage", SECRET)
+    expect(await verifyResolverQueryForOrigin(ORIGIN, "org1:service:massage", proof, SECRET)).toBe(true)
+    expect(await verifyResolverQueryForOrigin(ORIGIN, "org2:service:massage", proof, SECRET)).toBe(false)
+    expect(await verifyResolverQueryForOrigin(ORIGIN, "org1:product:massage", proof, SECRET)).toBe(false)
+    expect(await verifyResolverQueryForOrigin(ORIGIN, "org1:service:massage:extra", proof, SECRET)).toBe(false)
   })
 
   it("header names are stable (proxy and server must agree)", () => {
@@ -98,10 +112,10 @@ describe("tenant header proof (V-1, issue #102)", () => {
     vi.stubEnv("AUTH_SECRET", "")
     // No secret configured in production → nothing is signed:
     expect(await signOrgSlug("studio-nika")).toBe("")
-    expect(await signResolverQuery("studio-nika")).toBe("")
+    expect(await signResolverQueryForOrigin("https://markec.example", "slug=studio-nika")).toBe("")
     // ...and EVERY proof is rejected (fail-closed verification):
     expect(await verifyOrgSlug("studio-nika", "0".repeat(64))).toBe(false)
-    expect(await verifyResolverQuery("studio-nika", "f".repeat(64))).toBe(false)
+    expect(await verifyResolverQueryForOrigin("https://markec.example", "slug=studio-nika", "f".repeat(64))).toBe(false)
   })
 
   it("rejects a dev-fallback proof inside production (no replay across envs)", async () => {
@@ -130,5 +144,85 @@ describe("tenant header proof (V-1, issue #102)", () => {
     const proof = await signOrgSlug("studio-nika")
     expect(proof).not.toBe("")
     expect(await verifyOrgSlug("studio-nika", proof)).toBe(true)
+  })
+})
+
+// ------------------------------------------------------------
+// PR #103 review round 2 (Codex — dokaz resolverja vezan na izvor)
+// ------------------------------------------------------------
+
+describe("trusted internal origin (resolver proof origin binding)", () => {
+  const APP = "https://markec.example"
+  const ATTACKER = "http://attacker.example"
+
+  it("resolver proof binds the ORIGIN — same origin verifies, others never", async () => {
+    const proof = await signResolverQueryForOrigin(APP, "slug=studio-nika", SECRET)
+    expect(await verifyResolverQueryForOrigin(APP, "slug=studio-nika", proof, SECRET)).toBe(true)
+    // Harvested via an attacker-controlled Host (self-hosted/IP) →
+    // replay against the real app is useless:
+    expect(await verifyResolverQueryForOrigin("https://real-app.example", "slug=studio-nika", proof, SECRET)).toBe(false)
+    expect(await verifyResolverQueryForOrigin(ATTACKER, "slug=studio-nika", proof, SECRET)).toBe(false)
+  })
+
+  it("proof minted for the ATTACKER origin is rejected by the real app", async () => {
+    const stolen = await signResolverQueryForOrigin(ATTACKER, "slug=studio-nika", SECRET)
+    expect(await verifyResolverQueryForOrigin(APP, "slug=studio-nika", stolen, SECRET)).toBe(false)
+  })
+
+  it("scheme/host/port are part of the binding (no lax comparison)", async () => {
+    const proof = await signResolverQueryForOrigin("http://localhost:3000", "host=salon.example", SECRET)
+    expect(await verifyResolverQueryForOrigin("https://localhost:3000", "host=salon.example", proof, SECRET)).toBe(false)
+    expect(await verifyResolverQueryForOrigin("http://localhost:3001", "host=salon.example", proof, SECRET)).toBe(false)
+    expect(await verifyResolverQueryForOrigin("http://localhost", "host=salon.example", proof, SECRET)).toBe(false)
+    expect(await verifyResolverQueryForOrigin("http://localhost:3000", "host=salon.example", proof, SECRET)).toBe(true)
+  })
+
+  it("trustedInternalOrigin reads NEXT_PUBLIC_APP_URL first (normalized origin)", () => {
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", `${APP}/with/path/`)
+    vi.stubEnv("NEXTAUTH_URL", ATTACKER)
+    expect(trustedInternalOrigin()).toBe(APP)
+  })
+
+  it("trustedInternalOrigin falls back to NEXTAUTH_URL", () => {
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "")
+    vi.stubEnv("NEXTAUTH_URL", APP)
+    expect(trustedInternalOrigin()).toBe(APP)
+  })
+
+  it("trustedInternalOrigin skips invalid values", () => {
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "not-a-url")
+    vi.stubEnv("NEXTAUTH_URL", "")
+    expect(trustedInternalOrigin()).toBe(null)
+  })
+
+  it("trustedInternalOrigin is null without any env", () => {
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "")
+    vi.stubEnv("NEXTAUTH_URL", "")
+    expect(trustedInternalOrigin()).toBe(null)
+  })
+
+  it("resolverExpectedOrigin: configured deployment ALWAYS uses the env origin (never request data)", () => {
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", APP)
+    // Even a request arriving under the attacker's Host is verified
+    // against the DEPLOYMENT origin — the request never contributes it:
+    expect(resolverExpectedOrigin({ url: ATTACKER + "/api/public/resolve-tenant" })).toBe(APP)
+  })
+
+  it("resolverExpectedOrigin: dev without env falls back to the request origin", () => {
+    vi.stubEnv("NODE_ENV", "test")
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "")
+    vi.stubEnv("NEXTAUTH_URL", "")
+    expect(resolverExpectedOrigin({ url: "http://localhost:3000/api/public/resolve-tenant?slug=x" })).toBe(
+      "http://localhost:3000"
+    )
+  })
+
+  it("resolverExpectedOrigin: production WITHOUT env is null → callers fail closed", async () => {
+    vi.stubEnv("NODE_ENV", "production")
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "")
+    vi.stubEnv("NEXTAUTH_URL", "")
+    expect(resolverExpectedOrigin({ url: "https://markec.example/api/public/resolve-tenant" })).toBe(null)
+    // A null expected origin must reject every proof:
+    expect(await verifyResolverQueryForOrigin(null as unknown as string, "slug=x", "a".repeat(64))).toBe(false)
   })
 })

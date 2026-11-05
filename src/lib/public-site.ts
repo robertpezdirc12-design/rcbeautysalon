@@ -3,7 +3,12 @@ import "server-only"
 import { cache } from "react"
 import { notFound, permanentRedirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
-import { getTrustedOrgSlug, getOrgBySlug, getSessionOrg } from "@/lib/tenant"
+import {
+  getPublicOrg,
+  getTrustedOrgSlug,
+  getSessionOrg,
+  getCustomDomainOrg,
+} from "@/lib/tenant"
 import { mergeSiteContent, type SiteContent } from "@/lib/site-content"
 import { upgradeLegacyImagery } from "@/lib/verticals"
 import { parsePublishState } from "@/lib/publication"
@@ -16,10 +21,11 @@ import type { Organization, SalonConfig } from "@prisma/client"
 // request and builds the tenant-aware content used by the whole
 // public surface (landing, navbar, footer, services, shop, ...).
 //
-// Resolution order:
+// Resolution order (single source of truth — getPublicOrg):
 //   1. header org     (x-org-slug set by proxy for /s/[slug]/*)
-//   2. session org    (admin/staff viewing bare routes)
-//   3. default org    (first ACTIVE organization)
+//   2. custom domain  (VERIFIED CustomDomain for the request host)
+//   3. session org    (admin/staff viewing bare routes)
+//   4. default org    (first ACTIVE + PUBLISHED organization)
 // ============================================================
 
 export interface PublicSiteData {
@@ -28,26 +34,17 @@ export interface PublicSiteData {
   content: SiteContent
 }
 
+/**
+ * PR #103 review round 2 (Codex — lastne domene): resolution is
+ * DELEGATED to getPublicOrg (tenant.ts) — one source of truth. The
+ * previous local copy missed the custom-domain branch entirely (an
+ * anonymous visitor on a verified custom domain landed on the OLDEST
+ * ACTIVE organization — wrong-company branding on "/") and its final
+ * fallback ignored publishState (a DRAFT tenant could serve the bare
+ * domain). getPublicOrg implements both correctly (V-1/V-4 gates).
+ */
 async function resolveOrg(): Promise<Organization | null> {
-  // V-1 (issue #102): only the proxy-SIGNED header selects the tenant.
-  const slug = await getTrustedOrgSlug()
-  if (slug) {
-    const org = await getOrgBySlug(slug)
-    if (org) {
-      if (org.status === "ACTIVE") return org
-      // SUSPENDED tenant (EPIC #3 E3-5): its site is OFF — return null so
-      // the maintenance screen renders. NEVER fall back to another
-      // tenant's content under this URL.
-      return null
-    }
-    // Unknown slug → bare-domain default below.
-  }
-  const sessionOrg = await getSessionOrg()
-  if (sessionOrg) return sessionOrg
-  return prisma.organization.findFirst({
-    where: { status: "ACTIVE" },
-    orderBy: { createdAt: "asc" },
-  })
+  return getPublicOrg()
 }
 
 /** Org + config + merged content for the current request (null when no org exists). */
@@ -96,8 +93,12 @@ export async function redirectBareToTenant(
   opts: { allowDefaultTenant?: boolean } = {}
 ): Promise<void> {
   // Pod najemnikom (/s/{slug} — podpisana glava, V-1 #102) ali na
-  // custom domeni: nič.
+  // custom domeni: nič. Custom domena je prepoznana TUDI brez proxy
+  // glave (druga linija: VERIFIED vrstica v bazi, glej tenant.ts) —
+  // prej je anonimni obiskovalec na lastni domeni tu dobil notFound()
+  // (Codexova najdba "lastne domene", PR #103 review round 2).
   if (await getTrustedOrgSlug()) return
+  if (await getCustomDomainOrg()) return
 
   const sessionOrg = await getSessionOrg()
   const org =

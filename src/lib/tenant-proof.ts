@@ -32,6 +32,59 @@ const DOMAIN_ORG_SLUG = "org-slug"
 const DOMAIN_RESOLVER = "resolver"
 
 /**
+ * Separator between the bound origin and the query payload inside a
+ * resolver proof (`origin|query`). Neither part can contain a raw `|`:
+ * origins are scheme://host[:port], queries are slugs / cuids /
+ * validated hosts / fixed enums.
+ */
+const RESOLVER_PAYLOAD_SEPARATOR = "|"
+
+/**
+ * PR #103 review round 2 (Codex — resolver proof origin binding):
+ * the TRUSTED origin the proxy uses for its internal resolver fetches.
+ * Never derived from request data (an attacker-controlled `Host` on a
+ * self-hosted deployment must not steer the proof anywhere).
+ *
+ * Deployment config already carries the canonical URL (NEXT_PUBLIC_APP_URL
+ * / NEXTAUTH_URL — the same sources the platform-host list uses), so no
+ * NEW env is introduced. Unset in production → null → callers FAIL CLOSED:
+ * the resolver rejects every proof, the proxy signs/fetches nothing.
+ */
+export function trustedInternalOrigin(): string | null {
+  const candidates = [process.env.NEXT_PUBLIC_APP_URL, process.env.NEXTAUTH_URL]
+  for (const candidate of candidates) {
+    if (!candidate) continue
+    try {
+      const url = new URL(candidate)
+      if (url.protocol === "http:" || url.protocol === "https:") return url.origin
+    } catch {
+      // Not a URL — try the next candidate.
+    }
+  }
+  return null
+}
+
+/**
+ * The origin a resolver ENDPOINT expects proofs to be bound to. Same
+ * rule for every resolver route so the contract cannot drift:
+ *   - configured deployment → the trusted env origin,
+ *   - no config + NOT production → the request's own origin (local
+ *     sandboxes without env keep working; confers no production trust),
+ *   - no config + production → null → callers MUST reject every proof
+ *     (fail-closed, same stance as the production secret rule).
+ */
+export function resolverExpectedOrigin(request: { url: string }): string | null {
+  const trusted = trustedInternalOrigin()
+  if (trusted) return trusted
+  if (process.env.NODE_ENV === "production") return null
+  try {
+    return new URL(request.url).origin
+  } catch {
+    return null
+  }
+}
+
+/**
  * Dev-only fallback secret (owner review of PR #103, round 2): the FIXED
  * value must NEVER sign or verify in production — an attacker reaching the
  * app through a path that bypasses the proxy could forge valid proofs with
@@ -120,24 +173,44 @@ export async function verifyOrgSlug(
   return timingSafeEqual(expected, proof)
 }
 
-/** Sign a resolver query payload (resolve-tenant / entity-exists). */
-export async function signResolverQuery(payload: string, explicitSecret?: string): Promise<string> {
-  return hmacHex(DOMAIN_RESOLVER, payload, explicitSecret)
+/**
+ * Sign a resolver query proof BOUND TO AN ORIGIN (resolve-tenant /
+ * entity-exists / resolve-host).
+ *
+ * PR #103 review round 2 (Codex): a proof signed for the slug alone is a
+ * bearer token — in a self-hosted deployment reachable under an attacker-
+ * controlled or IP `Host`, the proxy's internal fetch (built from
+ * req.nextUrl.origin) would DELIVER that proof to a foreign server, which
+ * could then replay it against the real app to enumerate tenants. Binding
+ * the HMAC to the trusted origin makes a harvested proof unusable anywhere
+ * except the deployment it was minted for.
+ */
+export async function signResolverQueryForOrigin(
+  origin: string,
+  query: string,
+  explicitSecret?: string
+): Promise<string> {
+  return hmacHex(
+    DOMAIN_RESOLVER,
+    `${origin}${RESOLVER_PAYLOAD_SEPARATOR}${query}`,
+    explicitSecret
+  )
 }
 
 /**
- * Verify a resolver query proof. The proxy is the only legitimate
- * consumer of the public resolver endpoints; direct visitor calls
- * (tenant/orgId enumeration, V-4) are rejected with this check.
+ * Verify an origin-bound resolver query proof. True ONLY when the proof
+ * was signed for THIS exact origin AND this exact query payload.
  */
-export async function verifyResolverQuery(
-  payload: string,
+export async function verifyResolverQueryForOrigin(
+  expectedOrigin: string,
+  query: string,
   proof: string | null | undefined,
   explicitSecret?: string
 ): Promise<boolean> {
   // Fail-closed: production without a configured secret trusts NOTHING.
   if (!tenantProofSecret(explicitSecret)) return false
   if (!proof) return false
-  const expected = await signResolverQuery(payload, explicitSecret)
+  if (!expectedOrigin) return false
+  const expected = await signResolverQueryForOrigin(expectedOrigin, query, explicitSecret)
   return timingSafeEqual(expected, proof)
 }
