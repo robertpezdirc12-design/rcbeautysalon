@@ -12,6 +12,8 @@ interface SendMarketingCampaignEmailParams {
   /** Lastniško besedilo z že izračunanimi vstavitvami. */
   body: string
   businessName: string
+  /** #95 (AD-03): odjavna povezava (podpisan žeton) — noga e-pošte. */
+  unsubscribeUrl?: string | null
 }
 
 // #95 — pošiljanje ene kampanjske e-pošte. Brez RESEND_API_KEY vrne
@@ -22,9 +24,12 @@ export async function sendMarketingCampaignEmail({
   subject,
   body,
   businessName,
+  unsubscribeUrl = null,
 }: SendMarketingCampaignEmailParams) {
   try {
-    const html = await render(MarketingCampaignTemplate({ body, businessName }))
+    const html = await render(
+      MarketingCampaignTemplate({ body, businessName, unsubscribeUrl })
+    )
 
     const { data, error } = await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL!,

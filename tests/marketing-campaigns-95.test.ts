@@ -89,10 +89,11 @@ describe("#95 pickNoShowTargets + interpolate (čista logika)", () => {
     expect(out).toBe("Pozdravljeni Ana, 60 dni v Luna. 3. 11. 2026 → https://b")
   })
 
-  it("privzeta besedila vsebujejo odjavno opombo (poštenost)", () => {
+  it("privzeta besedila NE obljubljajo odjave 'z odgovorom' — noga nosi povezavo (AD-03)", () => {
     for (const kind of ["REACTIVATION", "NO_SHOW"] as const) {
-      const copy = defaultCampaignCopy(kind, "Luna", "https://b")
-      expect(copy.body).toContain("ne želite več prejemati")
+      const copy = defaultCampaignCopy(kind, "Luna")
+      expect(copy.body).not.toContain("ne želite več prejemati")
+      expect(copy.body).not.toContain("odgovorite na to e-pošto")
       expect(PLACEHOLDERS.length).toBeGreaterThan(0)
     }
   })

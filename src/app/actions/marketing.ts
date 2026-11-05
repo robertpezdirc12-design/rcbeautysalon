@@ -24,28 +24,35 @@ export interface MarketingCampaignView {
   body: string
   lastRunAt: string | null
   sentCount: number
+  /** #95: zgodovina — zadnjih 5 poslanih sporočil te kampanje. */
+  recentSends: { email: string; sentAt: string }[]
 }
 
 export async function getMarketingOverview(): Promise<{
   campaigns: MarketingCampaignView[]
   businessName: string
   bookingLink: string
+  /** #95 (AD-03): koliko naslovov je odjavljenih od tega pošiljatelja. */
+  unsubscribedCount: number
 }> {
   const { org } = await requirePermissionOrg("customers.manage")
 
   const rows = await prisma.marketingCampaign.findMany({
     where: { organizationId: org.id },
-    include: { _count: { select: { sends: true } } },
+    include: {
+      _count: { select: { sends: true } },
+      // #95: zgodovina pošiljk — zadnjih 5 na kampanjo (novejše naprej).
+      sends: { orderBy: { sentAt: "desc" }, take: 5, select: { email: true, sentAt: true } },
+    },
   })
   const byKind = new Map(rows.map((r) => [r.kind, r]))
+  const unsubscribedCount = await prisma.marketingUnsubscribe.count({
+    where: { organizationId: org.id },
+  })
 
   const campaigns: MarketingCampaignView[] = CAMPAIGN_KINDS.map((kind) => {
     const row = byKind.get(kind)
-    const defaults = defaultCampaignCopy(
-      kind,
-      org.name,
-      `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/s/${org.slug}/booking`
-    )
+    const defaults = defaultCampaignCopy(kind, org.name)
     return {
       kind,
       enabled: row?.enabled ?? false,
@@ -54,6 +61,10 @@ export async function getMarketingOverview(): Promise<{
       body: row?.body ?? defaults.body,
       lastRunAt: row?.lastRunAt?.toISOString() ?? null,
       sentCount: row?._count.sends ?? 0,
+      recentSends: (row?.sends ?? []).map((s) => ({
+        email: s.email,
+        sentAt: s.sentAt.toISOString(),
+      })),
     }
   })
 
@@ -61,6 +72,7 @@ export async function getMarketingOverview(): Promise<{
     campaigns,
     businessName: org.name,
     bookingLink: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/s/${org.slug}/booking`,
+    unsubscribedCount,
   }
 }
 
@@ -85,11 +97,7 @@ export async function updateMarketingCampaign(
       365
     )
 
-    const defaults = defaultCampaignCopy(
-      kind,
-      org.name,
-      `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/s/${org.slug}/booking`
-    )
+    const defaults = defaultCampaignCopy(kind, org.name)
 
     await prisma.marketingCampaign.upsert({
       where: { organizationId_kind: { organizationId: org.id, kind } },

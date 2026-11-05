@@ -15,6 +15,8 @@ import { interpolate } from "@/lib/marketing/campaigns"
 
 // #95 — urejevalnik avtomatskih kampanj. Stikalo + prag + besedilo z
 // vstavitvami; živi predogled zapolnjenih vstavitev pod telesom.
+// AD-03: vsaka e-pošta nosi dejansko odjavno povezavo; odjavljeni
+// prejemniki izpadajo pred pošiljanjem (števec v pregledu).
 export interface MarketingCampaignView {
   kind: CampaignKind
   enabled: boolean
@@ -23,6 +25,8 @@ export interface MarketingCampaignView {
   body: string
   lastRunAt: string | null
   sentCount: number
+  /** Zgodovina — zadnjih 5 poslanih sporočil te kampanje. */
+  recentSends: { email: string; sentAt: string }[]
 }
 
 const KIND_LABELS: Record<CampaignKind, { title: string; desc: string }> = {
@@ -39,9 +43,12 @@ const KIND_LABELS: Record<CampaignKind, { title: string; desc: string }> = {
 export function MarketingClient({
   campaigns,
   bookingLink,
+  unsubscribedCount,
 }: {
   campaigns: MarketingCampaignView[]
   bookingLink: string
+  /** #95 (AD-03): naslovi, ki so se odjavili od tega pošiljatelja. */
+  unsubscribedCount: number
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -163,6 +170,30 @@ export function MarketingClient({
                   {pending ? "Shranjujem …" : "Shrani kampanjo"}
                 </Button>
               </div>
+
+              {c.recentSends.length > 0 && (
+                <div className="rounded-md border p-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Zadnja pošiljanja
+                  </p>
+                  <ul className="mt-2 space-y-1 text-xs">
+                    {c.recentSends.map((s) => (
+                      <li key={`${s.email}-${s.sentAt}`} className="flex justify-between gap-3">
+                        <span className="text-foreground truncate">{s.email}</span>
+                        <span className="text-muted-foreground shrink-0">
+                          {new Date(s.sentAt).toLocaleString("sl-SI", {
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </CardContent>
           </Card>
         )

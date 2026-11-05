@@ -6,6 +6,7 @@ import {
   Heading,
   Html,
   Img,
+  Link,
   Preview,
   Section,
   Text,
@@ -15,14 +16,20 @@ interface MarketingCampaignTemplateProps {
   /** Lastniško besedilo z že izračunanimi vstavitvami (interpolate). */
   body: string
   businessName: string
+  /**
+   * #95 (AD-03): funkcionalna odjavna povezava (podpisan žeton).
+   * Brez nje noga NE obljublja odjave "z odgovorom" — pošten izpis.
+   */
+  unsubscribeUrl?: string | null
 }
 
 // #95 — avtomatska kampanja (reaktivacija / no-show follow-up).
-// Telo je lastniško besedilo (plain text z prelomi vrstic); platforma
-// NE dodaja lažnih povezav — odjava je opisana v telesu (odgovor).
+// Telo je lastniško besedilo (plain text z prelomi vrstic); noga nosi
+// DEJANSKO odjavno povezavo (zahteva AD-03), ne opisa brez učinka.
 export function MarketingCampaignTemplate({
   body,
   businessName,
+  unsubscribeUrl = null,
 }: MarketingCampaignTemplateProps) {
   const paragraphs = body.split(/\n{2,}/).filter((p) => p.trim().length > 0)
 
@@ -45,8 +52,16 @@ export function MarketingCampaignTemplate({
           </Section>
           <Section style={footer}>
             <Text style={footerNote}>
-              To sporočilo ste prejeli kot stranka {businessName}. Če ga ne
-              želite več prejemati, odgovorite na to e-pošto.
+              To sporočilo ste prejeli kot stranka {businessName}.
+              {unsubscribeUrl ? (
+                <>
+                  {" "}
+                  <Link href={unsubscribeUrl} style={footerLink}>
+                    Odjava od teh sporočil
+                  </Link>
+                  .
+                </>
+              ) : null}
             </Text>
           </Section>
         </Container>
@@ -112,4 +127,9 @@ const footerNote = {
   fontSize: "11px",
   lineHeight: "1.5",
   margin: "0",
+}
+
+const footerLink = {
+  color: "#c9a0aa",
+  textDecoration: "underline",
 }

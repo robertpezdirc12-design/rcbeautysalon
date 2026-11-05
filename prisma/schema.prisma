@@ -105,6 +105,9 @@ model Organization {
   // rewrites or deletes history — it appends a NEW version entry.
   configChangeLogs ConfigChangeLog[]
 
+  // #95 (AD-03): funkcionalne odjave od marketinške e-pošte tega najemnika.
+  marketingUnsubscribes MarketingUnsubscribe[]
+
   // Publication lifecycle (EPIC #3 E3-1): DRAFT sites are private (visible to
   // the owner as a preview, maintenance page for everyone else). Default
   // PUBLISHED preserves the pre-E3-1 behavior for existing tenants verbatim;
@@ -797,6 +800,22 @@ model CampaignSend {
 
   @@unique([campaignId, email, triggerKey])
   @@index([campaignId, sentAt])
+}
+
+/// #95 (AD-03): funkcionalna odjava od marketinške e-pošte — per
+/// pošiljatelj (org) in e-poštni naslov. Nastane ŠELE ob potrditvi
+/// odjave prek podpisanega žetona (HMAC, brez ugibanja); dnevni job
+/// kampanj te vrstice upošteva pri vsakem teku — odjavljeni prejemnik
+/// ne dobi nobene nove kampanjne e-pošte.
+model MarketingUnsubscribe {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  unsubscribedAt DateTime     @default(now())
+
+  @@unique([organizationId, email])
+  @@index([email])
 }
 
 model Appointment {

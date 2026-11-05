@@ -13,7 +13,7 @@ import { MarketingClient } from "@/components/dashboard/marketing-client"
 
 export default async function MarketingPage() {
   await requirePagePermission("customers.manage")
-  const [{ t }, overview] = await Promise.all([getServerI18n(), getMarketingOverview()])
+  const [, overview] = await Promise.all([getServerI18n(), getMarketingOverview()])
 
   return (
     <div className="space-y-8">
@@ -25,11 +25,20 @@ export default async function MarketingPage() {
           </h1>
           <p className="text-muted-foreground">
             Avtomatska e-pošta vašim strankam — reaktivacija in sledenje po ne-prihodu.
+            Vsako sporočilo nosi povezavo za odjavo (funkcionalna, AD-03).
           </p>
         </div>
+        <p className="text-muted-foreground text-sm shrink-0">
+          Odjavljenih naslovov:{" "}
+          <span className="text-foreground font-medium">{overview.unsubscribedCount}</span>
+        </p>
       </div>
 
-      <MarketingClient campaigns={overview.campaigns} bookingLink={overview.bookingLink} />
+      <MarketingClient
+        campaigns={overview.campaigns}
+        bookingLink={overview.bookingLink}
+        unsubscribedCount={overview.unsubscribedCount}
+      />
     </div>
   )
 }

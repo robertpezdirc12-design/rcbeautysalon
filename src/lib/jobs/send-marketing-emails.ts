@@ -16,6 +16,7 @@ import {
   pickReactivationTargets,
   type CampaignTarget,
 } from "@/lib/marketing/campaigns"
+import { unsubscribePath } from "@/lib/marketing/unsubscribe"
 import { sendMarketingCampaignEmail } from "@/lib/email/marketing-campaign"
 import type { JobRunResult } from "./job-run"
 import { toDateKey, dayBounds, safeTimezone } from "@/lib/booking-time"
@@ -33,6 +34,7 @@ export async function sendMarketingEmails(now: Date = new Date()): Promise<JobRu
 
   let sent = 0
   let failed = 0
+  let skippedUnsubscribed = 0
 
   for (const campaign of campaigns) {
     const org = campaign.organization
@@ -140,6 +142,22 @@ export async function sendMarketingEmails(now: Date = new Date()): Promise<JobRu
       targets = pickNoShowTargets(rows, { today: now, business, bookingLink })
     }
 
+    // #95 (AD-03): funkcionalna odjava — odjavljeni prejemniki izpadajo
+    // PRED pošiljanjem (per pošiljatelj, ne glede na kampanjo).
+    if (targets.length > 0) {
+      const unsubscribedRows = await prisma.marketingUnsubscribe.findMany({
+        where: {
+          organizationId: org.id,
+          email: { in: targets.map((t) => t.email.toLowerCase()) },
+        },
+        select: { email: true },
+      })
+      const unsubscribed = new Set(unsubscribedRows.map((r) => r.email))
+      const before = targets.length
+      targets = targets.filter((t) => !unsubscribed.has(t.email.toLowerCase()))
+      skippedUnsubscribed += before - targets.length
+    }
+
     // Dedup: preveri, kateri triggerKey-i so za to kampanjo že poslani.
     const alreadySent = await prisma.campaignSend.findMany({
       where: { campaignId: campaign.id, email: { in: targets.map((t) => t.email) } },
@@ -156,6 +174,9 @@ export async function sendMarketingEmails(now: Date = new Date()): Promise<JobRu
         subject,
         body,
         businessName: business,
+        // AD-03: vsaka e-pošta nosi DEJANSKO odjavno povezavo (žeton per
+        // prejemnik); brez tajne je null in noga ne obljublja ničesar.
+        unsubscribeUrl: unsubscribePath(org.id, target.email),
       })
       if (result.success) {
         // CampaignSend ŠELE ob uspehu — neuspešno pošiljanje se poskusi
@@ -188,6 +209,6 @@ export async function sendMarketingEmails(now: Date = new Date()): Promise<JobRu
   return {
     sent,
     failed,
-    detail: { campaigns: campaigns.length },
+    detail: { campaigns: campaigns.length, skippedUnsubscribed },
   }
 }

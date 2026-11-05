@@ -126,21 +126,22 @@ export function interpolate(
     .replaceAll("{bookingLink}", vars.bookingLink)
 }
 
-/** Privzeto pošteno besedilo (SL) — lastnik ga lahko preglasi. */
+/** Privzeto pošteno besedilo (SL) — lastnik ga lahko preglasi.
+ * #95 (AD-03): noga vsake e-pošte nosi DEJANSKO odjavno povezavo
+ * (doda jo predloga), zato besedilo ne obljublja odjave "z odgovorom".
+ * Vstavitve ({name}, {bookingLink}, …) se vstavijo ob pošiljanju. */
 export function defaultCampaignCopy(
   kind: CampaignKind,
-  business: string,
-  bookingLink: string,
-  thresholdDays = 60
+  business: string
 ): { subject: string; body: string } {
   if (kind === "REACTIVATION") {
     return {
       subject: `Že nekaj časa vas ni bilo — ${business}`,
-      body: `Pozdravljeni {name},\n\nže {days} dni vas nismo videli. Vaša ponudba se je morda spremenila — si oglejte in rezervirajte nov termin:\n{bookingLink}\n\nSe vidimo kmalu,\nekipo ${business}\n\n— Če teh sporočil ne želite več prejemati, odgovorite na to e-pošto.`,
+      body: `Pozdravljeni {name},\n\nže {days} dni vas nismo videli. Vaša ponudba se je morda spremenila — si oglejte in rezervirajte nov termin:\n{bookingLink}\n\nSe vidimo kmalu,\nekipo ${business}`,
     }
   }
   return {
     subject: `Vidimo se naslednjič — ${business}`,
-    body: `Pozdravljeni {name},\n\nna žalost ste {date} zamudili obisk. Če si želite nov termin, ga rezervirajte, ko vam ustreza:\n{bookingLink}\n\nLepo pozdravljeni,\nekipo ${business}\n\n— Če teh sporočil ne želite več prejemati, odgovorite na to e-pošto.`,
+    body: `Pozdravljeni {name},\n\nna žalost ste {date} zamudili obisk. Če si želite nov termin, ga rezervirajte, ko vam ustreza:\n{bookingLink}\n\nLepo pozdravljeni,\nekipo ${business}`,
   }
 }
