@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma"
 import { PublicNavbar } from "@/components/layouts/public-navbar"
 import Footer from "@/components/layouts/footer"
 import { getPublicOrg, getTrustedOrgSlug } from "@/lib/tenant"
+import { resolveEffectiveProfile } from "@/lib/profiles/resolve"
+import { isCapabilityEnabled } from "@/lib/profiles/registry"
 import { resolveAvailableSections } from "@/lib/public-site"
 import { resolvePublicCta } from "@/lib/public-cta"
 import { resolvePublishGate } from "@/lib/publish-gate"
@@ -138,6 +140,12 @@ export default async function PublicLayout({
 
   const cta = resolvePublicCta(org?.vertical, await getLocaleFromCookies(), org?.profileOverrides)
 
+  // #98 (AD-02): povezava Živa vrsta — samo ko najemnikov profil modul
+  // vklopi (capability + overrides); izklop = povezava ne obstaja (§5.2).
+  const walkInEnabled = org
+    ? isCapabilityEnabled(resolveEffectiveProfile(org), "walkIn")
+    : false
+
   // P2 #67: owner affordance on THEIR OWN public site — resolved
   // server-side, rendered only for the owner of this organisation
   // (never embedded for customers/anonymous — conditional render only).
@@ -209,6 +217,7 @@ gtag('config', '${analyticsId}');`}
           availableSections={
             org ? await availableSectionsFor(org) : undefined
           }
+          walkInEnabled={walkInEnabled}
         />
         <CartOrgScope slug={org?.slug ?? null} />
         <main id="main" tabIndex={-1}>{children}</main>

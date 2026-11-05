@@ -38,9 +38,14 @@ interface PublicNavbarProps {
    * section must not be linked (dead anchor). Absent → assumed available.
    */
   availableSections?: { services?: boolean; shop?: boolean; team?: boolean; reviews?: boolean }
+  /**
+   * #98 (AD-02): walk-in vrsta — povezava se pokaže samo ko je modul
+   * vklopljen (capability walkIn); izklopljen = povezava ne obstaja.
+   */
+  walkInEnabled?: boolean
 }
 
-export function PublicNavbar({ org, cta, availableSections }: PublicNavbarProps) {
+export function PublicNavbar({ org, cta, availableSections, walkInEnabled }: PublicNavbarProps) {
   const pathname = usePathname()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const { data: session, status } = useSession()
@@ -69,6 +74,9 @@ export function PublicNavbar({ org, cta, availableSections }: PublicNavbarProps)
       : []),
     ...(showShop
       ? [{ href: `${homeHref}#shop`, sectionId: "shop", label: t.public.navShop }]
+      : []),
+    ...(walkInEnabled
+      ? [{ href: orgPath(org.slug, "/vrsta"), label: t.public.navWalkIn }]
       : []),
     { href: `${homeHref}#contact`, sectionId: "contact", label: t.public.navContact },
   ]

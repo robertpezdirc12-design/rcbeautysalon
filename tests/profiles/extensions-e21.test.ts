@@ -104,6 +104,7 @@ describe("E2-1 — capability extension registry", () => {
       workflows: 0,
       documents: 0,
       delivery: 0,
+      walkIn: 0, // #98: 15. capability (AD-02)
     } satisfies Record<keyof CapabilityMatrix, number>)
     expect([...CAPABILITY_KEYS].sort()).toEqual(matrixKeys.sort())
   })

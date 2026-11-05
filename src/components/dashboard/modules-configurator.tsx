@@ -55,6 +55,7 @@ const CAPABILITY_LABELS: Record<string, { sl: string; en: string }> = {
   workflows: { sl: "Poslovni procesi", en: "Workflows" },
   documents: { sl: "Dokumenti (ponudbe, računi)", en: "Documents (quotes, invoices)" },
   delivery: { sl: "Dostava", en: "Delivery" },
+  walkIn: { sl: "Walk-in vrsta (brez računa)", en: "Walk-in queue (no account)" },
 }
 
 export function ModulesConfigurator() {

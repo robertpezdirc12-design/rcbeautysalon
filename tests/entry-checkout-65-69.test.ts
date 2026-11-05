@@ -90,7 +90,8 @@ describe("#66 — platform landing + wizard deep-link", () => {
     // it must be GONE so the platform root reaches the landing page.
     expect(line).not.toContain("^\\/$|")
     // The alternatives still cover the content paths (tenant dedupe).
-    expect(line).toContain("(services|staff|shop|booking|cart|inquiry)")
+    // #98: vrsta (walk-in) se pridruži — ista vrata, isti protokol.
+    expect(line).toContain("(services|staff|shop|booking|cart|inquiry|vrsta)")
   })
 
   it("home page: platform branch (landing for anonymous, own-site redirect for staff)", () => {

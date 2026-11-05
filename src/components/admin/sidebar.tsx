@@ -39,7 +39,7 @@ import { usePermissions } from "@/components/admin/permissions-provider"
 import type { PermissionKey } from "@/lib/permissions/roles"
 
 interface NavItem {
-  nameKey: "dashboard" | "analytics" | "appointments" | "waitlist" | "customers" | "marketing" | "services" | "products" | "packages" | "shopOrders" | "workOrders" | "documents" | "forms" | "records" | "projects" | "staff" | "roles" | "settings"
+  nameKey: "dashboard" | "analytics" | "appointments" | "waitlist" | "walkIn" | "customers" | "marketing" | "services" | "products" | "packages" | "shopOrders" | "workOrders" | "documents" | "forms" | "records" | "projects" | "staff" | "roles" | "settings"
   href: string
   icon: React.ComponentType<{ size?: number; className?: string }>
   /** Capability that must not be "disabled" for this item to render. */
@@ -62,6 +62,8 @@ const navigation: NavItem[] = [
   { nameKey: "appointments", href: "/dashboard/appointments", icon: CalendarIcon, capability: "appointments", termKey: "appointmentPlural", permission: "appointments.view" },
   // #90: čakalna lista — isti zmožnost/dovoljenje kot termini
   { nameKey: "waitlist", href: "/dashboard/waitlist", icon: ClockIcon, capability: "appointments", permission: "appointments.view" },
+  // #98 (AD-02): walk-in vrsta — samostojen izbirni modul (vse dejavnosti)
+  { nameKey: "walkIn", href: "/dashboard/walk-in", icon: UsersIcon, capability: "walkIn", permission: "appointments.view" },
   { nameKey: "customers", href: "/dashboard/users", icon: UsersIcon, capability: "customers", permission: "customers.manage" },
   // #95: marketing avtomatika — isti zmožnost/dovoljenje kot stranke
   { nameKey: "marketing", href: "/dashboard/marketing", icon: EnvelopeIcon, capability: "customers", permission: "customers.manage" },

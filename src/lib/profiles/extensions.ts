@@ -63,6 +63,7 @@ export const CAPABILITY_KEYS = [
   "workflows",
   "documents",
   "delivery",
+  "walkIn",
 ] as const satisfies readonly CapabilityKey[]
 
 const extensionSchema = z.object({

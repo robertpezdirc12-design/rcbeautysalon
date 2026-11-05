@@ -28,7 +28,7 @@ import { getPlatformHostsFromEnv } from "@/lib/domains/platform-hosts"
 // /s/<slug>… Eksplicitno, odstranljivo, testno pokrito. /s/<slug>
 // in custom domene ostanejo nespremenjene.
 // ------------------------------------------------------------
-const BARE_PUBLIC_PATH = /^\/(services|staff|shop|booking|cart|inquiry)(\/|$)/
+const BARE_PUBLIC_PATH = /^\/(services|staff|shop|booking|cart|inquiry|vrsta)(\/|$)/
 
 // ------------------------------------------------------------
 // P0 #24 / P1 #27 (re-audit 2026-11): Next.js 16 streaming pomeni,

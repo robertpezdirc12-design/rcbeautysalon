@@ -40,6 +40,9 @@ const capabilitySchema = z.object({
   workflows: capabilityState,
   documents: capabilityState,
   delivery: capabilityState,
+  // #98 (AD-02): walk-in vrsta — samostojen izbirni modul za VSE
+  // dejavnosti (prijava brez računa, živa vrsta, javni status).
+  walkIn: capabilityState,
 })
 
 const termSchema = z.object({ sl: z.string().min(1), en: z.string().min(1) })
@@ -145,6 +148,7 @@ function salonCapabilities(): CapabilityMatrix {
     workflows: "disabled", // appointment lifecycle is native
     documents: "disabled",
     delivery: "disabled",
+    walkIn: "optional", // #98: modul je na voljo vsaki dejavnosti (AD-02)
   }
 }
 
@@ -439,6 +443,7 @@ const PROFILE_LIST: ActivityProfile[] = [
       workflows: "optional",
       documents: "disabled",
       delivery: "optional",
+    walkIn: "optional", // #98: modul je na voljo vsaki dejavnosti (AD-02)
     },
     terminology: terms({
       orderSingular: "Naročilo",
@@ -483,6 +488,7 @@ const PROFILE_LIST: ActivityProfile[] = [
       workflows: "required",
       documents: "optional",
       delivery: "optional",
+    walkIn: "optional", // #98: modul je na voljo vsaki dejavnosti (AD-02)
     },
     terminology: terms({
       businessSingular: "atelje",
@@ -571,6 +577,7 @@ const PROFILE_LIST: ActivityProfile[] = [
       workflows: "required",
       documents: "optional",
       delivery: "disabled",
+    walkIn: "optional", // #98: modul je na voljo vsaki dejavnosti (AD-02)
     },
     terminology: terms({
       businessSingular: "servis",
@@ -645,6 +652,7 @@ const PROFILE_LIST: ActivityProfile[] = [
       workflows: "disabled",
       documents: "optional",
       delivery: "optional",
+    walkIn: "optional", // #98: modul je na voljo vsaki dejavnosti (AD-02)
     },
     terminology: terms({
       businessSingular: "čebelarstvo",

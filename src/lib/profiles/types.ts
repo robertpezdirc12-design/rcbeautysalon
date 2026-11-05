@@ -37,6 +37,11 @@ export interface CapabilityMatrix {
   documents: CapabilityState
   /** Delivery / shipping (Phase 4+). */
   delivery: CapabilityState
+  /**
+   * #98 (AD-02): walk-in vrsta — samostojen izbirni modul za VSE
+   * dejavnosti (prijava brez računa, živa vrsta, javni status).
+   */
+  walkIn: CapabilityState
 }
 
 export type CapabilityKey = keyof CapabilityMatrix

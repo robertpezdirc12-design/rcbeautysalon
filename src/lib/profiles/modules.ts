@@ -33,6 +33,7 @@ const MODULE_LABELS: Record<string, { sl: string; en: string }> = {
   workflows: { sl: "Poslovni procesi", en: "Business workflows" },
   documents: { sl: "Dokumenti (ponudbe, računi)", en: "Documents (quotes, invoices)" },
   delivery: { sl: "Dostava", en: "Delivery" },
+  walkIn: { sl: "Walk-in vrsta (brez računa)", en: "Walk-in queue (no account)" },
 }
 
 /** Fixed order for the wizard's "what you get" list. */
@@ -50,6 +51,7 @@ const MODULE_ORDER: CapabilityKey[] = [
   "workflows",
   "documents",
   "delivery",
+  "walkIn",
 ]
 
 /**

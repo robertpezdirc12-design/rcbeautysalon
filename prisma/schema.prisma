@@ -108,6 +108,9 @@ model Organization {
   // #95 (AD-03): funkcionalne odjave od marketinške e-pošte tega najemnika.
   marketingUnsubscribes MarketingUnsubscribe[]
 
+  // #98 (AD-02): walk-in vrsta — živa vrsta brez računa.
+  walkInEntries WalkInEntry[]
+
   // Publication lifecycle (EPIC #3 E3-1): DRAFT sites are private (visible to
   // the owner as a preview, maintenance page for everyone else). Default
   // PUBLISHED preserves the pre-E3-1 behavior for existing tenants verbatim;
@@ -527,6 +530,8 @@ model Service {
   // #92: izbirni dodatki storitve (npr. +ulje za gume) — cena in
   // trajanje se prištejeta rezervaciji (strežniški izračun).
   addons              ServiceAddon[]
+  // #98: prijave v walk-in vrsto za to storitev (neobvezno).
+  walkInEntries       WalkInEntry[]
 
   @@unique([organizationId, slug])
   @@index([organizationId])
@@ -805,6 +810,31 @@ model CampaignSend {
 
   @@unique([campaignId, email, triggerKey])
   @@index([campaignId, sentAt])
+}
+
+/// #98 (AD-02): walk-in vrsta — prijava brez računa za dejavnosti brez
+/// terminov (vulkanizer, avtoservis, pekara, …) kot SAMOSTOJEN izbirni
+/// modul za VSE dejavnosti (capability walkIn, "optional" v vseh
+/// profilih). Pozicija se IZPELJE iz vrstnega reda prijav (createdAt),
+/// ne shranjuje — brez dirk. Koda vstopnice omogoči javno preverjanje
+/// "ste X. na vrsti" brez PII.
+model WalkInEntry {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  phone          String?
+  serviceId      String?
+  service        Service?     @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  // WAITING | SERVING | SERVED | LEFT — polstring statusi (isti vzorec
+  // kot FormSubmission/WorkOrder; prehodi preverjena čista jedra).
+  status         String       @default("WAITING")
+  ticketCode     String       @unique
+  servedAt       DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId, status, createdAt])
 }
 
 /// #95 (AD-03): funkcionalna odjava od marketinške e-pošte — per
