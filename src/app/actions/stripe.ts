@@ -9,7 +9,11 @@ import { getServicesForBooking, getSalonConfig, getOrgTimezone } from "./appoint
 // #79: polog kot pravilo — isti helper kot booking in webhook.
 import { resolveDepositForServices } from "@/lib/booking/deposit"
 import { acquireBookingLocks, bookingLockKeys } from "@/lib/booking/locking"
-import { validateIntakeAnswers } from "@/lib/forms/intake"
+import {
+  validateIntakeAnswers,
+  generateIntakeToken,
+  pickIntakeService,
+} from "@/lib/forms/intake"
 import type { ProfileFieldDef } from "@/lib/profiles/types"
 import { Prisma } from "@prisma/client"
 import { instantFromParts, formatSalonTime } from "@/lib/booking-time"
@@ -374,7 +378,7 @@ export async function verifyAndCreateAppointment(sessionId: string) {
     // Get services for duration calculation (scoped to this organization)
     const services = await prisma.service.findMany({
       where: { id: { in: serviceIds }, organizationId: org.id },
-      select: { id: true, name: true, duration: true, price: true },
+      select: { id: true, name: true, duration: true, price: true, intakeFormDefinitionId: true },
     })
 
     if (services.length !== new Set(serviceIds).size) {
@@ -514,7 +518,7 @@ export async function verifyAndCreateAppointment(sessionId: string) {
     // transakciji z avtoritativnim overlap checkom (zgornji count je
     // hitra pot; dirko z webhookom/drugo instanco rešita ključavnica
     // in unique constraint na stripePaymentId).
-    let appointment: { id: string } | null
+    let appointment: { id: string; intakeToken: string | null } | null
     try {
       appointment = await prisma.$transaction(async (tx) => {
         await acquireBookingLocks(tx, bookingLockKeys(org.id, staffId, resourceRecordId))
@@ -538,6 +542,11 @@ export async function verifyAndCreateAppointment(sessionId: string) {
             staffId,
             resourceRecordId,
             customerId,
+            // #96 v2: žeton za obrazec po povezavi (isti princip kot
+            // neposredna rezervacija) — samo ko storitev ima obrazec.
+            intakeToken: pickIntakeService(services)?.intakeFormDefinitionId
+              ? generateIntakeToken()
+              : null,
             guestName: !customerId ? guestName : null,
             guestEmail: !customerId ? guestEmail : null,
             guestPhone: !customerId ? guestPhone : null,
@@ -566,13 +575,14 @@ export async function verifyAndCreateAppointment(sessionId: string) {
       ) {
         const existing = await prisma.appointment.findFirst({
           where: { stripePaymentId: paymentIntentId },
-          select: { id: true },
+          select: { id: true, intakeToken: true },
         })
         if (existing) {
           return {
             success: true,
             appointmentId: existing.id,
             alreadyExists: true,
+            intakeToken: existing.intakeToken,
             customerEmail: checkoutSession.customer_email,
           }
         }
@@ -636,6 +646,9 @@ export async function verifyAndCreateAppointment(sessionId: string) {
       success: true,
       appointmentId: appointment.id,
       alreadyExists: false,
+      // #96 v2: povezava do obrazca na uspešni strani (žeton obstaja samo
+      // ko storitev ima sprejemni obrazec).
+      intakeToken: appointment.intakeToken,
       customerEmail: customerEmail,
     }
   } catch (error) {

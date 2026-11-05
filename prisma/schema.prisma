@@ -840,6 +840,12 @@ model Appointment {
   reminderSentAt     DateTime?
   confirmationSentAt DateTime?
 
+  // #96: enkraten zeton za izpolnjevanje sprejemnega obrazca po
+  // povezavi (po rezervaciji). Nakljucni hex z dovolj entropije —
+  // javna pot /intake/[token] je pooblastilo sama po sebi (G2),
+  // zato zeton ni cuid in ni izpeljan iz drugih id.
+  intakeToken String? @unique
+
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
@@ -1088,6 +1094,10 @@ model FormSubmission {
   @@index([formDefinitionId])
   @@index([customerId])
   @@index([contextType, contextId])
+  // #96: ena oddaja istega obrazca za isti kontekst (termin/sezja) —
+  // zaščita pred dirko pri vzporedni oddaji prek zetona. Postgres unique
+  // dopušča poljubno mnogo NULL (obstojeci obrazci brez konteksta ostanejo).
+  @@unique([formDefinitionId, contextType, contextId])
 }
 
 /// Configurable business process (e.g. seamstress production pipeline)

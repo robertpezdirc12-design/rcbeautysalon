@@ -88,6 +88,21 @@ async function BookingSuccessContent({
           </p>
         </div>
 
+        {result.intakeToken && (
+          <div className="rounded-lg border p-4 text-sm">
+            <p className="font-medium">Sprejemni obrazec</p>
+            <p className="text-muted-foreground mt-1">
+              Če še niste izpolnili sprejemnega obrazca, ga lahko oddate prek
+              povezave.
+            </p>
+            <Button asChild variant="outline" size="sm" className="mt-3">
+              <Link href={`/intake/${result.intakeToken}`}>
+                Izpolni sprejemni obrazec
+              </Link>
+            </Button>
+          </div>
+        )}
+
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
           <Button asChild size="lg">
             <Link href={orgPath(orgSlug, "/my-appointments")}>
@@ -180,6 +195,23 @@ export default async function BookingSuccessPage({
                   </p>
                 )}
               </div>
+
+              {/* #96 v2: povezava do sprejemnega obrazca (izpolnjevanje
+                  po rezervaciji) — samo ko storitev ima obrazec. */}
+              {appointment.intakeToken && (
+                <div className="rounded-lg border p-4 text-sm">
+                  <p className="font-medium">Sprejemni obrazec</p>
+                  <p className="text-muted-foreground mt-1">
+                    Če še niste izpolnili sprejemnega obrazca, ga lahko oddate
+                    prek povezave.
+                  </p>
+                  <Button asChild variant="outline" size="sm" className="mt-3">
+                    <Link href={`/intake/${appointment.intakeToken}`}>
+                      Izpolni sprejemni obrazec
+                    </Link>
+                  </Button>
+                </div>
+              )}
 
               <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
                 <Button asChild size="lg">

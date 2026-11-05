@@ -25,7 +25,13 @@ import {
 import { sendAppointmentConfirmationEmail } from "@/lib/email/appointment-confirmation"
 import { resolveAddonSelection, computeAddonTotals, type AddonLike } from "@/lib/booking/addons"
 import { acquireBookingLocks, bookingLockKeys } from "@/lib/booking/locking"
-import { validateIntakeAnswers } from "@/lib/forms/intake"
+import {
+  validateIntakeAnswers,
+  generateIntakeToken,
+  isPlausibleIntakeToken,
+  pickIntakeService,
+  intakeLinkAllowed,
+} from "@/lib/forms/intake"
 import type { ProfileFieldDef } from "@/lib/profiles/types"
 import { Prisma } from "@prisma/client"
 import { AppointmentStatus } from "@/lib/types"
@@ -925,6 +931,12 @@ export async function createAppointment(
           staffId: data.staffId,
           customerId,
           resourceRecordId,
+          // #96 v2: žeton za izpolnjevanje obrazca po povezavi — samo
+          // ko storitev ima povezan sprejemni obrazec. Gost ga lahko
+          // (dopolni) tudi po rezervaciji prek /intake/[token].
+          intakeToken: pickIntakeService(services)?.intakeFormDefinitionId
+            ? generateIntakeToken()
+            : null,
           // Guest info only used for non-authenticated bookings
           guestName: !customerId ? data.guestName : null,
           guestEmail: !customerId ? data.guestEmail : null,
@@ -1391,7 +1403,14 @@ export const getAppointmentById = cache(async (id: string) => {
       services: {
         include: {
           service: {
-            select: { id: true, name: true, description: true, duration: true },
+            select: {
+              id: true,
+              name: true,
+              description: true,
+              duration: true,
+              // #96 v2: ali storitev zahteva sprejemni obrazec (povezava)
+              intakeFormDefinitionId: true,
+            },
           },
         },
       },
@@ -1918,4 +1937,189 @@ export async function recordAppointmentTip(
     console.error("Error recording appointment tip:", error)
     return { success: false, error: "Napaka pri zapisu napitnine" }
   }
+}
+
+// ------------------------------------------------------------
+// #96 v2 — sprejemni obrazec po povezavi (po rezervaciji)
+// Gost rezervira brez/ob izpolnjenem obrazcu; povezava /intake/[token]
+// je pooblastilo sama po sebi (G2): žeton je naključen 192-bit hex,
+// org/status se preverita ob vsakem klicu, definicija mora biti
+// org-scoped in aktivna. Odgovori grejo v FormSubmission z istim
+// contextType "appointment" — admin detajl jih vidi na enem mestu.
+// ------------------------------------------------------------
+
+/** Skupno branje konteksta žetona: termin + org + storitev z obrazcem. */
+async function getIntakeContextByToken(token: string) {
+  if (!isPlausibleIntakeToken(token)) return null
+
+  const appointment = await prisma.appointment.findUnique({
+    where: { intakeToken: token },
+    include: {
+      organization: { select: { id: true, name: true, status: true } },
+      services: {
+        include: {
+          service: {
+            select: { id: true, name: true, intakeFormDefinitionId: true },
+          },
+        },
+      },
+    },
+  })
+  if (!appointment || !appointment.organization) return null
+  if (!intakeLinkAllowed(appointment.status)) return null
+  if (appointment.organization.status !== "ACTIVE") return null
+
+  // Isto pravilo kot v booking flow-u: prva storitev z obrazcem določi
+  // obrazec termina.
+  const intakeService = pickIntakeService(appointment.services)
+  const definitionId = intakeService?.service.intakeFormDefinitionId
+  if (!definitionId) return null
+
+  const definition = await prisma.formDefinition.findFirst({
+    where: {
+      id: definitionId,
+      organizationId: appointment.organization.id,
+      isActive: true,
+    },
+    select: { name: true, description: true, fields: true },
+  })
+  if (!definition) return null
+
+  let fields: unknown = definition.fields
+  if (typeof fields === "string") {
+    try {
+      fields = JSON.parse(fields)
+    } catch {
+      return null
+    }
+  }
+  if (!Array.isArray(fields) || fields.length === 0) return null
+
+  return {
+    appointmentId: appointment.id,
+    organizationId: appointment.organization.id,
+    organizationName: appointment.organization.name,
+    serviceName: intakeService?.service.name ?? null,
+    startTime: appointment.startTime,
+    definitionId,
+    form: {
+      name: definition.name,
+      description: definition.description,
+      fields: fields as {
+        key: string
+        label: string
+        type: "text" | "textarea" | "number" | "date" | "select" | "checkbox"
+        required: boolean
+        options?: string[]
+        placeholder?: string
+      }[],
+    },
+  }
+}
+
+/** Javno (gost): pregled obrazca pred izpolnjevanjem prek žetona. */
+export async function getIntakeFormByToken(token: string) {
+  const context = await getIntakeContextByToken(token)
+  if (!context) return null
+
+  const submission = await prisma.formSubmission.findFirst({
+    where: {
+      contextType: "appointment",
+      contextId: context.appointmentId,
+    },
+    select: { id: true },
+  })
+
+  return {
+    submitted: Boolean(submission),
+    organizationName: context.organizationName,
+    serviceName: context.serviceName,
+    when: context.startTime.toISOString(),
+    form: context.form,
+  }
+}
+
+/** Javno (gost): oddaja obrazca prek žetona. Unique index na
+ * (formDefinitionId, contextType, contextId) naredi ponovljeno oddajo
+ * varno odstopljivo (P2002 = že oddano). */
+export async function submitIntakeByToken(
+  token: string,
+  answers: unknown
+): Promise<
+  | { ok: true }
+  | { ok: false; code: "NOT_FOUND" | "ALREADY_SUBMITTED" | "INVALID"; errors?: Record<string, string> }
+> {
+  const context = await getIntakeContextByToken(token)
+  if (!context) return { ok: false, code: "NOT_FOUND" }
+
+  const check = validateIntakeAnswers(context.form.fields as unknown as ProfileFieldDef[], answers)
+  if (!check.ok) {
+    return { ok: false, code: "INVALID", errors: check.errors }
+  }
+
+  const existing = await prisma.formSubmission.findFirst({
+    where: { contextType: "appointment", contextId: context.appointmentId },
+    select: { id: true },
+  })
+  if (existing) return { ok: false, code: "ALREADY_SUBMITTED" }
+
+  try {
+    await prisma.formSubmission.create({
+      data: {
+        organizationId: context.organizationId,
+        formDefinitionId: context.definitionId,
+        status: "NEW",
+        data: check.data as Prisma.InputJsonValue,
+        contextType: "appointment",
+        contextId: context.appointmentId,
+      },
+    })
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      return { ok: false, code: "ALREADY_SUBMITTED" }
+    }
+    throw error
+  }
+
+  return { ok: true }
+}
+
+/** Zaposleni: povezava do obrazca za termin — ustvari žeton, če ga
+ * termin (npr. starševski zapis) še nima. Org-scoped prek guarda. */
+export async function ensureIntakeLink(appointmentId: string) {
+  const { org } = await requirePermissionOrg("appointments.manage")
+
+  const appointment = await prisma.appointment.findFirst({
+    where: { id: appointmentId, organizationId: org.id },
+    include: {
+      services: {
+        include: {
+          service: { select: { intakeFormDefinitionId: true } },
+        },
+      },
+    },
+  })
+  if (!appointment) return { success: false as const, error: "Termin ni najden" }
+
+  const intakeService = pickIntakeService(appointment.services)
+  if (!intakeService?.service.intakeFormDefinitionId) {
+    return {
+      success: false as const,
+      error: "Storitev termina nima sprejemnega obrazca",
+    }
+  }
+
+  if (appointment.intakeToken) {
+    return { success: true as const, token: appointment.intakeToken }
+  }
+
+  const token = generateIntakeToken()
+  await prisma.appointment.update({
+    where: { id: appointment.id },
+    data: { intakeToken: token },
+  })
+  return { success: true as const, token }
 }

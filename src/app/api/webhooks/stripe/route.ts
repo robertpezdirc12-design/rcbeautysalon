@@ -9,6 +9,7 @@ import { sendAppointmentConfirmationEmail } from "@/lib/email/appointment-confir
 import { getOrgById, getPublicOrg } from "@/lib/tenant"
 import { formatSalonTime, safeTimezone } from "@/lib/booking-time"
 import { acquireBookingLocks, bookingLockKeys } from "@/lib/booking/locking"
+import { generateIntakeToken, pickIntakeService } from "@/lib/forms/intake"
 import { Prisma } from "@prisma/client"
 import Stripe from "stripe"
 
@@ -269,7 +270,7 @@ export async function POST(req: Request) {
       // Get services for duration calculation (scoped to this organization)
       const services = await prisma.service.findMany({
         where: { id: { in: serviceIds }, organizationId: org.id },
-        select: { id: true, name: true, duration: true, price: true },
+        select: { id: true, name: true, duration: true, price: true, intakeFormDefinitionId: true },
       })
 
       if (services.length !== new Set(serviceIds).size) {
@@ -460,6 +461,11 @@ export async function POST(req: Request) {
               staffId,
               customerId,
               resourceRecordId,
+              // #96 v2: žeton za obrazec po povezavi (isti princip kot
+              // neposredna rezervacija) — samo ko storitev ima obrazec.
+              intakeToken: pickIntakeService(services)?.intakeFormDefinitionId
+                ? generateIntakeToken()
+                : null,
               guestName: !customerId ? guestName : null,
               guestEmail: !customerId ? guestEmail : null,
               guestPhone: !customerId ? guestPhone : null,

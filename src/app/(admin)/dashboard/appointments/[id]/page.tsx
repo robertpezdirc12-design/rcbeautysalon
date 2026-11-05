@@ -16,6 +16,7 @@ import {
 } from "@/components/icons"
 import { getAppointmentById } from "@/app/actions/appointments"
 import { TipRecorder } from "@/components/dashboard/tip-recorder"
+import { AppointmentIntakeLink } from "@/components/dashboard/appointment-intake-link"
 import { formatSalonTime } from "@/lib/booking-time"
 import { getSessionSalonTimezone } from "@/lib/tenant"
 import { formatCurrency, formatDateStandard } from "@/lib/utils/format"
@@ -98,6 +99,12 @@ export default async function AppointmentDetailPage({ params }: PageProps) {
     intakeSubmission && typeof intakeSubmission.data === "object"
       ? (intakeSubmission.data as Record<string, unknown>)
       : {}
+
+  // #96 v2: ali storitev termina ima povezan sprejemni obrazec —
+  // pogoj za kartico s povezavo (ko odgovorov še ni).
+  const hasIntakeForm = appointment.services.some(
+    (s) => s.service.intakeFormDefinitionId
+  )
 
   const totalDuration = appointment.services.reduce(
     (sum, s) => sum + (s.service.duration || 0),
@@ -407,6 +414,22 @@ export default async function AppointmentDetailPage({ params }: PageProps) {
                 </span>
               </div>
             ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* #96 v2: povezava do obrazca, ko odgovorov še ni — za stare
+          termine se žeton ustvari on-demand (ensureIntakeLink). */}
+      {!intakeSubmission && hasIntakeForm && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Sprejemni obrazec — povezava za gosta</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <AppointmentIntakeLink
+              appointmentId={appointment.id}
+              initialToken={appointment.intakeToken}
+            />
           </CardContent>
         </Card>
       )}

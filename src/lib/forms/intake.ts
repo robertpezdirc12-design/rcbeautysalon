@@ -3,7 +3,11 @@
 // Validacija odgovorov proti FormDefinition.fields (ProfileFieldDef).
 // Čisto + testabilno: strežnik pokliče PREMER zapisovanja, UI pa lahko
 // ista pravila uporabi za odjemalsko validacijo.
+// #96 v2 — žeton za povezavo: generacija, izbira storitve z obrazcem
+// in pravilo veljavnosti povezave (isti princip na vseh poteh).
 // ============================================================
+
+import { randomBytes } from "crypto"
 
 import type { ProfileFieldDef } from "@/lib/profiles/types"
 
@@ -26,8 +30,8 @@ export function validateIntakeAnswers(
   const data: Record<string, string> = {}
   const errors: Record<string, string> = {}
 
-  // Neznani ključi se tiho izpustijo (definicija je avtoritativna).
-  const byKey = new Map<string, ProfileFieldDef>(fields.map((f) => [f.key, f]))
+  // Neznani ključi se tiho izpustijo (definicija je avtoritativna) —
+  // zanka gre po definiciji, odgovori se berejo per ključ.
   const raw =
     answers && typeof answers === "object" && !Array.isArray(answers)
       ? (answers as Record<string, unknown>)
@@ -73,4 +77,41 @@ export function validateIntakeAnswers(
 /** Legenda polj za UI (brez oklepajev v markerjih — glej golden meta test). */
 export function intakeFieldSummary(fields: ProfileFieldDef[]): string {
   return fields.map((f) => `${f.label}${f.required ? " *" : ""}`).join(", ")
+}
+
+// ============================================================
+// #96 v2 — ŽETON ZA POVEZAVO (izpolnjevanje po rezervaciji)
+// ============================================================
+
+/**
+ * Žeton za javno povezavo /intake/[token] — 48 znakov hex (192 bitov).
+ * Povezava je pooblastilo sama po sebi (G2), zato je naključna, ne
+ * izpeljana iz id ali časa.
+ */
+export function generateIntakeToken(): string {
+  return randomBytes(24).toString("hex")
+}
+
+/** Obramba po globini: sprejemljiva oblika žetona (hex, zadostna dolžina). */
+export function isPlausibleIntakeToken(token: unknown): token is string {
+  return typeof token === "string" && /^[a-f0-9]{32,128}$/i.test(token)
+}
+
+/**
+ * Prva storitev termina s sprejemnim obrazcem (isto pravilo kot v
+ * booking flow-u in checkoutu — obrazec določa prva storitev z enim).
+ */
+export function pickIntakeService<
+  T extends { service?: { intakeFormDefinitionId?: string | null } | null; intakeFormDefinitionId?: string | null },
+>(services: T[]): T | null {
+  return (
+    services.find(
+      (s) => s.service?.intakeFormDefinitionId ?? s.intakeFormDefinitionId
+    ) ?? null
+  )
+}
+
+/** Povezava velja samo za termine, ki niso odpovedani. */
+export function intakeLinkAllowed(status: string): boolean {
+  return status !== "CANCELLED"
 }
