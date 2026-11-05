@@ -44,6 +44,13 @@ const RESOLVABLE = [
   // migration landed. SQL is fully idempotent (IF NOT EXISTS / pg_constraint
   // probes), so a retry after rollback is always safe.
   "20261129030000_p100_8a_8c_org_members_module_states",
+  // #100 F1 (P2022 fix): full schema-sync pair (enums + structure). The
+  // production DB was built from db push + partially applied migrations
+  // (drift), so schema-only additions (Organization.skdCodes aa6b7e2 and
+  // others) were missing → P2022. Both migrations are fully idempotent
+  // (IF NOT EXISTS / DO-block probes / nothing is dropped), retry-safe.
+  "20261129040000_p100_f1_sync_enum_types",
+  "20261129050000_p100_f1_full_schema_sync",
 ]
 
 function runPrisma(args, { input } = {}) {
