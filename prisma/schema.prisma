@@ -111,6 +111,12 @@ model Organization {
   // #98 (AD-02): walk-in vrsta — živa vrsta brez računa.
   walkInEntries WalkInEntry[]
 
+  // #100 8.A (M1): članstva — en lastnik lahko vodi VEČ podjetij iz enega
+  // računa; vloga je PER ORGANIZACIJO. Legacy User.organizationId/role
+  // ostaneta napovednika privzetega podjetja (dvojno branje M2, cleanup
+  // šele po dveh stabilnih različicah — brez brisanja podatkov).
+  members OrganizationMember[]
+
   // Publication lifecycle (EPIC #3 E3-1): DRAFT sites are private (visible to
   // the owner as a preview, maintenance page for everyone else). Default
   // PUBLISHED preserves the pre-E3-1 behavior for existing tenants verbatim;
@@ -317,6 +323,8 @@ model User {
   reviews  Review[]
   // #99: push naročnine naprav (VAPID Web Push).
   pushSubscriptions PushSubscription[]
+  // #100 8.A (M1): članstva — več podjetij na enem računu (vloga per org).
+  memberships OrganizationMember[]
 
   // One-to-one relationships with business profiles
   staff    Staff? // If role=STAFF, MUST exist
@@ -875,6 +883,25 @@ model PushSubscription {
 
   @@index([userId])
   @@index([organizationId])
+}
+
+/// #100 8.A (M1): članstvo uporabnika v organizaciji — vloga PER ORG
+/// (ADMIN | STAFF | CLIENTE). Avtoritativni vir članstev; legacy
+/// User.organizationId/role ostane napovednik privzetega (dvojno
+/// branje M2). isDefault = podjetje, ki se odpre ob prijavi.
+model OrganizationMember {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           String
+  customRoleId   String?
+  isDefault      Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+
+  @@unique([organizationId, userId])
+  @@index([userId])
 }
 
 model Appointment {

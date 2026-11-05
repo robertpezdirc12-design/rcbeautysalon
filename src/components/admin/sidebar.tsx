@@ -12,6 +12,11 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
+import { useState, useTransition } from "react"
+import { useRouter } from "next/navigation"
+import { toast } from "sonner"
+import { ChevronDown } from "lucide-react"
+import { switchActiveOrganization } from "@/app/actions/organization-switch"
 import { useI18n } from "@/lib/i18n/provider"
 import type { CapabilityKey } from "@/lib/profiles/types"
 import {
@@ -154,8 +159,95 @@ function SidebarNav({ onNavigate }: SidebarNavProps) {
   )
 }
 
-export function AdminSidebar() {
+// #100 8.A (M3): preklop med podjetji na računu (viden samo pri >1).
+function OrgSwitcher({
+  organizations,
+  currentOrganizationId,
+}: {
+  organizations: { id: string; name: string }[]
+  currentOrganizationId: string | null
+}) {
+  const [open, setOpen] = useState(false)
+  const [pending, startTransition] = useTransition()
+  const router = useRouter()
+  const current = organizations.find((o) => o.id === currentOrganizationId)
+
+  function pick(id: string) {
+    if (id === currentOrganizationId) {
+      setOpen(false)
+      return
+    }
+    setOpen(false)
+    startTransition(async () => {
+      const res = await switchActiveOrganization(id)
+      if (!res.success) {
+        toast.error(res.error ?? "Preklop ni uspel.")
+        return
+      }
+      router.push("/dashboard")
+      router.refresh()
+    })
+  }
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        className="flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <span className="min-w-0 truncate font-medium">
+          {current?.name ?? organizations[0]?.name}
+        </span>
+        <ChevronDown size={14} className={cn("shrink-0 transition-transform", open && "rotate-180")} />
+      </button>
+      {open && (
+        <ul
+          role="listbox"
+          aria-label="Podjetja na računu"
+          className="bg-card absolute z-50 mt-1 w-full overflow-hidden rounded-lg border shadow-lg"
+        >
+          {organizations.map((o) => (
+            <li key={o.id}>
+              <button
+                type="button"
+                role="option"
+                aria-selected={o.id === currentOrganizationId}
+                disabled={pending}
+                onClick={() => pick(o.id)}
+                className={cn(
+                  "flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-muted/50 disabled:opacity-50",
+                  o.id === currentOrganizationId && "bg-primary/5 font-medium"
+                )}
+              >
+                <span className="min-w-0 truncate">{o.name}</span>
+                {o.id === currentOrganizationId && (
+                  <span className="text-primary-text text-xs">aktiven</span>
+                )}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+export function AdminSidebar({
+  organizations,
+  currentOrganizationId,
+}: {
+  /**
+   * #100 8.A (M3): podjetja na tem računu (članstva) — preklop se pokaže
+   * samo ko jih je več kot eno; eno podjetje = ničesar za preklopiti.
+   */
+  organizations?: { id: string; name: string }[]
+  currentOrganizationId?: string | null
+}) {
   const { t } = useI18n()
+  const switcher = organizations && organizations.length > 1
   return (
     <aside className="hidden w-64 shrink-0 bg-card shadow-sm lg:block">
       <div className="flex h-full flex-col">
@@ -165,6 +257,14 @@ export function AdminSidebar() {
             <Logo variant="sidebar" />
           </Link>
         </div>
+        {switcher && (
+          <div className="px-4 pb-2">
+            <OrgSwitcher
+              organizations={organizations}
+              currentOrganizationId={currentOrganizationId ?? null}
+            />
+          </div>
+        )}
 
         {/* Navigation */}
         <ScrollArea className="flex-1 py-4">

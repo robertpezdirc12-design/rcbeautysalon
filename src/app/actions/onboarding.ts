@@ -145,6 +145,7 @@ export async function createSalonOrganization(input: CreateSalonInput): Promise<
     let passwordHash: string | null = null
     let linkUserId: string | null = null // obstoječ uporabnik, ki dobi organizacijo
     let createdUserId: string | null = null // NOV uporabnik (počisti se ob napaki)
+    let additionalOrg = false // #100 8.A (M3): dodatno podjetje istega računa
 
     if (authed) {
       email = sessionEmail!
@@ -158,15 +159,12 @@ export async function createSalonOrganization(input: CreateSalonInput): Promise<
           error: "Seja ni več veljavna. Prijavite se znova in poskusite še enkrat.",
         }
       }
-      // Model je ena organizacija na račun — druga podjetja zahtevajo
-      // drug račun (jasno povedano, brez molka prepisa povezave).
-      if (me.organizationId) {
-        return {
-          success: false,
-          error:
-            "Vaš račun že upravlja drugo podjetje. Za dodatno podjetje uporabite ločen račun.",
-        }
-      }
+      // #100 8.A (M3): lastnik z več dejavnostmi — en račun lahko vodi
+      // več podjetij. Dodatno podjetje = novo članstvo (ADMIN); staff
+      // vrstica se ustvari samo za PRVO podjetje (limitacija v1, brez
+      // spreminjanja Staff.userId unique). Session po ustvarjanju
+      // preklopi na novo podjetje.
+      additionalOrg = Boolean(me.organizationId)
       linkUserId = me.id
     } else {
       const rawEmail = (input.email ?? "").trim().toLowerCase()
@@ -245,10 +243,22 @@ export async function createSalonOrganization(input: CreateSalonInput): Promise<
     let staffId: string | null = null
     try {
       if (linkUserId) {
+        // #100 8.A (M1): članstvo za NOVO podjetje (backfill pokrije stare;
+        // vsaka nova kreacija ga ustvari takoj — isDefault samo za prvo).
+        await prisma.organizationMember.create({
+          data: {
+            organizationId: org.id,
+            userId: linkUserId,
+            role: "ADMIN",
+            isDefault: !additionalOrg,
+          },
+        })
         // #40 — obstoječ račun: povzdigni v lastnika + ustvari Staff profil.
         // Račun NIKOLI ne pobrišemo v čiščenju (je lastnost uporabnika).
         // P2 #47: staff vrstica se ustvari SAMO, ko profil omogoča osebje.
-        if (staffEnabled) {
+        // #100 8.A: za DODATNO podjetje staff vrstica se ne ustvari
+        // (Staff.userId je 1:1 — limitacija v1; lastnik upravlja kot ADMIN).
+        if (staffEnabled && !additionalOrg) {
           const staffImage = presetStaffImage(profile.id)
           const staff = await prisma.staff.create({
             data: {
@@ -274,7 +284,7 @@ export async function createSalonOrganization(input: CreateSalonInput): Promise<
         }
         await prisma.user.update({
           where: { id: linkUserId },
-          data: { organizationId: org.id, role: "ADMIN" },
+          data: { role: "ADMIN", organizationId: org.id },
         })
         // Seja dobi novo vlogo + organizacijo TAKOJ (brez ponovne prijave).
         // #40: payload gre kot user patch — jwt callback (trigger update) ga

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation"
 import type { PermissionKey } from "@/lib/permissions/roles"
 import { hasAllPermissions } from "@/lib/permissions/roles"
 import { getEffectivePermissions } from "@/lib/permissions/effective"
+import { resolveActiveOrganizationId } from "@/lib/auth/memberships"
 
 export class UnauthorizedError extends Error {
   constructor(message = "Unauthorized") {
@@ -118,8 +119,21 @@ export async function requireUnrestrictedPage() {
  * reverse import would create a require cycle.
  */
 async function resolveSessionOrg(session: {
-  user: { organizationId?: string | null; role: string }
+  user: { id?: string; organizationId?: string | null; role: string }
 }): Promise<Organization | null> {
+  // #100 8.A (M2 dvojno branje): če ima uporabnik članstva, je aktivni
+  // org iz njih (zaščita proti starim JWT-jem); brez članstev → legacy
+  // session org (stari računi pred backfillom delujejo nespremenjeno).
+  if (session.user.id) {
+    const activeOrgId = await resolveActiveOrganizationId(
+      session.user.id,
+      session.user.organizationId ?? null
+    )
+    if (activeOrgId) {
+      const org = await prisma.organization.findUnique({ where: { id: activeOrgId } })
+      if (org) return org
+    }
+  }
   const orgId = session.user.organizationId
   if (orgId) {
     const org = await prisma.organization.findUnique({ where: { id: orgId } })

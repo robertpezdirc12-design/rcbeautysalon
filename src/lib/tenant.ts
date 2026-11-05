@@ -4,6 +4,7 @@ import { headers } from "next/headers"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth/auth"
 import { requireAdmin, UnauthorizedError } from "@/lib/auth/guards"
+import { resolveActiveOrganizationId } from "@/lib/auth/memberships"
 import type { Organization } from "@prisma/client"
 import { DEFAULT_SALON_TIMEZONE, safeTimezone } from "@/lib/booking-time"
 import { hostFromHostHeader, isPlatformHost } from "@/lib/domains/normalize"
@@ -146,6 +147,18 @@ export const getPublicOrg = cache(async (): Promise<Organization | null> => {
 /** Organization of the signed-in admin/staff user (falls back to default org). */
 export const getSessionOrg = cache(async (): Promise<Organization | null> => {
   const session = await auth()
+  // #100 8.A (M2 dvojno branje): uporabnik s članstvi → aktivni org iz
+  // njih (zaščita proti starim JWT-jem); brez članstev → legacy session.
+  if (session?.user?.id) {
+    const activeOrgId = await resolveActiveOrganizationId(
+      session.user.id,
+      session.user.organizationId ?? null
+    )
+    if (activeOrgId) {
+      const org = await getOrgById(activeOrgId)
+      if (org) return org
+    }
+  }
   const orgId = session?.user?.organizationId
   if (orgId) {
     const org = await getOrgById(orgId)

@@ -7,6 +7,7 @@ import { getLocaleFromCookies } from "@/lib/i18n/server"
 import { getSessionOrg } from "@/lib/tenant"
 import { auth } from "@/lib/auth/auth"
 import { getEffectivePermissions } from "@/lib/permissions/effective"
+import { prisma } from "@/lib/prisma"
 
 export const dynamic = "force-dynamic"
 
@@ -29,6 +30,20 @@ export default async function AdminLayout({
     ? await getEffectivePermissions(session.user.id)
     : []
 
+  // #100 8.A (M3): podjetja na računu (članstva) — preklop v sidebarju
+  // se pokaže samo ko jih je več kot eno (aktivna org izolirano).
+  const memberOrgs = session?.user?.id
+    ? await prisma.organizationMember.findMany({
+        where: { userId: session.user.id, organization: { status: "ACTIVE" } },
+        orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+        select: { organization: { select: { id: true, name: true } } },
+      })
+    : []
+  const organizations = memberOrgs.map((m) => ({
+    id: m.organization.id,
+    name: m.organization.name,
+  }))
+
   return (
     <AdminI18nProvider
       initialLocale={locale}
@@ -46,7 +61,10 @@ export default async function AdminLayout({
         {/* #99: registracija service workerja (push kanal, tiha napaka) */}
         <PushSetup />
         {/* Desktop Sidebar */}
-        <AdminSidebar />
+        <AdminSidebar
+          organizations={organizations}
+          currentOrganizationId={org?.id ?? null}
+        />
 
         {/* Main content area */}
         <div className="flex flex-1 flex-col overflow-hidden">

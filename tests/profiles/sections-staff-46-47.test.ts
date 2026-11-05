@@ -88,8 +88,10 @@ describe("#47 — onboarding staff seed respects capabilities.staff", () => {
       "utf8"
     )
     expect(src).toContain("isCapabilityEnabled(getProfile(profile.id), \"staff\")")
-    // both creation paths (linked user + anonymous) are wrapped in the gate
-    expect(src.match(/if \(staffEnabled\)/g)?.length).toBe(1)
+    // both creation paths (linked user + anonymous) are wrapped in the gate;
+    // #100 8.A (M3): dodatno podjetje istega računa brez staff vrstice
+    // (Staff.userId je 1:1 — lastnik upravlja dodatno org kot ADMIN)
+    expect(src.match(/if \(staffEnabled && !additionalOrg\)/g)?.length).toBe(1)
     expect(src).toContain("...(staffEnabled")
   })
 })
