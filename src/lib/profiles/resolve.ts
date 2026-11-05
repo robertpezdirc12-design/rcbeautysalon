@@ -4,6 +4,11 @@
 // effective profile: shared registry profile + owner overrides
 // stored on Organization.profileOverrides.
 // React cache() keeps one resolution per request.
+//
+// #100 8.C (F2): moduleStates so ZADNJA BESEDA — izklop modula
+// izklopi njegove capability-je neodvisno od vertikale (podatki
+// ostanejo; javni vhodi izklopljenega modula so pravi 404). Brez
+// vrstic moduleState = vertikalni privzeti (ni spremembe vedenja).
 // ============================================================
 
 import { cache } from "react"
@@ -12,17 +17,30 @@ import { getProfile } from "./registry"
 import { applyOverrides, parseOverrides } from "./overrides"
 import { applySecondaryProfile } from "./secondary"
 import type { ActivityProfile } from "./types"
+import { effectiveCapabilities, type ModuleStateMap } from "@/lib/modules/catalog"
+
+interface OrgLike {
+  vertical: string | null
+  secondaryVertical?: string | null
+  profileOverrides: unknown
+  /** #100 8.C: organizationModuleStates (iz include) — neobvezno. */
+  moduleStates?: { moduleId: string; state: string }[] | null
+}
+
+/** Iz org vrstice v map stanj (samo znane vrednosti). */
+function statesFromOrg(org: OrgLike | null | undefined): ModuleStateMap {
+  const map: ModuleStateMap = {}
+  for (const row of org?.moduleStates ?? []) {
+    if (row.state === "ACTIVE" || row.state === "DEACTIVATED") {
+      map[row.moduleId] = row.state
+    }
+  }
+  return map
+}
 
 /**
  * Effective profile of the current admin session's org
- * (shared profile + secondary-activity union + owner overrides).
- *
- * Order matters and is deliberate:
- *   1. shared registry profile of the PRIMARY vertical,
- *   2. secondary-activity capability union (E2-4 — structural,
- *      platform-controlled, only ever widens),
- *   3. owner overrides last (the owner always keeps final control
- *      over optional toggles, including ones enabled via secondary).
+ * (shared profile + secondary-activity union + owner overrides + moduleStates).
  */
 export const getSessionEffectiveProfile = cache(async (): Promise<ActivityProfile> => {
   const org = await getSessionOrg()
@@ -30,21 +48,27 @@ export const getSessionEffectiveProfile = cache(async (): Promise<ActivityProfil
     getProfile(org?.vertical),
     org?.secondaryVertical
   )
-  return applyOverrides(withSecondary, parseOverrides(org?.profileOverrides))
+  const withOverrides = applyOverrides(withSecondary, parseOverrides(org?.profileOverrides))
+  const caps = effectiveCapabilities(
+    withOverrides.capabilities as unknown as Record<string, string>,
+    statesFromOrg(org)
+  )
+  return { ...withOverrides, capabilities: caps } as unknown as ActivityProfile
 })
 
 /**
  * Effective profile for an already-loaded org (public pages pass
  * the resolved tenant org here).
  */
-export function resolveEffectiveProfile(org: {
-  vertical: string | null
-  secondaryVertical?: string | null
-  profileOverrides: unknown
-} | null | undefined): ActivityProfile {
+export function resolveEffectiveProfile(org: OrgLike | null | undefined): ActivityProfile {
   const withSecondary = applySecondaryProfile(
     getProfile(org?.vertical),
     org?.secondaryVertical
   )
-  return applyOverrides(withSecondary, parseOverrides(org?.profileOverrides))
+  const withOverrides = applyOverrides(withSecondary, parseOverrides(org?.profileOverrides))
+  const caps = effectiveCapabilities(
+    withOverrides.capabilities as unknown as Record<string, string>,
+    statesFromOrg(org)
+  )
+  return { ...withOverrides, capabilities: caps } as unknown as ActivityProfile
 }

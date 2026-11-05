@@ -7,6 +7,7 @@ import { BrandingEditor } from "@/components/dashboard/branding-editor"
 import { PaymentsSettings } from "@/components/dashboard/payments-settings"
 import { ProfileOverview } from "@/components/dashboard/profile-overview"
 import { ModulesConfigurator } from "@/components/dashboard/modules-configurator"
+import { ModulesV2Card } from "@/components/dashboard/modules-v2-card"
 import { ActivitiesCard } from "@/components/dashboard/activities-card"
 import { ConfigHistoryCard } from "@/components/dashboard/config-history-card"
 import { PublicationCard } from "@/components/dashboard/publication-card"
@@ -111,6 +112,9 @@ export default async function SettingsPage({
       }
       modules={
         <div className="space-y-6">
+          {/* #100 8.C (F2): modulni katalog v2 — vklop/izklop neodvisno
+              od dejavnosti (podatki ostanejo, javni vhodi se zaprejo). */}
+          <ModulesV2Card />
           <ActivitiesCard />
           <ModulesConfigurator />
           <ConfigHistoryCard />

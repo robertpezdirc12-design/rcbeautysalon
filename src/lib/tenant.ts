@@ -14,11 +14,19 @@ import { ORG_PROOF_HEADER, verifyOrgSlug } from "@/lib/tenant-proof"
 export const ORG_HEADER = "x-org-slug"
 
 export const getOrgBySlug = cache(async (slug: string) => {
-  return prisma.organization.findUnique({ where: { slug } })
+  // #100 8.C (F2): moduleStates v org vrstici (resolve zadnja beseda).
+  return prisma.organization.findUnique({
+    where: { slug },
+    include: { moduleStates: { select: { moduleId: true, state: true } } },
+  })
 })
 
 export const getOrgById = cache(async (id: string) => {
-  return prisma.organization.findUnique({ where: { id } })
+  // #100 8.C (F2): moduleStates v org vrstici (resolve zadnja beseda).
+  return prisma.organization.findUnique({
+    where: { id },
+    include: { moduleStates: { select: { moduleId: true, state: true } } },
+  })
 })
 
 /**

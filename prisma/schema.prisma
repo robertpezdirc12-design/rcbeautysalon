@@ -117,6 +117,11 @@ model Organization {
   // šele po dveh stabilnih različicah — brez brisanja podatkov).
   members OrganizationMember[]
 
+  // #100 8.C (F2): stanja modulov — zadnja beseda pri resolve (neodvisno
+  // od vertikale). Brez vrstice = vertikalni privzeti (ni spremembe
+  // vedenja za obstoječe najemnike).
+  moduleStates OrganizationModuleState[]
+
   // Publication lifecycle (EPIC #3 E3-1): DRAFT sites are private (visible to
   // the owner as a preview, maintenance page for everyone else). Default
   // PUBLISHED preserves the pre-E3-1 behavior for existing tenants verbatim;
@@ -902,6 +907,23 @@ model OrganizationMember {
 
   @@unique([organizationId, userId])
   @@index([userId])
+}
+
+/// #100 8.C (F2): stanje enega modula za najemnika. Izklop (DEACTIVATED)
+/// NIKOLI ne izgubi podatkov — koda le preneha izpostavljati vhode
+/// (javni 404, nav skrit); ob ponovnem vklopu so podatki in zgodovina
+/// tam. Vsaka sprememba gre v ConfigChangeLog (revizija, rollback).
+model OrganizationModuleState {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  moduleId       String
+  // ACTIVE | DEACTIVATED (HIDDEN sledi v F5)
+  state          String
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, moduleId])
+  @@index([organizationId])
 }
 
 model Appointment {
