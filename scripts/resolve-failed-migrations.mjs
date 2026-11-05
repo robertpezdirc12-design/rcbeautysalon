@@ -39,6 +39,11 @@ const RESOLVABLE = [
   // reference inside a FROM-join ON clause) and failed on production.
   // The SQL is now valid + fully idempotent (IF NOT EXISTS everywhere).
   "20261126000000_p59_preset_seed_provenance",
+  // #100 8.A/8.C: shipped as models without a migration → production ran
+  // on P2021 (public.OrganizationMember missing) until the hand-written
+  // migration landed. SQL is fully idempotent (IF NOT EXISTS / pg_constraint
+  // probes), so a retry after rollback is always safe.
+  "20261129030000_p100_8a_8c_org_members_module_states",
 ]
 
 function runPrisma(args, { input } = {}) {
