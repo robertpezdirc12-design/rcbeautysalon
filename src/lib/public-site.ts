@@ -146,10 +146,22 @@ export async function getPublicFeaturedServices(orgId: string) {
   }))
 }
 
-/** Featured products for the landing page. */
+/**
+ * Featured products for the landing page.
+ *
+ * #105 (Codex review on PR #107): featured products render a details link
+ * to `/shop/${id}` — the same gate as the shop list applies, otherwise a
+ * featured `forSale: false` (or deactivated) product gets a publicly
+ * rendered card whose details link 404s. Mirrors getPublicShopProducts.
+ */
 export async function getPublicFeaturedProducts(orgId: string) {
   const products = await prisma.product.findMany({
-    where: { organizationId: orgId, isActive: true, isFeatured: true },
+    where: {
+      organizationId: orgId,
+      isActive: true,
+      forSale: true,
+      isFeatured: true,
+    },
     include: { category: { select: { name: true } } },
     take: 4,
     orderBy: { name: "asc" },
@@ -313,10 +325,20 @@ export async function getPublicShopProducts(orgId: string) {
   }))
 }
 
-/** Product by id (tenant-scoped). */
+/**
+ * Product by id (tenant-scoped) — PUBLIC detail page only.
+ *
+ * #105 (incident hardening): the gate must mirror the shop LIST query
+ * (`isActive: true, forSale: true`) — previously a deactivated (or
+ * not-for-sale) product stayed reachable via its direct URL: the list
+ * filtered it out, but this detail read had no state conditions, so the
+ * public detail page (name, description, stock, buy button) rendered a
+ * product the owner had removed from the offering. Deactivated products
+ * are served by the dashboard (getProductById), never by the public site.
+ */
 export async function getPublicProductById(orgId: string, id: string) {
   const product = await prisma.product.findFirst({
-    where: { organizationId: orgId, id },
+    where: { organizationId: orgId, id, isActive: true, forSale: true },
     include: { category: true },
   })
   if (!product) return null
