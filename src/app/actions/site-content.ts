@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { revalidatePath } from "next/cache"
 
 import { UnauthorizedError, requirePermissionOrg } from "@/lib/auth/guards"
+import { recordConfigChange } from "@/lib/config-history/record"
 import { mergeSiteContent, type SiteContent } from "@/lib/site-content"
 import { computeRevert, hasUnpublishedChanges, parsePublishState } from "@/lib/publication"
 import type { PublicationStatus } from "@/app/actions/publication"
@@ -94,13 +95,19 @@ export async function getOrgBranding() {
  */
 export async function updateSiteContent(content: SiteContent) {
   try {
-    const { org } = await requirePermissionOrg("settings.manage")
+    const { org, session } = await requirePermissionOrg("settings.manage")
 
     // Minimal server-side sanitization: plain strings only, bounded lengths.
     const clean = JSON.parse(JSON.stringify(content)) as SiteContent
     if (!clean.hero?.title || typeof clean.hero.title !== "string") {
       return { success: false, error: "Hero naslov je obvezen." }
     }
+
+    // F5: prejšnji osnutek (za verzijo v ConfigChangeLog).
+    const config = await prisma.salonConfig.findUnique({
+      where: { organizationId: org.id },
+      select: { siteContent: true },
+    })
 
     await prisma.$transaction([
       prisma.salonConfig.upsert({
@@ -117,6 +124,18 @@ export async function updateSiteContent(content: SiteContent) {
         data: { contentVersion: { increment: 1 } },
       }),
     ])
+
+    // #100 F5: vsako shranjevanje osnutka = verzija (ConfigChangeLog,
+    // append-only) — zgodovina vsebine brez izgube delujoče različice.
+    await recordConfigChange({
+      organizationId: org.id,
+      actorEmail: session.user.email ?? "unknown",
+      entityKey: "site-content",
+      action: "UPDATE",
+      summary: "Osnutek vsebine shranjen",
+      previous: (config?.siteContent ?? undefined) as unknown as Record<string, unknown>,
+      next: clean as unknown as Record<string, unknown>,
+    }).catch(() => undefined)
 
     revalidatePath("/", "layout")
     return { success: true }

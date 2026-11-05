@@ -5,9 +5,8 @@ import {
   resolverExpectedOrigin,
   verifyResolverQueryForOrigin,
 } from "@/lib/tenant-proof"
-import { isBookingEnabled } from "@/lib/public-cta"
-import { getProfile, isCapabilityEnabled } from "@/lib/profiles/registry"
-import { applyOverrides, parseOverrides } from "@/lib/profiles/overrides"
+import { resolveEffectiveProfile } from "@/lib/profiles/resolve"
+import { isCapabilityEnabled } from "@/lib/profiles/registry"
 
 // ============================================================
 // P0 #24 / P1 #27 (re-audit 2026-11) — REZOLUCIJA TENANTA ZA PROXY
@@ -64,9 +63,12 @@ export async function GET(request: Request) {
       select: {
         id: true,
         vertical: true,
+        secondaryVertical: true,
         profileOverrides: true,
         status: true,
         publishState: true,
+        // #100 8.C (F2): modulna vrata tudi v proxy (zadnja beseda).
+        moduleStates: { select: { moduleId: true, state: true } },
       },
     })
 
@@ -89,15 +91,16 @@ export async function GET(request: Request) {
         exists: true,
         orgId: org.id,
         publishState: org.publishState,
-        bookingEnabled: isBookingEnabled(org.vertical, org.profileOverrides),
+        // #100 8.C (F2): polni resolve (vertikala → sekundarna → overrides →
+        // moduleStates) — modulna vrata veljajo tudi za proxy (pravi 404).
+        bookingEnabled:
+          resolveEffectiveProfile(org).website.ctaMode === "booking" &&
+          isCapabilityEnabled(resolveEffectiveProfile(org), "appointments"),
         // P2 #46: profil, ki izključuje storitve (npr. čebelarstvo), ne
         // objavlja /services — proxy lahko tedaj vrne PRAVI 404 (statusne
         // kode zmore samo proxy, glej komentar zgoraj).
         servicesEnabled: isCapabilityEnabled(
-          applyOverrides(
-            getProfile(org.vertical),
-            parseOverrides(org.profileOverrides)
-          ),
+          resolveEffectiveProfile(org),
           "services"
         ),
       },

@@ -60,9 +60,10 @@ describe("#100 8.C efektivna matrika (izklop = zadnja beseda)", () => {
     expect(effectiveCapabilities(profile, {}).appointments).toBe("required")
   })
 
-  it("ACTIVE pusti profilno vrednost (v1 ne odklepa profila disabled)", () => {
-    const profile = { reviews: "optional", beekeepingOnly: "disabled" }
-    const out = effectiveCapabilities(profile, { reviews: "ACTIVE" })
+  it("ACTIVE ODKLENE profil 'disabled' (modul neodvisen od dejavnosti — jedro 8.C)", () => {
+    const profile = { reviews: "optional", appointments: "disabled" }
+    const out = effectiveCapabilities(profile, { appointments: "ACTIVE" })
+    expect(out.appointments).toBe("optional")
     expect(out.reviews).toBe("optional")
   })
 

@@ -169,9 +169,11 @@ export type ModuleStateMap = Record<string, ModuleState>
 
 /**
  * Efektivna capability matrika: vertikalni profil + moduleStates
- * (zadnja beseda — neodvisno od vertikale). DEACTIVATED modul izklopi
- * SVOJE capability-je; ACTIVE jih pusti (ne odpre "disabled" iz profila
- * v v1 — to je F5 nadgradnja). Nič vrstic = brez spremembe.
+ * (zadnja beseda — neodvisno od vertikale).
+ *  - DEACTIVATED modul izklopi SVOJE capability-je (podatki ostanejo);
+ *  - ACTIVE modul ODKLENE capability, ki jo je profil imel "disabled"
+ *    (modul = samostojen, ne vezan na dejavnost — jedro 8.C);
+ *  - nič vrstic = brez spremembe (obstoječi najemniki).
  */
 export function effectiveCapabilities(
   profileCapabilities: Record<string, string>,
@@ -184,8 +186,9 @@ export function effectiveCapabilities(
     for (const cap of mod.capabilities) {
       if (state === "DEACTIVATED") {
         out[cap] = "disabled"
+      } else if (out[cap] === "disabled") {
+        out[cap] = "optional"
       }
-      // ACTIVE: pusti profilno vrednost (v1); F5 odklene tudi disabled.
     }
   }
   return out
