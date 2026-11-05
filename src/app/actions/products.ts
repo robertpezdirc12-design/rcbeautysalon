@@ -10,6 +10,7 @@ import { UnauthorizedError, requirePermissionOrg } from "@/lib/auth/guards"
 import { enforcePlanLimit } from "@/lib/plans/resolve"
 import { getLocaleFromCookies } from "@/lib/i18n/server"
 import { isLowStock, resolveReorderPoint, FALLBACK_REORDER_POINT } from "@/lib/inventory/low-stock"
+import { parseProductServerInput } from "@/lib/products/server-schema"
 
 export type UpdateProductInput = Partial<CreateProductInput>
 
@@ -306,8 +307,16 @@ export async function createProduct(data: CreateProductInput) {
       return { success: false, error: limit.message, code: limit.code }
     }
 
+    // #106: strežniška Zod validacija z belo listo polj — mass-assignment
+    // je strukturno onemogočen (v Prismo gre SAMO parsed.data, nikoli
+    // surov vnos odjemalca; glej incident #105).
+    const parsed = parseProductServerInput(data, "create")
+    if (!parsed.ok) {
+      return { success: false, error: parsed.error }
+    }
+
     // Extract categoryId from data
-    const { categoryId, ...productData } = data
+    const { categoryId, ...productData } = parsed.data
 
     // Validate the category belongs to this organization
     if (categoryId) {
@@ -367,8 +376,14 @@ export async function updateProduct(id: string, data: UpdateProductInput) {
   try {
     const { org } = await requirePermissionOrg("products.manage")
 
+    // #106: ista strežniška bela lista na posodobitvi (brez surovega spread).
+    const parsed = parseProductServerInput(data, "update")
+    if (!parsed.ok) {
+      return { success: false, error: parsed.error }
+    }
+
     // Extract categoryId from data
-    const { categoryId, ...productData } = data
+    const { categoryId, ...productData } = parsed.data
 
     // Verify ownership before mutating
     const existing = await prisma.product.findFirst({

@@ -1,4 +1,7 @@
-import { useFormatPrice } from "@/lib/currency"
+// #104: strežniška komponenta — cena se formatira z čistim
+// formatCurrency (utils/format), NE z odjemalskim hookom useFormatPrice
+// (meja client/server je bila puščena in je javila SSR napako).
+import { formatCurrency } from "@/lib/utils/format"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   CalendarCheckIcon,
@@ -14,10 +17,12 @@ interface StaffStatsCardsProps {
     monthlyEarnings: number
     completedThisMonthAppointments: number
   }
+  /** Valuta najemnika (SalonConfig.currency) — privzeto EUR. */
+  currency?: string
 }
 
-export function StaffStatsCards({ stats }: StaffStatsCardsProps) {
-  const fmt = useFormatPrice()
+export function StaffStatsCards({ stats, currency = "EUR" }: StaffStatsCardsProps) {
+  const fmt = (amount: number) => formatCurrency(amount, currency)
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {/* Today's Appointments */}

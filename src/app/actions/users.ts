@@ -63,6 +63,9 @@ export async function getAdminUsers(search?: string, tag?: string) {
 
   const users = await prisma.user.findMany({
     where: usersWhere,
+    // #108: seznam gre direktno v RSC payload — bcrypt hash gesla in
+    // reset žeton SE NIKOLI ne pošljeta klientu (minimalna izpostavljenost).
+    omit: { password: true, resetToken: true },
     include: {
       customer: {
         include: {
@@ -261,6 +264,8 @@ export const getUserById = cache(async (id: string) => {
 
   const user = await prisma.user.findUnique({
     where: { id },
+    // #108: detajl gre v RSC payload — hash gesla/reset žeton nikoli klientu.
+    omit: { password: true, resetToken: true },
     include: {
       customer: {
         include: {

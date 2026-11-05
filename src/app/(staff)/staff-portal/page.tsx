@@ -8,6 +8,8 @@ import {
   getStaffTodaysAppointments,
   getStaffProfile,
 } from "@/app/actions/staff"
+import { getSessionOrg } from "@/lib/tenant"
+import { prisma } from "@/lib/prisma"
 
 export const metadata: Metadata = {
   title: "Portal za osebje | Poslovna platforma",
@@ -15,13 +17,25 @@ export const metadata: Metadata = {
 }
 
 export default async function StaffDashboardPage() {
-  const [stats, appointments, staffProfile] = await Promise.all([
+  const [stats, appointments, staffProfile, org] = await Promise.all([
     getStaffPortalStats(),
     getStaffTodaysAppointments(),
     getStaffProfile(),
+    getSessionOrg(),
   ])
 
   const profile = staffProfile.success ? staffProfile.staff ?? null : null
+
+  // #104: valuta najemnika za strežniško formatiranje cene (brez client hooka).
+  const currency =
+    (org &&
+      (
+        await prisma.salonConfig.findUnique({
+          where: { organizationId: org.id },
+          select: { currency: true },
+        })
+      )?.currency) ??
+    "EUR"
 
   return (
     <div className="space-y-8">
@@ -35,6 +49,7 @@ export default async function StaffDashboardPage() {
 
       {/* Stats Cards */}
       <StaffStatsCards
+        currency={currency}
         stats={
           stats?.stats || {
             todaysAppointments: 0,
