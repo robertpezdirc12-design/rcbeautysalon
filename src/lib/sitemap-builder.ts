@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next"
 import { isBookingEnabled } from "@/lib/public-cta"
-import { getProfile, isCapabilityEnabled, type ActivityProfile } from "@/lib/profiles/registry"
-import { applyOverrides, parseOverrides } from "@/lib/profiles/overrides"
+import { isCapabilityEnabled } from "@/lib/profiles/registry"
+import { resolveEffectiveProfile } from "@/lib/profiles/resolve"
 
 /**
  * Skupni gradnik URL-jev za sitemap (#83).
@@ -25,12 +25,17 @@ export function resolveAppUrl(): string {
 }
 
 /** Minimalni del Organization, ki ga gradnik potrebuje.
- *  profileOverrides je JsonValue v bazi — parseOverrides() ga prevzame tako. */
+ *  profileOverrides je JsonValue v bazi — parseOverrides() ga prevzame tako.
+ *  #105-nadaljevanje: moduleStates (in secondaryVertical) so NEOBVEZNI, a
+ *  najemniška ruta (getOrgBySlug) jih vedno poda — modulna vrata veljajo
+ *  tudi za sitemap (izklopljen modul = URL ni indeksiran). */
 export interface SitemapOrg {
   slug: string
   updatedAt: Date
   vertical: string | null
+  secondaryVertical?: string | null
   profileOverrides: unknown
+  moduleStates?: { moduleId: string; state: string }[] | null
 }
 
 /** URL-ji ENEGA najemnika — capability-vezani (isti pravila kot globalni sitemap). */
@@ -39,10 +44,9 @@ export function tenantSitemapEntries(org: SitemapOrg): MetadataRoute.Sitemap {
   const base = `${appUrl}/s/${org.slug}`
   const lastModified = org.updatedAt
 
-  const profile: ActivityProfile = applyOverrides(
-    getProfile(org.vertical),
-    parseOverrides(org.profileOverrides)
-  )
+  // #105-nadaljevanje: polni resolve (vertikala → sekundarna → overrides →
+  // moduleStates) — izklopljen modul njegovega URL-ja NE indeksiramo.
+  const profile = resolveEffectiveProfile(org)
 
   const paths: Array<{ path: string; priority: number }> = [
     { path: "", priority: 1 },
@@ -52,7 +56,7 @@ export function tenantSitemapEntries(org: SitemapOrg): MetadataRoute.Sitemap {
     paths.push({ path: "/services", priority: 0.7 })
   }
 
-  if (isBookingEnabled(org.vertical, org.profileOverrides)) {
+  if (isBookingEnabled(org)) {
     paths.push({ path: "/booking", priority: 0.7 })
   }
 

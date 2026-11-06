@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { requirePermissionOrg } from "@/lib/auth/guards"
 import { revalidatePath } from "next/cache"
 
-import { getSessionEffectiveProfile } from "@/lib/profiles/resolve"
+import { getSessionEffectiveProfile } from "@/lib/profiles/session"
 import { validateFieldValues, deriveRecordTitle } from "@/lib/field-validation"
 import type { ProfileFieldDef } from "@/lib/profiles/types"
 import type { Prisma } from "@prisma/client"

@@ -1,5 +1,5 @@
-import { getProfile, term } from "@/lib/profiles/registry"
-import { applyOverrides, parseOverrides } from "@/lib/profiles/overrides"
+import { term } from "@/lib/profiles/registry"
+import { resolveEffectiveProfile } from "@/lib/profiles/resolve"
 import type { WebsiteCtaMode } from "@/lib/profiles/types"
 import type { CtaLink } from "@/lib/site-content"
 
@@ -15,14 +15,34 @@ import type { CtaLink } from "@/lib/site-content"
 // (falls back to /contact). Tenant-edited SiteContent CTAs remain
 // authoritative for booking-mode tenants; profile terminology
 // supplies the labels for the non-booking modes.
+//
+// #105-nadaljevanje (audit 2026-11): vsi resolverji SEDAJ gredo čez
+// resolveEffectiveProfile() — vertikala → sekundarna dejavnost →
+// profileOverrides → ORGANIZATIONMODULESTATES (zadnja beseda). Prej
+// je ta datoteka gledala SAMO profileOverrides, zato je najemnik z
+// izklopljenim modulom (npr. rezervacije DEACTIVATED, čeprav profil
+// privzeto dopušča) v navbarju še vedno videl "Rezerviraj", ki je
+// nato /booking pravilno preusmeril — stale CTA. Obratno: modul
+// izrecno AKTIVIRAN prek modula je ostal skrit. Org kontekst je obvezen
+// argument, da klicatelj NE more pozabiti podati moduleStates.
 // ============================================================
 
-/** Effective profile for public pages (org already resolved). */
-function effective(
-  profileId: string | null | undefined,
-  overrides: unknown
-) {
-  return applyOverrides(getProfile(profileId), parseOverrides(overrides))
+/** Minimalni org kontekst za resolvanje efektivnega profila. */
+export interface PublicOrgCtx {
+  vertical: string | null | undefined
+  secondaryVertical?: string | null
+  profileOverrides?: unknown
+  moduleStates?: { moduleId: string; state: string }[] | null
+}
+
+/** Effective profile za javne strani (org je že resolvan — moduli zadnja beseda). */
+function effective(org: PublicOrgCtx | null | undefined) {
+  return resolveEffectiveProfile({
+    vertical: org?.vertical ?? null,
+    secondaryVertical: org?.secondaryVertical ?? null,
+    profileOverrides: org?.profileOverrides,
+    moduleStates: org?.moduleStates ?? null,
+  })
 }
 
 export interface PublicCta {
@@ -35,11 +55,10 @@ export interface PublicCta {
 
 /** Short navbar CTA per profile mode. */
 export function resolvePublicCta(
-  profileId: string | null | undefined,
-  locale: "sl" | "en" = "sl",
-  overrides?: unknown
+  org: PublicOrgCtx | null | undefined,
+  locale: "sl" | "en" = "sl"
 ): PublicCta {
-  const profile = effective(profileId, overrides)
+  const profile = effective(org)
   const mode = profile.website.ctaMode
 
   switch (mode) {
@@ -75,11 +94,10 @@ export function resolvePublicCta(
  * profile so a seamstress never sees "Rezerviraj termin".
  */
 export function resolveCtaLinks(
-  profileId: string | null | undefined,
-  content: { hero: { primaryCta: CtaLink; secondaryCta?: CtaLink | null } },
-  overrides?: unknown
+  org: PublicOrgCtx | null | undefined,
+  content: { hero: { primaryCta: CtaLink; secondaryCta?: CtaLink | null } }
 ): { primaryCta: CtaLink; secondaryCta: CtaLink | null } {
-  const profile = effective(profileId, overrides)
+  const profile = effective(org)
   const mode = profile.website.ctaMode
 
   if (mode === "booking") {
@@ -114,11 +132,8 @@ export function resolveCtaLinks(
 }
 
 /** Whether the booking flow makes sense for this tenant at all. */
-export function isBookingEnabled(
-  profileId: string | null | undefined,
-  overrides?: unknown
-): boolean {
-  const profile = effective(profileId, overrides)
+export function isBookingEnabled(org: PublicOrgCtx | null | undefined): boolean {
+  const profile = effective(org)
   return (
     profile.website.ctaMode === "booking" &&
     profile.capabilities.appointments !== "disabled"
@@ -135,11 +150,10 @@ export function isBookingEnabled(
  * booking tenants keep full owner control.
  */
 export function resolveCtaSectionHref(
-  profileId: string | null | undefined,
-  configuredHref: string,
-  overrides?: unknown
+  org: PublicOrgCtx | null | undefined,
+  configuredHref: string
 ): string {
-  const profile = effective(profileId, overrides)
+  const profile = effective(org)
   if (profile.website.ctaMode === "booking") return configuredHref
   const stale =
     !configuredHref ||

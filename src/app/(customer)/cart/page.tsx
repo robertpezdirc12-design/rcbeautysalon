@@ -6,6 +6,9 @@ import { ArrowLeftIcon } from "@/components/icons"
 import { CartContent } from "@/components/shop/cart-content"
 import { getPublicOrg } from "@/lib/tenant"
 import { redirectBareToTenant } from "@/lib/public-site"
+import { notFound } from "next/navigation"
+import { resolveEffectiveProfile } from "@/lib/profiles/resolve"
+import { isCapabilityEnabled } from "@/lib/profiles/registry"
 import { noIndexMetadata } from "@/lib/seo"
 import { orgPath } from "@/lib/org-path"
 
@@ -27,6 +30,8 @@ export default async function CartPage() {
   // Keep the "back to shop" link inside the current tenant (/s/{slug}/shop)
   // — a bare "/shop" on a tenant URL would fall back to the default org.
   const org = await getPublicOrg()
+  // #105-nadaljevanje (G1, 2. linija): izklopljena trgovina → košarica 404.
+  if (!org || !isCapabilityEnabled(resolveEffectiveProfile(org), "shop")) notFound()
 
   return (
     <div className="from-background to-muted/20 min-h-screen bg-linear-to-b">

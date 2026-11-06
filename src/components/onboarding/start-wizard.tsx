@@ -116,6 +116,9 @@ export function StartWizard({
   const [slug, setSlug] = useState("")
   const [slugTouched, setSlugTouched] = useState(false)
   const [slugStatus, setSlugStatus] = useState<SlugStatus>("idle")
+  // #100-nadaljevanje — javni kontaktni telefon (korak 2): neobvezen; gre v
+  // SalonConfig.phone in zadostuje "kontaktni kanal" vratam objave.
+  const [contactPhone, setContactPhone] = useState("")
 
   // P2 #88 — second-level answers (step 2): optional, never blocking.
   // "solo" removes the staff step from the activation checklist;
@@ -256,6 +259,7 @@ export function StartWizard({
       slugTouched,
       ownerName,
       email,
+      contactPhone,
       teamSize,
       onlineBooking,
       skdCodes,
@@ -277,6 +281,7 @@ export function StartWizard({
       pristine.slugTouched === data.slugTouched &&
       pristine.ownerName === data.ownerName &&
       pristine.email === data.email &&
+      pristine.contactPhone === data.contactPhone &&
       pristine.teamSize === data.teamSize &&
       pristine.onlineBooking === data.onlineBooking &&
       pristine.skdCodes.length === data.skdCodes.length &&
@@ -303,7 +308,7 @@ export function StartWizard({
     } else {
       clearDraftRaw(window.localStorage, WIZARD_DRAFT_KEY)
     }
-  }, [step, vertical, secondary, palette, name, slug, slugTouched, ownerName, email, teamSize, onlineBooking, skdCodes, customTags, skippedVertical, resumeOffer])
+  }, [step, vertical, secondary, palette, name, slug, slugTouched, ownerName, email, contactPhone, teamSize, onlineBooking, skdCodes, customTags, skippedVertical, resumeOffer])
 
   // E4-4 — honest resume: restore the saved draft, but never land
   // further than the data actually allows (safeResumeStep). The slug
@@ -320,10 +325,12 @@ export function StartWizard({
     setSlugTouched(d.slugTouched)
     setSlugStatus(d.slug.trim().length >= 2 ? "checking" : "idle")
     setOwnerName(d.ownerName)
+    // #100-nadaljevanje: telefon se obnovi z osnutkom (korak 2).
     // #40: e-pošta prijavljenega uporabnika je avtoritativna — osnutek je
     // ne more preglasiti.
     setEmail(authedEmail ?? d.email)
     // P2 #88: drugonivojski odgovori se obnovita skupaj z osnutkom.
+    setContactPhone(d.contactPhone)
     setTeamSize(d.teamSize)
     setOnlineBooking(d.onlineBooking)
     // F1 #100: SKD izbira in preskok se obnovita z osnutkom.
@@ -464,6 +471,8 @@ export function StartWizard({
         // poveže obstoječi račun in ne ustvari novega).
         email: (authed ? authedEmail! : email).trim(),
         password: authed ? "" : password,
+        // #100-nadaljevanje: javni kontaktni telefon (neobvezen).
+        contactPhone: contactPhone.trim() || undefined,
         // P2 #88: odgovora iz koraka 2 — neobvezna, nikoli ne blokirata.
         teamSize,
         onlineBooking,
@@ -936,6 +945,25 @@ export function StartWizard({
                     </span>
                   )}
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="contact-phone">
+                  Kontaktni telefon <span className="text-muted-foreground font-normal">(neobvezen)</span>
+                </Label>
+                <Input
+                  id="contact-phone"
+                  value={contactPhone}
+                  onChange={(e) => setContactPhone(e.target.value)}
+                  placeholder="npr. 041 234 567"
+                  maxLength={24}
+                  autoComplete="tel"
+                  inputMode="tel"
+                  disabled={creating}
+                />
+                <p className="text-sm text-muted-foreground">
+                  Javno objavljen na vaši spletni strani — stranke ga vidijo ob objavi.
+                </p>
               </div>
 
               <div className="space-y-3">

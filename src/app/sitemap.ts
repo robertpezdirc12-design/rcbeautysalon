@@ -1,8 +1,8 @@
 import type { MetadataRoute } from "next"
 import { prisma } from "@/lib/prisma"
 import { isBookingEnabled } from "@/lib/public-cta"
-import { getProfile, isCapabilityEnabled, type ActivityProfile } from "@/lib/profiles/registry"
-import { applyOverrides, parseOverrides } from "@/lib/profiles/overrides"
+import { isCapabilityEnabled } from "@/lib/profiles/registry"
+import { resolveEffectiveProfile } from "@/lib/profiles/resolve"
 import { isInternalTenantSlug } from "@/lib/tenant-flags"
 
 /**
@@ -41,7 +41,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         slug: true,
         updatedAt: true,
         vertical: true,
+        secondaryVertical: true,
         profileOverrides: true,
+        // #105-nadaljevanje: modulna vrata tudi v sitemap (zadnja beseda).
+        moduleStates: { select: { moduleId: true, state: true } },
       },
     })
     .catch(() => [])
@@ -53,13 +56,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const lastModified = org.updatedAt
 
     // P2 #46: učinkovit profil (registrski profil + lastnikove prepone) —
-    // zmogljivostno vezani URL-ji se izpišejo SAMO, ko jih najemnik dejansko
-    // ponuja (prej je bil /services brezpogojen → prazna indeksirana stran
-    // za profile, ki storitve izključujejo).
-    const profile: ActivityProfile = applyOverrides(
-      getProfile(org.vertical),
-      parseOverrides(org.profileOverrides)
-    )
+    // P2 #46 + #105-nadaljevanje: polni efektivni profil (registrski
+    // profil + sekundarna + lastnikove prepone + MODULESTATES) —
+    // zmogljivostno vezani URL-ji se izpišejo SAMO, ko jih najemnik
+    // dejansko ponuja (izklopljen modul = URL ni indeksiran).
+    const profile = resolveEffectiveProfile(org)
 
     const paths: Array<{ path: string; priority: number }> = [
       { path: "", priority: 1 },
@@ -70,8 +71,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       paths.push({ path: "/services", priority: 0.7 })
     }
 
-    // #28/#24: samo profili z dejansko omogočenimi rezervacijami.
-    if (isBookingEnabled(org.vertical, org.profileOverrides)) {
+    // #28/#24 + #105-nadaljevanje: samo dejansko omogočene rezervacije.
+    if (isBookingEnabled(org)) {
       paths.push({ path: "/booking", priority: 0.7 })
     }
 

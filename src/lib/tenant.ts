@@ -72,7 +72,13 @@ export const getCustomDomainOrg = cache(async (): Promise<Organization | null> =
   if (!requestHost || isPlatformHost(requestHost, getPlatformHosts())) return null
   const matched = await prisma.customDomain.findFirst({
     where: { domain: requestHost, status: "VERIFIED" },
-    select: { organization: true },
+    // #105-nadaljevanje: moduleStates v org vrstici — modulna vrata
+    // (resolve zadnja beseda) delujejo tudi pod custom domeno.
+    select: {
+      organization: {
+        include: { moduleStates: { select: { moduleId: true, state: true } } },
+      },
+    },
   })
   if (!matched) return null
   const org = matched.organization
@@ -149,6 +155,8 @@ export const getPublicOrg = cache(async (): Promise<Organization | null> => {
   return prisma.organization.findFirst({
     where: { status: "ACTIVE", publishState: "PUBLISHED" },
     orderBy: { createdAt: "asc" },
+    // #105-nadaljevanje: modulna vrata tudi za platformski fallback.
+    include: { moduleStates: { select: { moduleId: true, state: true } } },
   })
 })
 

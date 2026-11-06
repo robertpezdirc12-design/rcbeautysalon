@@ -323,6 +323,8 @@ const SECTION_SUGGESTIONS: Record<string, SectionKey[]> = {
   seamstress: ["hero", "features", "services", "about", "reviews", "cta"],
   // Vulkanizer/servis: delovni nalogi — brez trgovine in ekipe.
   "tire-service": ["hero", "features", "services", "about", "cta"],
+  // Avtomehanik (#100-nadaljevanje): servis + ocene strank.
+  mehanik: ["hero", "features", "services", "about", "reviews", "cta"],
 }
 
 /**
@@ -639,6 +641,35 @@ export function defaultSiteContent(vertical: string): SiteContent {
         title: "Oblačilo, ki čaka na popravek?",
         text: "Oddajte povpraševanje — odgovorimo z rokom in ceno v najkrajšem možnem času.",
         buttonLabel: "Oddaj povpraševanje",
+        buttonHref: "/booking",
+      },
+    },
+    // #100-nadaljevanje: avtomehanik — lastno besedilo (servis vozil + ocene).
+    mehanik: {
+      hero: {
+        eyebrow: "Avtoservis",
+        title: "Vaše vozilo v zanesljivih rokah",
+        subtitle:
+          "Servis, diagnostika in popravila vseh znamk — z delovnim nalogom, ki sledi vsakemu posegu, in jasno ponudbo pred začetkom dela. Rezervirajte termin.",
+        primaryCta: { label: "Rezerviraj servis", href: "/booking" },
+        secondaryCta: { label: "Cenik storitev", href: "/services" },
+      },
+      about: {
+        title: "Pošteno diagnosticirano, jasno ponudjeno, kakovostno popravljeno",
+        paragraphs: [
+          "Vsako vozilo sprejmemo z zapisom stanja in kilometrov. Diagnostika pokaže napako, mi pa vam ponudimo obseg dela in ceno še preden se lotimo popravila.",
+          "Delamo s preverjenimi rezervnimi deli in za vsak poseg izdamo delovni nalog — veste, česa plačujete in kaj je bilo narejeno.",
+        ],
+        stats: [
+          { label: "Let izkušenj", value: "20+" },
+          { label: "Servisov letno", value: "1500+" },
+          { label: "Garancija na delo", value: "12 mes." },
+        ],
+      },
+      cta: {
+        title: "Pripravljeni na servis?",
+        text: "Rezervirajte termin ali oddajte povpraševanje — odgovorimo še isti delovni dan.",
+        buttonLabel: "Rezerviraj servis",
         buttonHref: "/booking",
       },
     },

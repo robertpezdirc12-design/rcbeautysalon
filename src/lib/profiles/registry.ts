@@ -629,6 +629,81 @@ const PROFILE_LIST: ActivityProfile[] = [
     catalog: { seedVerticalId: "tire-service" },
   },
 
+  // AVTOMEHANIK (#100-nadaljevanje) — ločen profil od vulkanizerja:
+  // servis vozil s/rezervacijami, deli, delovnimi nalogi + ocene strank.
+  {
+    id: "mehanik",
+    version: 1,
+    label: "Avtomehanik",
+    description: "Servis in popravila vozil, rezervni deli, delovni nalogi",
+    palette: "charcoal",
+    // P2 #36: schema.org @type — del definicije profila (en vir resnice).
+    schemaType: "AutoRepair",
+    capabilities: {
+      appointments: "optional", // rezervacije servisa (lastnik lahko izklopi)
+      workOrders: "required",
+      shop: "required", // rezervni deli in potrošni material
+      services: "required",
+      inventory: "required",
+      customers: "required",
+      staff: "required",
+      analytics: "required",
+      reviews: "optional", // mehanik dobiva ocene strank (za razliko od vulkanizerja)
+      forms: "required",
+      workflows: "required",
+      documents: "optional",
+      delivery: "disabled",
+      walkIn: "optional", // #98: modul je na voljo vsaki dejavnosti (AD-02)
+    },
+    terminology: terms({
+      businessSingular: "avtoservis",
+      businessIn: "v avtoservisu",
+      businessGenitive: "avtoservisa",
+      businessEn: { singular: "auto repair shop", in: "at the auto repair shop", genitive: "the auto repair shop's" },
+      appointmentSingular: "Termin servisa",
+      appointmentPlural: "Termini servisa",
+      orderSingular: "Delovni nalog",
+      orderPlural: "Delovni nalogi",
+      bookingCta: "Rezerviraj servis",
+      orderEn: { singular: "Work order", plural: "Work orders" },
+      ctaEn: "Book a service",
+    }),
+    forms: [
+      {
+        key: "vehicle-intake",
+        name: "Sprejem vozila",
+        description: "Podatki vozila in zahtevano delo ob sprejemu.",
+        fields: [
+          { key: "license_plate", label: "Registrska oznaka", type: "text", required: true },
+          { key: "brand_model", label: "Znamka in model", type: "text", required: true },
+          { key: "odometer_km", label: "Kilometri", type: "number", required: false, unit: "km" },
+          { key: "last_service", label: "Zadnji servis (kdaj/kaj)", type: "text", required: false },
+          { key: "requested_work", label: "Zahtevano delo ali težava", type: "textarea", required: true },
+        ],
+      },
+    ],
+    workflows: [
+      {
+        key: "work-order",
+        name: "Delovni nalog",
+        entity: "order",
+        stages: [
+          { key: "checkin", name: "Sprejem vozila", description: "Pregled in zapis stanja." },
+          { key: "diagnostics", name: "Pregled / ponudba", description: "Diagnostika in ponudba dela." },
+          { key: "approved", name: "Potrjeno", description: "Stranka potrdi obseg dela." },
+          { key: "in_progress", name: "Delo v teku", description: "Mehanik izvaja delo." },
+          { key: "done", name: "Zaključeno delo", description: "Kontrola kakovosti." },
+          { key: "handover", name: "Prevzem in plačilo", description: "Razračun in izročitev vozila." },
+          { key: "closed", name: "Oddano", isFinal: true },
+        ],
+      },
+    ],
+    dashboardWidgets: ["activeOrders", "deadlines", "todayAppointments", "revenue", "lowStock", "customers"],
+    website: { ctaMode: "booking" },
+    extensions: ["vehicle-workshop", "suppliers"],
+    catalog: { seedVerticalId: "mehanik" },
+  },
+
   // BEEKEEPING — product/production business, NO appointments (§21).
   {
     id: "beekeeping",

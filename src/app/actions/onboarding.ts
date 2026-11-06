@@ -28,6 +28,11 @@ export interface CreateSalonInput {
   email: string
   password: string
   /**
+   * #100-nadaljevanje — javni kontaktni telefon (korak 2, neobvezen).
+   * Gre v SalonConfig.phone in zadostuje kontaktni zahtevi objave.
+   */
+  contactPhone?: string | null
+  /**
    * P2 #88 — optional second-level answers from /start step 2 (same shape
    * the guided-entry wizard persists): "solo" removes the staff step from
    * the activation checklist; onlineBooking "no" rewords the publish step.
@@ -370,6 +375,8 @@ export async function createSalonOrganization(input: CreateSalonInput): Promise<
           organizationId: org.id,
           name,
           email,
+          // #100-nadaljevanje: javni kontaktni telefon iz čarovnika (neobvezen).
+          phone: input.contactPhone?.trim() || null,
           country: "SI",
           currency: preset.currency || "EUR",
           locale: preset.locale || "sl",

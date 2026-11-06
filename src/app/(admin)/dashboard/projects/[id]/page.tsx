@@ -1,7 +1,7 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { ArrowLeftIcon } from "@/components/icons"
-import { getSessionEffectiveProfile } from "@/lib/profiles/resolve"
+import { getSessionEffectiveProfile } from "@/lib/profiles/session"
 import { getProjectDetail } from "@/app/actions/projects"
 import { getServerI18n } from "@/lib/i18n/server"
 import { ProjectDetailClient } from "@/components/admin/projects/project-detail-client"

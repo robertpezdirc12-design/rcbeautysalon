@@ -55,6 +55,10 @@ type TenantInfo = {
   publishState?: string
   /** P2 #46: profil, ki izključuje storitve, ne servira /services. */
   servicesEnabled?: boolean
+  /** #105-nadaljevanje (G1): izklopljena trgovina → /shop* pravi 404. */
+  shopEnabled?: boolean
+  /** #105-nadaljevanje (G3): izklopljeni forms → /inquiry pravi 404. */
+  formsEnabled?: boolean
 }
 
 /** Odgovor /api/public/resolve-host — VERIFIED custom domain najemnik. */
@@ -287,6 +291,24 @@ async function runTenantGates(opts: {
     // streamingu ne more spremeniti statusa). Fail-open: ko proxy ne
     // dobi podatka, pusti stran naprej (layout vrata ostanejo rezerva).
     if (sub === "/services" && tenant.servicesEnabled === false) {
+      return rewriteTo404(req, requestHeaders)
+    }
+
+    // #105-nadaljevanje (G1): izklopljena trgovina → /shop (katalog) IN
+    // /shop/<id> (izdelek) sta PRAVA 404 — prej se je samo povezava na
+    // domači strani skrila, URL pa je še vedno deloval. Fail-open, ko
+    // proxy ne dobi podatka (page-level notFound() ostaja rezerva).
+    if (
+      (sub === "/shop" || sub.startsWith("/shop/")) &&
+      tenant.shopEnabled === false
+    ) {
+      return rewriteTo404(req, requestHeaders)
+    }
+
+    // #105-nadaljevanje (G3): izklopljeni forms → /inquiry pravi 404.
+    // (Veja bookingEnabled===true zgoraj gre prva — tam je /inquiry
+    // napačna stran za booking profile in se preusmeri na domačo.)
+    if (sub === "/inquiry" && tenant.formsEnabled === false) {
       return rewriteTo404(req, requestHeaders)
     }
   }

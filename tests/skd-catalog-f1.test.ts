@@ -116,6 +116,7 @@ describe("F1 wizard draft: SKD polja (E4-4 nadaljevanje)", () => {
       secondary: null,
       palette: null,
       name: "",
+      contactPhone: "",
       slug: "",
       slugTouched: false,
       ownerName: "",

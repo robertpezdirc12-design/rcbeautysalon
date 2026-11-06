@@ -5,7 +5,7 @@ import { requirePermissionOrg } from "@/lib/auth/guards"
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 
-import { getSessionEffectiveProfile } from "@/lib/profiles/resolve"
+import { getSessionEffectiveProfile } from "@/lib/profiles/session"
 import {
   canTransitionProject,
   canTransitionTask,

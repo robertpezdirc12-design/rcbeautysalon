@@ -109,7 +109,7 @@ export default async function ServiceDetailPage({
   // P0 #24 (re-audit 2026-11): profil poganja CTA — najemnik z izklopljenimi
   // rezervacijami ne sme videti "Rezerviraj to storitev", ki vodi na mrtvo
   // pot (/booking preusmeri na /inquiry in izgubi izbrano storitev).
-  const bookingEnabled = isBookingEnabled(site.org.vertical, site.org.profileOverrides)
+  const bookingEnabled = isBookingEnabled(site.org)
 
   return (
     <div className="flex min-h-screen flex-col">

@@ -114,9 +114,11 @@ describe("#66 — platform landing + wizard deep-link", () => {
     expect(landing).toContain("/start?vertical=")
     // deep link target exists in the registry — spot-check both directions
     const ids = listProfileOptions().map((v) => v.id)
-    expect(ids.length).toBe(11)
+    // #100-nadaljevanje: 11 → 12 (dodan profil "mehanik" / Avtomehanik).
+    expect(ids.length).toBe(12)
     expect(ids).toContain("seamstress")
     expect(ids).toContain("beekeeping")
+    expect(ids).toContain("mehanik")
     // plans section is registry-driven (no hardcoded pricing)
     expect(landing).toContain("PLANS")
     for (const plan of Object.values(PLANS)) {

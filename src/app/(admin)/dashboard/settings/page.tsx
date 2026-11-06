@@ -22,7 +22,7 @@ import { loadBillingOverview } from "@/lib/payments/billing-overview"
 import { getDomainsStatus } from "@/app/actions/domains"
 import { requirePagePermission } from "@/lib/auth/guards"
 import { isCapabilityEnabled } from "@/lib/profiles/registry"
-import { getSessionEffectiveProfile } from "@/lib/profiles/resolve"
+import { getSessionEffectiveProfile } from "@/lib/profiles/session"
 
 export default async function SettingsPage({
   searchParams,

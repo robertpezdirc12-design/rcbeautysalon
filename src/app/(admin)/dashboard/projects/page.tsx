@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation"
-import { getSessionEffectiveProfile } from "@/lib/profiles/resolve"
+import { getSessionEffectiveProfile } from "@/lib/profiles/session"
 import { listProjects, getProjectLinkOptions } from "@/app/actions/projects"
 import { getServerI18n } from "@/lib/i18n/server"
 import { ProjectsClient } from "@/components/admin/projects/projects-client"

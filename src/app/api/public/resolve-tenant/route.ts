@@ -86,23 +86,28 @@ export async function GET(request: Request) {
       )
     }
 
+    // #100 8.C (F2) + #105-nadaljevanje: enkrat polni resolve (vertikala →
+    // sekundarna → overrides → moduleStates) — modulna vrata veljajo tudi
+    // za proxy (pravi 404).
+    const profile = resolveEffectiveProfile(org)
+
     return NextResponse.json(
       {
         exists: true,
         orgId: org.id,
         publishState: org.publishState,
-        // #100 8.C (F2): polni resolve (vertikala → sekundarna → overrides →
-        // moduleStates) — modulna vrata veljajo tudi za proxy (pravi 404).
         bookingEnabled:
-          resolveEffectiveProfile(org).website.ctaMode === "booking" &&
-          isCapabilityEnabled(resolveEffectiveProfile(org), "appointments"),
+          profile.website.ctaMode === "booking" &&
+          isCapabilityEnabled(profile, "appointments"),
         // P2 #46: profil, ki izključuje storitve (npr. čebelarstvo), ne
         // objavlja /services — proxy lahko tedaj vrne PRAVI 404 (statusne
         // kode zmore samo proxy, glej komentar zgoraj).
-        servicesEnabled: isCapabilityEnabled(
-          resolveEffectiveProfile(org),
-          "services"
-        ),
+        servicesEnabled: isCapabilityEnabled(profile, "services"),
+        // #105-nadaljevanje (G1/G3): enaka vrata za trgovino in obrazce —
+        // izklopljena trgovina mora /shop* res 404-at (ne samo skriti
+        // povezave na domači strani); izklopljeni forms mora /inquiry 404-at.
+        shopEnabled: isCapabilityEnabled(profile, "shop"),
+        formsEnabled: isCapabilityEnabled(profile, "forms"),
       },
       // PR #103 review round 2: PROXY-ONLY endpoint — responses must not
       // be stored/served by shared caches. The proxy keeps its own 15 s

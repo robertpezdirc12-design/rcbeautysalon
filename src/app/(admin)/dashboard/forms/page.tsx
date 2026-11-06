@@ -1,6 +1,6 @@
 import { getServerI18n } from "@/lib/i18n/server"
 import { listFormDefinitions, listFormSubmissions } from "@/app/actions/forms"
-import { getSessionEffectiveProfile } from "@/lib/profiles/resolve"
+import { getSessionEffectiveProfile } from "@/lib/profiles/session"
 import { FormsClient } from "@/components/admin/forms/forms-client"
 import { requirePagePermission } from "@/lib/auth/guards"
 

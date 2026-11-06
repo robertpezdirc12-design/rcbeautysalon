@@ -19,7 +19,7 @@ export default async function BookingLayout({
   children: React.ReactNode
 }) {
   const org = await getResolvedOrg()
-  if (!isBookingEnabled(org?.vertical, org?.profileOverrides)) {
+  if (!isBookingEnabled(org)) {
     // Profile guard (EPIC #1 §21): non-appointment businesses never see
     // a booking calendar — they are routed to the inquiry form instead.
     redirect(orgPath(org?.slug, "/inquiry"))

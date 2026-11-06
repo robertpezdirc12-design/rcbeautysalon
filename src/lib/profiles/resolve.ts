@@ -11,8 +11,6 @@
 // vrstic moduleState = vertikalni privzeti (ni spremembe vedenja).
 // ============================================================
 
-import { cache } from "react"
-import { getSessionOrg } from "@/lib/tenant"
 import { getProfile } from "./registry"
 import { applyOverrides, parseOverrides } from "./overrides"
 import { applySecondaryProfile } from "./secondary"
@@ -38,23 +36,10 @@ function statesFromOrg(org: OrgLike | null | undefined): ModuleStateMap {
   return map
 }
 
-/**
- * Effective profile of the current admin session's org
- * (shared profile + secondary-activity union + owner overrides + moduleStates).
- */
-export const getSessionEffectiveProfile = cache(async (): Promise<ActivityProfile> => {
-  const org = await getSessionOrg()
-  const withSecondary = applySecondaryProfile(
-    getProfile(org?.vertical),
-    org?.secondaryVertical
-  )
-  const withOverrides = applyOverrides(withSecondary, parseOverrides(org?.profileOverrides))
-  const caps = effectiveCapabilities(
-    withOverrides.capabilities as unknown as Record<string, string>,
-    statesFromOrg(org)
-  )
-  return { ...withOverrides, capabilities: caps } as unknown as ActivityProfile
-})
+// #105-nadaljevanje: sejna varianta (getSessionEffectiveProfile) je prestavljena
+// v ./session — ta modul ostane ČIST (brez @/lib/tenant → next-auth verige),
+// da ga javne površine (public-cta, sitemap-builder) lahko uvažajo tudi v
+// testnem okolju brez ESM-težav next-auth beta različice.
 
 /**
  * Effective profile for an already-loaded org (public pages pass

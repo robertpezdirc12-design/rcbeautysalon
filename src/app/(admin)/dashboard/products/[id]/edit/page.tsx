@@ -8,7 +8,7 @@ import { StockMovementsCard } from "@/components/dashboard/stock-movements-card"
 import { getProductById } from "@/app/actions/products"
 import { getAllCategories } from "@/app/actions/services"
 import { getServerI18n } from "@/lib/i18n/server"
-import { getSessionEffectiveProfile } from "@/lib/profiles/resolve"
+import { getSessionEffectiveProfile } from "@/lib/profiles/session"
 import { requirePagePermission } from "@/lib/auth/guards"
 
 interface EditProductPageProps {

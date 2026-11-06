@@ -58,7 +58,7 @@ export default async function CustomerLayout({
     )
   }
 
-  const cta = resolvePublicCta(org?.vertical, await getLocaleFromCookies(), org?.profileOverrides)
+  const cta = resolvePublicCta(org, await getLocaleFromCookies())
 
   return (
     <PublicI18nProvider org={org}>

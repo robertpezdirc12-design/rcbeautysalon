@@ -88,9 +88,13 @@ describe("#100 8.C odvisnosti pri vklopu/izklopu", () => {
 })
 
 describe("#100 8.C struktura: resolve, akcije, UI, vrata", () => {
-  it("resolve: org vključi moduleStates (getOrgBySlug/getOrgById)", () => {
+  it("resolve: org vključi moduleStates (getOrgBySlug/getOrgById/custom domena/platformski fallback)", () => {
     const tenant = read("src/lib/tenant.ts")
-    expect(tenant.match(/include: \{ moduleStates/g)?.length).toBe(2)
+    // #105-nadaljevanje: 4 nalagalci org vrstice vsi vključijo moduleStates —
+    // getOrgBySlug, getOrgById, getCustomDomainOrg (custom domene) in
+    // platformski root fallback. Brez tega bi modulna vrata (zadnja beseda)
+    // pod custom domeno / fallbackom gledala samo overrides.
+    expect(tenant.match(/include: \{ moduleStates/g)?.length).toBe(4)
   })
 
   it("resolveEffectiveProfile: moduleStates so zadnja beseda (celoten tok)", () => {

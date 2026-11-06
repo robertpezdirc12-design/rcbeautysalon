@@ -14,7 +14,10 @@ import { CartButton } from "@/components/shop/cart-button"
 import { SearchInput } from "@/components/shop/search-input"
 import { PackageIcon } from "@/components/icons"
 import { AddToCartButton } from "@/components/shop/add-to-cart-button"
+import { notFound } from "next/navigation"
 import { getPublicSiteData, getPublicShopProducts, redirectBareToTenant } from "@/lib/public-site"
+import { resolveEffectiveProfile } from "@/lib/profiles/resolve"
+import { isCapabilityEnabled } from "@/lib/profiles/registry"
 import { getPublicGiftCards } from "@/app/actions/prepaid"
 import { GiftCardSection } from "@/components/shop/gift-card-section"
 import { canonicalMetadata } from "@/lib/seo"
@@ -58,6 +61,10 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
 
   const { org, content } = site
   const slug = org.slug
+
+  // #105-nadaljevanje (G1, 2. linija): izklopljena trgovina → PRAVI 404
+  // (proxy vrata so 1. linija; fail-open pusti zahtevo do sem brez podatka).
+  if (!isCapabilityEnabled(resolveEffectiveProfile(org), "shop")) notFound()
   const locale = await getLocaleFromCookies()
   // P3 #50: posvečen naslov kataloga (landing sekcija obdrži svoj
   // lastniško uredljiv naslov, npr. "Izbrani izdelki").

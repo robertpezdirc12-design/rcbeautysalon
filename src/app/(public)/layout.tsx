@@ -138,7 +138,7 @@ export default async function PublicLayout({
     })
   }
 
-  const cta = resolvePublicCta(org?.vertical, await getLocaleFromCookies(), org?.profileOverrides)
+  const cta = resolvePublicCta(org, await getLocaleFromCookies())
 
   // #98 (AD-02): povezava Živa vrsta — samo ko najemnikov profil modul
   // vklopi (capability + overrides); izklop = povezava ne obstaja (§5.2).

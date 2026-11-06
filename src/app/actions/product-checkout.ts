@@ -5,6 +5,8 @@ import { auth } from "@/lib/auth/auth"
 import { prisma } from "@/lib/prisma"
 import { validateCartStock } from "./cart"
 import { getPublicOrg } from "@/lib/tenant"
+import { resolveEffectiveProfile } from "@/lib/profiles/resolve"
+import { isCapabilityEnabled } from "@/lib/profiles/registry"
 import { getPlan } from "@/lib/plans/registry"
 import { checkPlanLimit, monthStartUtc } from "@/lib/plans/types"
 import { SI_VAT_RATE, vatFromGross } from "@/lib/vat"
@@ -154,6 +156,16 @@ export async function createProductCheckoutSession(
       return {
         success: false,
         error: "Trgovina trenutno ni na voljo. Poskusite znova kasneje.",
+      }
+    }
+
+    // #105-nadaljevanje (G1, denarni breg): izklopljena trgovina →
+    // checkout ZAVRNJEN, ne glede na to, kako je košarica prišla do sem
+    // (modulna vrata = zadnja beseda; prej je akcija gledala samo profil).
+    if (!isCapabilityEnabled(resolveEffectiveProfile(org), "shop")) {
+      return {
+        success: false,
+        error: "Trgovina trenutno ni na voljo.",
       }
     }
 

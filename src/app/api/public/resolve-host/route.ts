@@ -6,9 +6,8 @@ import {
   verifyResolverQueryForOrigin,
 } from "@/lib/tenant-proof"
 import { hostFromHostHeader } from "@/lib/domains/normalize"
-import { isBookingEnabled } from "@/lib/public-cta"
-import { getProfile, isCapabilityEnabled } from "@/lib/profiles/registry"
-import { applyOverrides, parseOverrides } from "@/lib/profiles/overrides"
+import { resolveEffectiveProfile } from "@/lib/profiles/resolve"
+import { isCapabilityEnabled } from "@/lib/profiles/registry"
 
 // ============================================================
 // PR #103 review round 2 (Codex — najdba "lastne domene") —
@@ -64,9 +63,12 @@ export async function GET(request: Request) {
             id: true,
             slug: true,
             vertical: true,
+            secondaryVertical: true,
             profileOverrides: true,
             status: true,
             publishState: true,
+            // #105-nadaljevanje: modulna vrata tudi za custom domene.
+            moduleStates: { select: { moduleId: true, state: true } },
           },
         },
       },
@@ -93,6 +95,10 @@ export async function GET(request: Request) {
       )
     }
 
+    // #105-nadaljevanje: enkrat polni resolve (vertikala → sekundarna →
+    // overrides → moduleStates) — ista vrata kot resolve-tenant.
+    const profile = resolveEffectiveProfile(org)
+
     return NextResponse.json(
       {
         matched: true,
@@ -100,14 +106,13 @@ export async function GET(request: Request) {
         slug: org.slug,
         orgId: org.id,
         publishState: org.publishState,
-        bookingEnabled: isBookingEnabled(org.vertical, org.profileOverrides),
-        servicesEnabled: isCapabilityEnabled(
-          applyOverrides(
-            getProfile(org.vertical),
-            parseOverrides(org.profileOverrides)
-          ),
-          "services"
-        ),
+        bookingEnabled:
+          profile.website.ctaMode === "booking" &&
+          isCapabilityEnabled(profile, "appointments"),
+        servicesEnabled: isCapabilityEnabled(profile, "services"),
+        // #105-nadaljevanje (G1/G3): trgovina in obrazci pod custom domeno.
+        shopEnabled: isCapabilityEnabled(profile, "shop"),
+        formsEnabled: isCapabilityEnabled(profile, "forms"),
       },
       { headers: { "Cache-Control": "private, no-store" } }
     )

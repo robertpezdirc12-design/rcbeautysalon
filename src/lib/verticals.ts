@@ -309,6 +309,8 @@ const PRESET_STAFF_IMAGE: Record<string, string> = {
   epilation: IMG.staffEpilacija,
   seamstress: IMG.staffSivilja,
   "tire-service": IMG.staffMehanik,
+  // #100-nadaljevanje: avtomehanik dobi svojo preset sliko (obstaja že od #85).
+  mehanik: IMG.staffMehanik,
   beekeeping: IMG.staffCebelar,
 }
 
@@ -332,6 +334,8 @@ const VERTICAL_IMAGERY: Record<string, { hero?: string; about?: string; cta?: st
   epilation: { hero: IMG.heroLaser, about: IMG.laser, cta: IMG.wax },
   seamstress: { hero: IMG.heroAtelier, about: IMG.sewing, cta: IMG.customDress },
   "tire-service": { hero: IMG.heroGarage, about: IMG.tireChange, cta: IMG.oilChange },
+  // #100-nadaljevanje: avtomehanik — ista garažna imidž banka, drugačno poudarki.
+  mehanik: { hero: IMG.heroGarage, about: IMG.oilChange, cta: IMG.brakes },
   beekeeping: { hero: IMG.heroApiary, about: IMG.honeycomb, cta: IMG.honeyJars },
   // P2 #85: generic dobi lastne nevtralne slike — ne deduje salon/transform.
   generic: { hero: IMG.heroWorkspace, about: IMG.workspace, cta: IMG.craft },
@@ -760,6 +764,32 @@ export const VERTICALS: VerticalPreset[] = [
       ]},
     ],
     siteContent: defaultSiteContent("tire-service"),
+  },
+  {
+    // #100-nadaljevanje: AVTOMEHANIK — ločen profil od vulkanizerja
+    // (uporabnikova izkaznica primera: "mehanik"). Servis vozil z
+    // rezervacijami, deli in delovnimi nalogi.
+    id: "mehanik",
+    label: "Avtomehanik",
+    description: "Servis in popravila vozil, rezervni deli, delovni nalogi",
+    palette: "charcoal",
+    currency: "EUR",
+    locale: "sl",
+    timezone: "Europe/Ljubljana",
+    categories: [
+      { name: "Servis", slug: "servis", services: [
+        { name: "Menjava olja in filtra", description: "Menjava motornega olja in oljnega filtra", duration: 45, price: 55, imageUrl: IMG.oilChange, isFeatured: true },
+        { name: "Diagnostika napak", description: "Pregled z diagnostično napravo in razlaga napak", duration: 30, price: 25, imageUrl: IMG.diagnostics },
+        { name: "Menjava zavorških blazinic", description: "Menjava zavorških blazinic na eni osi", duration: 60, price: 45, imageUrl: IMG.brakes, isFeatured: true },
+        { name: "Servis klime", description: "Pregled, dezinfekcija in polnjenje klime", duration: 60, price: 60, imageUrl: IMG.oilChange },
+      ]},
+      { name: "Popravila", slug: "popravila", services: [
+        { name: "Zamenjava amortizerjev", description: "Zamenjava amortizerjev na eni osi (cena od)", duration: 120, price: 90, imageUrl: IMG.brakes },
+        { name: "Menjava izpušnega sistema", description: "Preverjanje in menjava izpušnega sistema (cena od)", duration: 90, price: 80, imageUrl: IMG.diagnostics },
+        { name: "Menjava gum (komplet)", description: "Demontaža, montaža in balansiranje štirih gum", duration: 60, price: 40, imageUrl: IMG.tireChange },
+      ]},
+    ],
+    siteContent: defaultSiteContent("mehanik"),
   },
   {
     id: "beekeeping",

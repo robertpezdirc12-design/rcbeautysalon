@@ -5,6 +5,8 @@ import { term as profileTerm } from "@/lib/profiles/registry"
 import { resolveEffectiveProfile } from "@/lib/profiles/resolve"
 import { getPublicForms } from "@/app/actions/forms"
 import { redirectBareToTenant } from "@/lib/public-site"
+import { notFound } from "next/navigation"
+import { isCapabilityEnabled } from "@/lib/profiles/registry"
 import { PublicInquiryForm } from "@/components/public/public-inquiry-form"
 
 // ============================================================
@@ -34,6 +36,9 @@ export default async function InquiryPage() {
 
   const org = await getResolvedOrg()
   // Guard (booking → domov) je v inquiry/layout.tsx — shell faza (P0 #24).
+
+  // #105-nadaljevanje (G3, 2. linija): izklopljeni forms → PRAVI 404.
+  if (!org || !isCapabilityEnabled(resolveEffectiveProfile(org), "forms")) notFound()
 
   const forms = await getPublicForms()
   const profile = resolveEffectiveProfile(org)

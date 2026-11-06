@@ -18,6 +18,7 @@ import {
   Sparkles,
   Wrench,
   type LucideIcon,
+  Car,
 } from "lucide-react"
 
 export const PROFILE_ICONS: Record<string, LucideIcon> = {
@@ -31,6 +32,8 @@ export const PROFILE_ICONS: Record<string, LucideIcon> = {
   generic: LayoutGrid,
   seamstress: Ruler,
   "tire-service": Wrench,
+  // #100-nadaljevanje: avtomehanik — svoja ikona (ločen profil).
+  mehanik: Car,
   beekeeping: Hexagon,
 }
 

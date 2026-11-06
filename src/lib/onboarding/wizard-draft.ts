@@ -52,6 +52,8 @@ export interface WizardDraftData {
   slugTouched: boolean
   ownerName: string
   email: string
+  /** #100-nadaljevanje — javni kontaktni telefon (neobvezen, nikoli blokira). */
+  contactPhone: string
   /** P2 #88 — team-size answer (null = not answered / older draft). */
   teamSize: "solo" | "small" | "team" | null
   /** P2 #88 — online-booking answer (null = not answered / older draft). */
@@ -89,6 +91,7 @@ const CAPS = {
   slug: 40,
   ownerName: 80,
   email: 120,
+  contactPhone: 24,
   skdCodes: 10,
   skdCode: 20, // sekcija "A".."V" oz. "area:<key>" (najdaljši ključ 17)
   customTags: 10,
@@ -151,6 +154,7 @@ export function sanitizeWizardDraftData(
     slugTouched: obj.slugTouched === true,
     ownerName: clampString(obj.ownerName, CAPS.ownerName),
     email: clampString(obj.email, CAPS.email),
+    contactPhone: clampString(obj.contactPhone, CAPS.contactPhone),
     // P2 #88 — same answer shape the guided-entry wizard persists on the
     // organization; older drafts (and tampered values) degrade to null.
     teamSize: optionalAnswer(obj.teamSize, ["solo", "small", "team"] as const),

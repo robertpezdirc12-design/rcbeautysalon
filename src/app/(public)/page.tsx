@@ -97,7 +97,7 @@ export default async function HomePage() {
     profile
   )
 
-  const ctaLinks = resolveCtaLinks(org.vertical, content, org.profileOverrides)
+  const ctaLinks = resolveCtaLinks(org, content)
   // #100 (ista filozofija kot #62 za sidra v glavi): privzeti sekundarni CTA
   // heroja kaže na /services — pri najemniku BREZ aktivnega kataloga
   // (platformska predstavitev, svež najemnik) bi to bil mrtvi konec poti na
@@ -113,7 +113,7 @@ export default async function HomePage() {
       org={{ slug: org.slug, name: org.name, logo: org.logo }}
       content={content}
       ctaLinks={heroCtaLinks}
-      ctaSectionHref={resolveCtaSectionHref(org.vertical, content.cta.buttonHref, org.profileOverrides)}
+      ctaSectionHref={resolveCtaSectionHref(org, content.cta.buttonHref)}
       serviceCtaLabel={
         bookingEnabled ? "Rezerviraj" : "Poglej"
       }

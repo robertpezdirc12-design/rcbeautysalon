@@ -21,6 +21,8 @@ const EXPECTED: Record<string, string> = {
   massage: "DaySpa",
   epilation: "BeautySalon",
   "tire-service": "AutoRepair",
+  // #100-nadaljevanje: avtomehanik — isti schema.org tip kot vulkanizer.
+  mehanik: "AutoRepair",
   // Storitveni posel — ClothingStore pomeni malico in je napačen (#36).
   seamstress: "ProfessionalService",
   beekeeping: "Store",

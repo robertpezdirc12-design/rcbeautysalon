@@ -73,12 +73,8 @@ export default async function PreviewPage() {
         <HomeContent
           org={{ slug: org.slug, name: org.name, logo: org.logo }}
           content={content}
-          ctaLinks={resolveCtaLinks(org.vertical, content, org.profileOverrides)}
-          ctaSectionHref={resolveCtaSectionHref(
-            org.vertical,
-            content.cta.buttonHref,
-            org.profileOverrides
-          )}
+          ctaLinks={resolveCtaLinks(org, content)}
+          ctaSectionHref={resolveCtaSectionHref(org, content.cta.buttonHref)}
           serviceCtaLabel={
             resolveEffectiveProfile(org).capabilities.appointments !== "disabled"
               ? "Rezerviraj"

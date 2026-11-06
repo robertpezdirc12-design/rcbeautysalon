@@ -3,6 +3,8 @@ import Image from "next/image"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { getPublicProductById, getPublicSiteData, redirectBareToTenant } from "@/lib/public-site"
+import { resolveEffectiveProfile } from "@/lib/profiles/resolve"
+import { isCapabilityEnabled } from "@/lib/profiles/registry"
 import { buildProductJsonLd, canonicalMetadata, resolveAppUrl } from "@/lib/seo"
 import { resolvePublishGate } from "@/lib/publish-gate"
 import { isInternalTenantSlug } from "@/lib/tenant-flags"
@@ -70,9 +72,12 @@ const ProductDetails = async ({ params }: ProductDetailsProps) => {
   const site = await getPublicSiteData()
   const product = site ? await getPublicProductById(site.org.id, slug) : null
 
-  if (!product) {
+  if (!product || !site) {
     notFound()
   }
+
+  // #105-nadaljevanje (G1, 2. linija): izklopljena trgovina → izdelek 404.
+  if (!isCapabilityEnabled(resolveEffectiveProfile(site.org), "shop")) notFound()
 
   const orgSlug = site?.org.slug ?? null
   const inStock = product.stockQuantity > 0
