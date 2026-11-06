@@ -285,7 +285,22 @@ const IMG = {
 
 // P2 #61: every sample image the presets ship — used by the publish gate to
 // warn owners who are about to go live with stock imagery.
-const SAMPLE_IMAGE_URLS: ReadonlySet<string> = new Set(Object.values(IMG))
+// lastnik (6. 11. 2026): tudi PLATFORMSKI PRIVZETI mediji (default-assets:
+// hero ozadje itd.) so vzorčne slike — najemnikova stran mora kazati
+// NJEGOVO dejavnost (upgradeLegacyImagery jih preglasi z dejavnostjo;
+// lastniški uploadi ostanejo). Prej je demo vulkanizer kazal salonsko
+// hero sliko, ker teh poti ni bilo v vzorcih.
+const PLATFORM_DEFAULT_MEDIA = [
+  "/img/media/hero/hero-bg.avif",
+  "/img/media/hero/hero-bg.webm",
+  "/img/media/hero/hero-bg.mp4",
+  "/img/media/hero/services-band.webm",
+  "/img/media/hero/services-band.mp4",
+] as const
+const SAMPLE_IMAGE_URLS: ReadonlySet<string> = new Set([
+  ...Object.values(IMG),
+  ...PLATFORM_DEFAULT_MEDIA,
+])
 
 /** True when the url is still one of the preset sample images. */
 export function isSampleImageUrl(url: string | null | undefined): boolean {
