@@ -54,7 +54,7 @@ export function WalkInPublicClient() {
         setPhone("")
         await checkStatus(res.ticketCode, false)
       } else {
-        setError(res.error ?? "Prijava ni uspela. Poskusite znova.")
+        setError(res.error ?? "Vpis v vrsto ni uspel. Poskusite znova.")
       }
     })
   }
@@ -122,7 +122,7 @@ export function WalkInPublicClient() {
         )}
 
         <Button onClick={join} disabled={pending || name.trim().length < 2} className="w-full">
-          {pending ? "Prijavljam …" : "Prijavi se v vrsto"}
+          {pending ? "Vpisujem …" : "Vpiši me v vrsto"}
         </Button>
 
         <div className="flex items-center gap-2 pt-2">
