@@ -278,12 +278,14 @@ export function BookingForm(props: BookingFormProps) {
 
       const parsed = schema.safeParse(parsedValues)
       if (!parsed.success) {
-        // TEMP-DEBUG
-
         const fieldErrors = zodIssuesToFieldErrors(parsed.error)
         for (const [field, message] of Object.entries(fieldErrors)) {
           setError(field as keyof BookingFormValues, { message })
         }
+        // #112-2: validacijska napaka mora biti VIDNA — prej je bil toast
+        // odstranjen (TEMP-DEBUG) in skrita polja (telefon v zaposlenem
+        // načinu) so padla tiho.
+        toast.error(parsed.error.issues[0]?.message ?? t.booking.checkoutFailed)
         return { ok: false }
       }
 
@@ -373,8 +375,6 @@ export function BookingForm(props: BookingFormProps) {
           guestPhone: parsed.data.phone || undefined,
           notes: parsed.data.notes || undefined,
         })
-
-        // TEMP-DEBUG
 
         if (result.success && result.checkoutUrl) {
           window.location.assign(result.checkoutUrl)

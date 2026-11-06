@@ -86,10 +86,20 @@ export function buildBookingSchema(locale: BookingSchemaLocale = "sl") {
 export function buildAuthenticatedBookingSchema(
   locale: BookingSchemaLocale = "sl"
 ) {
+  // #112: prijavljen uporabnik (lastnik/osebje) nima mogoče vnesti telefona
+  // v zaposlenem načinu — brez tega je validacija tiho padla na skritem
+  // polju (defect #112-2). Kontakt za goste ostane obvezen (guest schema).
   return buildBookingSchema(locale).extend({
     firstName: z.string().optional(),
     lastName: z.string().optional(),
     email: z.string().optional(),
+    phone: z
+      .string()
+      .max(20)
+      .refine((val) => val === "" || /^[\d\s\-\(\)\+]+$/.test(val), {
+        message: bookingMessages[locale].phoneInvalid,
+      })
+      .optional(),
   })
 }
 
