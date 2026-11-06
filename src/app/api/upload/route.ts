@@ -29,6 +29,8 @@ type UploadType =
   | "hero"
   | "about"
   | "cta"
+  // #101 no-code: slike lastnih sekcij (isti varnostni pogoji kot branding)
+  | "content"
 
 const uploadConfigs: Record<UploadType, { folder: string }> = {
   avatar: { folder: "avatars" },
@@ -39,6 +41,7 @@ const uploadConfigs: Record<UploadType, { folder: string }> = {
   hero: { folder: "branding" },
   about: { folder: "branding" },
   cta: { folder: "branding" },
+  content: { folder: "branding" },
 }
 
 export async function POST(request: NextRequest) {

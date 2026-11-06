@@ -6,8 +6,8 @@ import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { cloudinaryPresets } from "@/lib/utils/cloudinary"
 import { orgPath } from "@/lib/org-path"
-import type { CtaLink, SectionKey, SiteContent } from "@/lib/site-content"
-import { homeSectionOrder } from "@/lib/site-content"
+import type { CtaLink, CustomSectionContent, SectionEntry, SectionKey, SiteContent } from "@/lib/site-content"
+import { renderableSections } from "@/lib/site-content"
 import { HeroVideo } from "@/components/landing/hero-video"
 import { HeroActions } from "@/components/landing/hero-actions"
 import { FeatureCards } from "@/components/landing/feature-cards"
@@ -462,15 +462,91 @@ export function HomeContent({
 
   return (
     <div className="flex min-h-screen flex-col">
-      {homeSectionOrder(content.sections).map((key) => (
-        <Fragment key={key}>
-          {sectionNodes[key]}
-          {/* "Kako deluje" trust cluster rides right after the features
-              section — only for tenants whose CTA really is online booking. */}
-          {key === "features" && bookingEnabled && <HowItWorksSection />}
-        </Fragment>
-      ))}
+      {/* #101: renderableSections — hero vedno prva, skrite sekcije ne izrisejo,
+          lastne sekcije na shranjenem mestu (vsebina po id-ju). */}
+      {renderableSections(content.sections).map((meta) => {
+        const node =
+          meta.key === "custom"
+            ? renderCustomSection(meta, content.customSections, toHref)
+            : sectionNodes[meta.key]
+        if (!node) return null
+        return (
+          <Fragment key={meta.key === "custom" ? `custom-${meta.id}` : meta.key}>
+            {node}
+            {/* "Kako deluje" trust cluster rides right after the features
+                section — only for tenants whose CTA really is online booking. */}
+            {meta.key === "features" && bookingEnabled && <HowItWorksSection />}
+          </Fragment>
+        )
+      })}
     </div>
+  )
+}
+
+/**
+ * #101 NO-CODE: lastna sekcija — naslov + odstavki + izbirna slika +
+ * izbirni gumb. Isto vizualno jezikovje kot vgrajene sekcije. Brez vsebine
+ * (ali brez naslova) se NE izrise — ista podatkovna vrata kot #60/#62,
+ * nikoli prazen okvir. Besedilo je renderirano izključno kot besedilo
+ * (React escaping) — HTML vstavki niso možni (ne-obseg #101: XSS).
+ */
+function renderCustomSection(
+  meta: SectionEntry,
+  customSections: Record<string, CustomSectionContent> | undefined,
+  toHref: (href: string) => string
+): ReactNode {
+  if (meta.key !== "custom") return null
+  const custom = meta.id ? customSections?.[meta.id] : undefined
+  if (!custom?.title) return null
+  return (
+    <SectionWrapper id={`custom-${meta.id}`} className="py-16">
+      <div className="container mx-auto px-4">
+        <div className="mx-auto max-w-3xl text-center">
+          <h2 className="font-heading mb-6 text-3xl font-bold md:text-4xl">
+            {(() => {
+              const { lead, accent } = splitLastWord(custom.title)
+              return (
+                <>
+                  {lead} {accent && <AccentSpan>{accent}</AccentSpan>}
+                </>
+              )
+            })()}
+          </h2>
+          {custom.paragraphs.map((paragraph, index) => (
+            <p
+              key={index}
+              className={`text-muted-foreground leading-relaxed md:text-lg ${
+                index === 0 ? "text-lg" : ""
+              }`}
+            >
+              {paragraph}
+            </p>
+          ))}
+          {custom.buttonLabel && custom.buttonHref && (
+            <div className="mt-8">
+              <CTAButton
+                href={toHref(custom.buttonHref)}
+                className="from-primary to-primary/90 bg-linear-to-r text-white shadow-lg hover:opacity-90"
+              >
+                {custom.buttonLabel}
+              </CTAButton>
+            </div>
+          )}
+        </div>
+        {custom.imageUrl && (
+          <div className="relative mx-auto mt-10 h-64 w-full max-w-4xl overflow-hidden rounded-2xl md:h-80">
+            <Image
+              src={custom.imageUrl}
+              alt={custom.title}
+              fill
+              sizes="(min-width: 1024px) 896px, 100vw"
+              className="object-cover"
+              quality={85}
+            />
+          </div>
+        )}
+      </div>
+    </SectionWrapper>
   )
 }
 

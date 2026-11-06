@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache"
 
 import { UnauthorizedError, requirePermissionOrg } from "@/lib/auth/guards"
 import { recordConfigChange } from "@/lib/config-history/record"
-import { mergeSiteContent, type SiteContent } from "@/lib/site-content"
+import { mergeSiteContent, normalizeSections, sanitizeCustomSections, type SiteContent } from "@/lib/site-content"
 import { computeRevert, hasUnpublishedChanges, parsePublishState } from "@/lib/publication"
 import type { PublicationStatus } from "@/app/actions/publication"
 import { PALETTES, verticalSiteContent, upgradeLegacyDefaultCopy } from "@/lib/verticals"
@@ -105,6 +105,15 @@ export async function updateSiteContent(content: SiteContent) {
     if (!clean.hero?.title || typeof clean.hero.title !== "string") {
       return { success: false, error: "Hero naslov je obvezen." }
     }
+
+    // #101: lastne sekcije — klient ni zaupanja vreden: samo nizi, omejene
+    // dolžine, max 6; malformirani vnosi izpadejo. Sekcije re-normalizirane
+    // (ist pogodb kot render — custom z id-jem preživi, dedup, cap).
+    const cleanCustom = sanitizeCustomSections(clean.customSections)
+    if (cleanCustom) clean.customSections = cleanCustom
+    else delete clean.customSections
+    const normalizedSections = normalizeSections(clean.sections)
+    if (normalizedSections) clean.sections = normalizedSections
 
     // F5: prejšnji osnutek (za verzijo v ConfigChangeLog).
     const config = await prisma.salonConfig.findUnique({

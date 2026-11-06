@@ -65,11 +65,16 @@ import {
 } from "@/app/actions/site-content"
 import { publishSite, type PublicationStatus } from "@/app/actions/publication"
 import {
+  MAX_CUSTOM_SECTIONS,
   SECTION_KEYS,
   normalizeSections,
+  sanitizeCustomSections,
+  suggestedSectionsForVertical,
+  type CustomSectionContent,
+  type CustomSectionMeta,
   type FeatureContent,
   type OpeningHour,
-  type SectionKey,
+  type SectionEntry,
   type SiteContent,
   type StatContent,
 } from "@/lib/site-content"
@@ -127,6 +132,13 @@ function normalizeHours(hours: OpeningHour[]): OpeningHour[] {
 // ------------------------------------------------------------
 // Small internal building blocks
 // ------------------------------------------------------------
+
+/** Ujemanje meta vnosov: vgrajeni po ključu, custom po ključu + id-ju. */
+function entryMatches(a: SectionEntry, b: SectionEntry): boolean {
+  if (a.key !== b.key) return false
+  if (a.key === "custom" && b.key === "custom") return a.id === b.id
+  return true
+}
 
 function EditorCard({
   title,
@@ -409,6 +421,8 @@ export function BrandingEditor() {
   const [publishing, setPublishing] = useState(false)
   const [revertOpen, setRevertOpen] = useState(false)
   const [reverting, setReverting] = useState(false)
+  // #101: potrdilo odstranitve lastne sekcije (id = SectionEntry.id)
+  const [removeSectionId, setRemoveSectionId] = useState<string | null>(null)
 
   const [vertical, setVertical] = useState("")
   const [reseed, setReseed] = useState(false)
@@ -691,28 +705,119 @@ export function BrandingEditor() {
     updateHour(day, open ? { open: "09:00", close: "18:00" } : { open: null, close: null })
   }
 
-  const toggleSection = (key: SectionKey, visible: boolean) => {
+  const toggleSection = (section: SectionEntry, visible: boolean) => {
     if (!content) return
     // E3-2: preserve the owner-defined order — only visibility changes here.
-    const exists = content.sections.some((s) => s.key === key)
+    // #101: custom sekcije se ujemajo po id-ju (ključ "custom" je skupen).
+    const matches = (s: SectionEntry) => entryMatches(s, section)
+    const exists = content.sections.some(matches)
     const next = exists
-      ? content.sections.map((s) => (s.key === key ? { ...s, visible } : s))
-      : [...content.sections, { key, visible }]
+      ? content.sections.map((s) => (matches(s) ? { ...s, visible } : s))
+      : [...content.sections, { ...section, visible }]
     set("sections", normalizeSections(next) ?? [])
   }
 
   /** Swap a section with its neighbor (E3-2). Hero stays pinned first. */
-  const moveSection = (key: SectionKey, dir: -1 | 1) => {
+  const moveSection = (section: SectionEntry, dir: -1 | 1) => {
     if (!content) return
     const list = [...content.sections]
-    const idx = list.findIndex((s) => s.key === key)
+    const idx = list.findIndex((s) => entryMatches(s, section))
     const target = idx + dir
     if (idx < 0 || target < 0 || target >= list.length) return
     // Hero is the page header — always first, never swapped.
-    if (key === "hero" || list[target].key === "hero") return
+    if (section.key === "hero" || list[target].key === "hero") return
     const [item] = list.splice(idx, 1)
     list.splice(target, 0, item)
     set("sections", list)
+  }
+
+  // ----------------------------------------------------------
+  // #101 — lastne (custom) sekcije: dodajanje, urejanje, odstranjevanje
+  // ----------------------------------------------------------
+
+  const addCustomSection = () => {
+    if (!content) return
+    const metas = normalizeSections(content.sections) ?? []
+    const customs = metas.filter((m) => m.key === "custom")
+    if (customs.length >= MAX_CUSTOM_SECTIONS) {
+      toast.error(b.sections.addSectionLimit)
+      return
+    }
+    const used = new Set(customs.map((m) => m.id))
+    let id = `c${Date.now().toString(36)}`
+    for (let i = 1; i <= MAX_CUSTOM_SECTIONS; i++) {
+      const candidate = `c${i}`
+      if (!used.has(candidate)) {
+        id = candidate
+        break
+      }
+    }
+    set("sections", [...metas, { key: "custom", visible: true, id }])
+    set("customSections", {
+      ...(content.customSections ?? {}),
+      [id]: { title: "", paragraphs: [""] },
+    })
+  }
+
+  const updateCustomSection = (id: string, patch: Partial<CustomSectionContent>) => {
+    if (!content) return
+    const current = content.customSections?.[id] ?? { title: "", paragraphs: [""] }
+    set("customSections", {
+      ...(content.customSections ?? {}),
+      [id]: { ...current, ...patch },
+    })
+  }
+
+  /** Oznaka lastne sekcije v urejevalniku (ne vpliva na javno stran). */
+  const relabelCustomSection = (id: string, label: string) => {
+    if (!content) return
+    const metas = normalizeSections(content.sections) ?? []
+    set(
+      "sections",
+      metas.map((m) =>
+        m.key === "custom" && m.id === id
+          ? { ...m, label: label.trim() || undefined }
+          : m
+      )
+    )
+  }
+
+  /** Odstrani meta + vsebino iz OSNUTKA (zgodovina verzij ohrani prejšnje). */
+  const removeCustomSection = (id: string) => {
+    if (!content) return
+    const metas = normalizeSections(content.sections) ?? []
+    set("sections", metas.filter((m) => !(m.key === "custom" && m.id === id)))
+    if (content.customSections) {
+      const next = { ...content.customSections }
+      delete next[id]
+      set("customSections", next)
+    }
+    setRemoveSectionId(null)
+  }
+
+  /** Predlog razporeditve po dejavnosti — samo vgrajene sekcije; lastne
+   *  sekcije ostanejo na svojem (koncu) razporeda, vidnost se ohrani. */
+  const applySuggestion = () => {
+    if (!content) return
+    const customs = (normalizeSections(content.sections) ?? []).filter(
+      (m) => m.key === "custom"
+    )
+    set("sections", [...suggestedSectionsForVertical(vertical), ...customs])
+    toast.success(b.sections.suggestionApplied)
+  }
+
+  const handleCustomImage = async (id: string, file: File) => {
+    if (!content) return
+    setUploading(`custom-${id}`)
+    try {
+      const url = await uploadImage(file, "content")
+      updateCustomSection(id, { imageUrl: url })
+      toast.success(b.imageUploaded)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : b.imageUploadFailed)
+    } finally {
+      setUploading(null)
+    }
   }
 
   // ----------------------------------------------------------
@@ -756,6 +861,8 @@ export function BrandingEditor() {
         sections:
           normalizeSections(content.sections) ??
           SECTION_KEYS.map((key) => ({ key, visible: true })),
+        // #101: lastne sekcije — čista sanitizacija (ist kot strežnik).
+        customSections: sanitizeCustomSections(content.customSections),
       }
       const res = await updateSiteContent(payload)
       if ("error" in res && typeof res.error === "string") {
@@ -1369,63 +1476,213 @@ export function BrandingEditor() {
           title={b.sections.title}
           description={b.sections.desc}
         >
+          {/* #101: dodajanje lastnih sekcij + predlog razporeditve */}
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={saving}
+              onClick={addCustomSection}
+            >
+              <PlusIcon size={16} className="mr-2" />
+              {b.sections.addSection}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={saving}
+              onClick={applySuggestion}
+            >
+              <Rocket size={16} className="mr-2" />
+              {b.sections.applySuggestion}
+            </Button>
+          </div>
           <div className="space-y-2">
-            {normalizeSections(content.sections)?.map((section, idx) => {
-              const key = section.key
-              const label = b.sectionLabels[key]
-              const pinned = key === "hero"
+            {(normalizeSections(content.sections) ?? []).map((section, idx) => {
+              const isCustom = section.key === "custom"
+              const label = isCustom
+                ? (section.label ?? b.sections.customSectionDefaultLabel)
+                : b.sectionLabels[section.key]
+              const entryKey = isCustom ? `custom-${section.id}` : section.key
+              const pinned = section.key === "hero"
+              const customContent = isCustom && section.id
+                ? content.customSections?.[section.id]
+                : undefined
               return (
-                <div
-                  key={key}
-                  className="flex items-center justify-between gap-3 rounded-lg border p-3"
-                >
-                  <div className="flex min-w-0 items-center gap-2">
-                    <span className="text-muted-foreground w-5 text-center text-xs font-medium" aria-hidden>
-                      {idx + 1}
-                    </span>
-                    <Label htmlFor={`section-${key}`} className="truncate font-normal">
-                      {label}
-                    </Label>
-                    {pinned && (
-                      <Badge variant="secondary" className="shrink-0 text-[10px]">
-                        {b.sections.pinned}
-                      </Badge>
-                    )}
+                <div key={entryKey} className="rounded-lg border p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className="w-5 text-center text-xs font-medium text-muted-foreground" aria-hidden>
+                        {idx + 1}
+                      </span>
+                      {isCustom ? (
+                        <Input
+                          className="h-8 w-44 text-sm"
+                          value={section.label ?? ""}
+                          onChange={(e) => relabelCustomSection(section.id!, e.target.value)}
+                          placeholder={b.sections.customSectionDefaultLabel}
+                          aria-label={b.sections.customSectionLabelAria}
+                        />
+                      ) : (
+                        <Label htmlFor={`section-${entryKey}`} className="truncate font-normal">
+                          {label}
+                        </Label>
+                      )}
+                      {pinned && (
+                        <Badge variant="secondary" className="shrink-0 text-[10px]">
+                          {b.sections.pinned}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-8"
+                        disabled={pinned || idx <= 1}
+                        onClick={() => moveSection(section, -1)}
+                        aria-label={b.sections.moveUpAria(label)}
+                      >
+                        <ArrowUp size={14} />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-8"
+                        disabled={pinned || idx >= (content.sections.length ?? 0) - 1}
+                        onClick={() => moveSection(section, 1)}
+                        aria-label={b.sections.moveDownAria(label)}
+                      >
+                        <ArrowDown size={14} />
+                      </Button>
+                      <Switch
+                        id={`section-${entryKey}`}
+                        checked={section.visible}
+                        onCheckedChange={(v) => toggleSection(section, v)}
+                      />
+                      {isCustom && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="text-destructive hover:text-destructive size-8"
+                          onClick={() => setRemoveSectionId(section.id!)}
+                          aria-label={b.sections.customSectionRemoveAria(label)}
+                        >
+                          <TrashIcon size={14} />
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex shrink-0 items-center gap-1">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="size-8"
-                      disabled={pinned || idx <= 1}
-                      onClick={() => moveSection(key, -1)}
-                      aria-label={b.sections.moveUpAria(label)}
-                    >
-                      <ArrowUp size={14} />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="size-8"
-                      disabled={pinned || idx >= (content.sections.length ?? 0) - 1}
-                      onClick={() => moveSection(key, 1)}
-                      aria-label={b.sections.moveDownAria(label)}
-                    >
-                      <ArrowDown size={14} />
-                    </Button>
-                    <Switch
-                      id={`section-${key}`}
-                      checked={section.visible}
-                      onCheckedChange={(v) => toggleSection(key, v)}
-                    />
-                  </div>
+                  {isCustom && section.id && (
+                    <details className="bg-muted/40 mt-3 rounded-md p-3">
+                      <summary className="text-muted-foreground cursor-pointer text-xs font-medium select-none">
+                        {b.sections.customSectionEditSummary}
+                      </summary>
+                      <div className="mt-3 space-y-3">
+                        <Field
+                          label={b.sections.customSectionTitle}
+                          hint={b.sections.customSectionTitleRequired}
+                        >
+                          <Input
+                            value={customContent?.title ?? ""}
+                            onChange={(e) =>
+                              updateCustomSection(section.id!, { title: e.target.value })
+                            }
+                            placeholder={b.sections.customSectionTitlePlaceholder}
+                            maxLength={140}
+                          />
+                        </Field>
+                        <Field label={b.sections.customSectionParagraphs}>
+                          <Textarea
+                            rows={4}
+                            value={(customContent?.paragraphs ?? []).join("\n")}
+                            onChange={(e) =>
+                              updateCustomSection(section.id!, {
+                                paragraphs: e.target.value.split("\n"),
+                              })
+                            }
+                            placeholder={b.sections.customSectionParagraphsPlaceholder}
+                            maxLength={2200}
+                          />
+                        </Field>
+                        <ImageField
+                          label={b.sections.customSectionImage}
+                          value={customContent?.imageUrl}
+                          uploading={uploading === `custom-${section.id}`}
+                          onFile={(file) => handleCustomImage(section.id!, file)}
+                          onRemove={() =>
+                            updateCustomSection(section.id!, { imageUrl: undefined })
+                          }
+                        />
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <Field label={b.sections.customSectionButtonLabel}>
+                            <Input
+                              value={customContent?.buttonLabel ?? ""}
+                              onChange={(e) =>
+                                updateCustomSection(section.id!, {
+                                  buttonLabel: e.target.value || undefined,
+                                })
+                              }
+                              maxLength={80}
+                            />
+                          </Field>
+                          <Field label={b.sections.customSectionButtonHref}>
+                            <Input
+                              value={customContent?.buttonHref ?? ""}
+                              onChange={(e) =>
+                                updateCustomSection(section.id!, {
+                                  buttonHref: e.target.value || undefined,
+                                })
+                              }
+                              placeholder="/services"
+                              maxLength={400}
+                            />
+                          </Field>
+                        </div>
+                      </div>
+                    </details>
+                  )}
                 </div>
               )
             })}
           </div>
           <p className="text-muted-foreground text-xs">{b.sections.hint}</p>
+
+          {/* #101: potrdilo odstranitve lastne sekcije */}
+          <AlertDialog
+            open={removeSectionId !== null}
+            onOpenChange={(open) => {
+              if (!open) setRemoveSectionId(null)
+            }}
+          >
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>{b.sections.customSectionRemoveTitle}</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {b.sections.customSectionRemoveDesc(
+                    (normalizeSections(content.sections) ?? []).find(
+                      (m): m is CustomSectionMeta =>
+                        m.key === "custom" && m.id === removeSectionId
+                    )?.label ?? b.sections.customSectionDefaultLabel
+                  )}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>{b.sections.customSectionRemoveCancel}</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => removeSectionId && removeCustomSection(removeSectionId)}
+                  className="bg-destructive text-white hover:bg-destructive/90"
+                >
+                  {b.sections.customSectionRemoveConfirm}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </EditorCard>
 
         {/* l) Panoga (napredno) */}

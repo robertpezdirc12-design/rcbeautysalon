@@ -70,10 +70,51 @@ export type SectionKey =
   | "shop"
   | "cta"
 
+/** Vgrajen meta vnos (ključ je SectionKey). */
 export interface SectionMeta {
   key: SectionKey
   visible: boolean
 }
+
+// ============================================================
+// #101 NO-CODE IZDELOVALNIK — lastne (custom) sekcije.
+// Lastnik DODA sekcijo brez kodiranja: naslov + odstavki + izbirna
+// slika + izbirni gumb. Podatkovni model je razširitev obstoječega
+// JSON (brez DB migracije — SalonConfig.siteContent):
+//   sections[] dobi vnose { key: "custom", visible, id, label }
+//   customSections[id] = vsebina sekcije
+// Načela #100 veljajo: izklop (visible=false) ≠ izbris; odstranitev
+// iz osnutka ostane v zgodovini verzij (ConfigChangeLog).
+// ============================================================
+
+/** Zgornja meja števila lastnih sekcij (varovala pogodbe + UI). */
+export const MAX_CUSTOM_SECTIONS = 6
+
+/** Vsebina ene lastne sekcije (brez kode — samo besedilo, slika, gumb). */
+export interface CustomSectionContent {
+  /** Obvezen — prazna sekcija se ne izrise in se ne ohranja. */
+  title: string
+  /** Vsak element = odstavek. */
+  paragraphs: string[]
+  imageUrl?: string
+  buttonLabel?: string
+  buttonHref?: string
+}
+
+/** Meta vnosa lastne sekcije (discriminant = key). */
+export interface CustomSectionMeta {
+  key: "custom"
+  visible: boolean
+  /** Unikaten id instance v SiteContent.customSections. */
+  id: string
+  /** Oznaka v urejevalniku (ne vpliva na javno stran). */
+  label?: string
+}
+
+/**
+ * Vnos v sections[]: vgrajen ali lasten (discriminated union po `key`).
+ */
+export type SectionEntry = SectionMeta | CustomSectionMeta
 
 export interface SiteContent {
   hero: HeroContent
@@ -86,7 +127,9 @@ export interface SiteContent {
   openingHours: OpeningHour[]
   social: SocialLinks
   seo: { title?: string; description?: string }
-  sections: SectionMeta[]
+  sections: SectionEntry[]
+  /** #101: vsebine lastnih sekcij, ključ = SectionEntry.id. */
+  customSections?: Record<string, CustomSectionContent>
 }
 
 export const SECTION_KEYS: SectionKey[] = [
@@ -115,26 +158,53 @@ function sections(all = true): SectionMeta[] {
 }
 
 /**
- * Tolerant normalization of the stored `sections` array (EPIC #3 E3-2):
+ * Tolerant normalization of the stored `sections` array (EPIC #3 E3-2,
+ * razširjeno #101 z lastnimi sekcijami):
  * - valid entries keep THEIR STORED ORDER (owner-defined section order)
- * - unknown keys are dropped, duplicates deduplicated (first wins)
- * - missing keys are appended at the end (visible, so nothing disappears)
+ * - vgrajeni: unknown keys dropped, duplicates deduplicated (first wins)
+ * - custom: veljaven SAMO z nepraznim id-jem; dedup po id; zgornja meja
+ *   MAX_CUSTOM_SECTIONS; malformirani izpadejo
+ * - missing BUILTIN keys are appended at the end (visible, nothing disappears)
  * Returns null when nothing valid is stored (caller keeps defaults).
  */
-export function normalizeSections(input: unknown): SectionMeta[] | null {
+export function normalizeSections(input: unknown): SectionEntry[] | null {
   if (!Array.isArray(input)) return null
   const isObj = (v: unknown): v is Record<string, unknown> =>
     !!v && typeof v === "object" && !Array.isArray(v)
-  const valid = (input as SectionMeta[]).filter(
-    (x) => isObj(x) && SECTION_KEYS.includes(x.key)
+  const isBuiltin = (x: Record<string, unknown>): boolean =>
+    typeof x.key === "string" && SECTION_KEYS.includes(x.key as SectionKey)
+  const isCustom = (x: Record<string, unknown>): boolean =>
+    x.key === "custom" && typeof x.id === "string" && x.id.trim().length > 0
+  const valid = (input as Record<string, unknown>[]).filter(
+    (x) => isObj(x) && (isBuiltin(x) || isCustom(x))
   )
   if (valid.length === 0) return null
-  const ordered: SectionMeta[] = []
-  const seen = new Set<SectionKey>()
+  const ordered: SectionEntry[] = []
+  const seen = new Set<string>()
+  let customCount = 0
   for (const entry of valid) {
-    if (seen.has(entry.key)) continue
-    seen.add(entry.key)
-    ordered.push({ key: entry.key, visible: !!entry.visible })
+    if (entry.key === "custom") {
+      const id = (entry.id as string).trim()
+      const dedupe = `custom:${id}`
+      if (seen.has(dedupe)) continue
+      if (customCount >= MAX_CUSTOM_SECTIONS) continue
+      seen.add(dedupe)
+      customCount += 1
+      const label =
+        typeof entry.label === "string" && entry.label.trim()
+          ? entry.label.trim().slice(0, 80)
+          : undefined
+      ordered.push(
+        label
+          ? { key: "custom", visible: !!entry.visible, id, label }
+          : { key: "custom", visible: !!entry.visible, id }
+      )
+      continue
+    }
+    const key = entry.key as SectionKey
+    if (seen.has(key)) continue
+    seen.add(key)
+    ordered.push({ key, visible: !!entry.visible })
   }
   // P2 #75: „reviews" je NOVA platformska sekcija — stari najemniki, ki so
   // shranili vrstni red, je še ne poznajo. Kanonično jo vstavimo takoj za
@@ -164,12 +234,116 @@ export function normalizeSections(input: unknown): SectionMeta[] | null {
 }
 
 /**
+ * #101: render order — visible entries only, hero ALWAYS first when visible
+ * (it is the page header). Custom sections render in their stored position.
+ * Pure: the editor preview agrees with the public renderer by construction.
+ */
+export function renderableSections(sectionsMeta: SectionEntry[]): SectionEntry[] {
+  const visible = sectionsMeta.filter((s) => s.visible)
+  const heroIdx = visible.findIndex((s) => s.key === "hero")
+  if (heroIdx === -1) return visible
+  const [hero] = visible.splice(heroIdx, 1)
+  return [hero, ...visible]
+}
+
+// ============================================================
+// #101 — sanitizacija lastnih sekcij (strežniška varovala).
+// Samo nizi z omejenimi dolžinami; prazne vsebine izpadejo;
+// max MAX_CUSTOM_SECTIONS. Renderiranje je vseeno izključno
+// besedilo (React escaping) — to je druga linija obrambe.
+// ============================================================
+
+const CUSTOM_LIMITS = {
+  id: 40,
+  title: 140,
+  paragraph: 2000,
+  paragraphs: 8,
+  image: 600,
+  buttonLabel: 80,
+  buttonHref: 400,
+  label: 80,
+} as const
+
+function cleanString(value: unknown, max: number): string | undefined {
+  if (typeof value !== "string") return undefined
+  const trimmed = value.trim()
+  return trimmed ? trimmed.slice(0, max) : undefined
+}
+
+/**
+ * Pure + client-safe: sanitizira `customSections` za shranjevanje in merge.
+ * Vrne undefined, ko ni ničesar veljavnega (klicatelj pusti polje nedotaknjeno).
+ */
+export function sanitizeCustomSections(
+  input: unknown
+): Record<string, CustomSectionContent> | undefined {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return undefined
+  const out: Record<string, CustomSectionContent> = {}
+  for (const [rawId, raw] of Object.entries(input as Record<string, unknown>)) {
+    if (Object.keys(out).length >= MAX_CUSTOM_SECTIONS) break
+    const id = cleanString(rawId, CUSTOM_LIMITS.id)
+    if (!id || !raw || typeof raw !== "object" || Array.isArray(raw)) continue
+    const r = raw as Record<string, unknown>
+    const title = cleanString(r.title, CUSTOM_LIMITS.title)
+    if (!title) continue // prazna vsebina se ne ohranja (renderer je tudi ne izrise)
+    const paragraphs = Array.isArray(r.paragraphs)
+      ? (r.paragraphs as unknown[])
+          .map((p) => cleanString(p, CUSTOM_LIMITS.paragraph))
+          .filter((p): p is string => !!p)
+          .slice(0, CUSTOM_LIMITS.paragraphs)
+      : []
+    const imageUrl = cleanString(r.imageUrl, CUSTOM_LIMITS.image)
+    const buttonLabel = cleanString(r.buttonLabel, CUSTOM_LIMITS.buttonLabel)
+    const buttonHref = cleanString(r.buttonHref, CUSTOM_LIMITS.buttonHref)
+    out[id] = {
+      title,
+      paragraphs,
+      ...(imageUrl ? { imageUrl } : {}),
+      // gumb je veljaven SAMO z obema poljema (brez mrtvih gumbov)
+      ...(buttonLabel && buttonHref ? { buttonLabel, buttonHref } : {}),
+    }
+  }
+  return Object.keys(out).length > 0 ? out : undefined
+}
+
+// ============================================================
+// #101 — PREDLOGI razporeditve po dejavnosti (samo PREDLOG — lastnik
+// potrdi v urejevalniku; mapiranje iz F1 SKD kataloga: tipičen profil
+// ponudbe posamezne dejavnosti). Manjkajoča panoga = vse vidne.
+// ============================================================
+
+const SECTION_SUGGESTIONS: Record<string, SectionKey[]> = {
+  // Predstavitev platforme: brez ekipe (solo lastnik) in brez praznih
+  // trgovin/storitev — podatkovna vrata jih vseeno skrijejo, predlog pa
+  // tudi ne ustvari mrtvih sidrov v glavi.
+  generic: ["hero", "features", "cta"],
+  // Čebelarstvo: product-only dejavnost (#60) — storitve/ekipa skrite.
+  beekeeping: ["hero", "features", "shop", "reviews", "cta"],
+  // Šiviljstvo: povpraševalski profil — brez trgovine in ekipe.
+  seamstress: ["hero", "features", "services", "about", "reviews", "cta"],
+  // Vulkanizer/servis: delovni nalogi — brez trgovine in ekipe.
+  "tire-service": ["hero", "features", "services", "about", "cta"],
+}
+
+/**
+ * Predlagan vrstni red + vidnost sekcij za panogo (samo predlog, ne zaklep).
+ * Custom sekcije urejevalnik ohrani — ta funkcija ureja SAMO vgrajene.
+ */
+export function suggestedSectionsForVertical(vertical: string): SectionMeta[] {
+  const visible = SECTION_SUGGESTIONS[vertical]
+  if (!visible) return SECTION_KEYS.map((key) => ({ key, visible: true }))
+  const rest = SECTION_KEYS.filter((k) => !visible.includes(k))
+  return [...visible, ...rest].map((key) => ({ key, visible: visible.includes(key) }))
+}
+
+/**
  * Render order for the public home page (EPIC #3 E3-2): the stored order with
  * two guarantees — hero is ALWAYS first when visible (it is the page header),
  * and hidden sections never render. Pure so tests and the editor preview agree
- * with the public renderer.
+ * with the public renderer. #101: custom sections stay in their stored
+ * position (renderer poisci vsebino po id-ju).
  */
-export function homeSectionOrder(sectionsMeta: SectionMeta[]): SectionKey[] {
+export function homeSectionOrder(sectionsMeta: SectionEntry[]): SectionEntry["key"][] {
   const visible = sectionsMeta.filter((s) => s.visible).map((s) => s.key)
   if (!visible.includes("hero")) return visible
   return ["hero", ...visible.filter((k) => k !== "hero")]
@@ -651,10 +825,15 @@ export function mergeSiteContent(stored: unknown, vertical: string): SiteContent
   if (isObj(s.seo)) merged.seo = { ...defaults.seo, ...(s.seo as SiteContent["seo"]) }
   if (Array.isArray(s.sections)) {
     // E3-2: keep the owner-defined section ORDER (tolerant: unknown keys
-    // dropped, duplicates deduped, missing keys appended visible).
+    // dropped, duplicates deduped, missing keys appended visible). #101:
+    // custom sekcije z id-jem preživejo normalizacijo.
     const normalized = normalizeSections(s.sections)
     if (normalized) merged.sections = normalized
   }
+  // #101: lastne sekcije — strežniška sanitizacija je tudi tukaj (merge
+  // teče pred renderom; korupten vnos izpade, stare vsebine nedotaknjene).
+  const custom = sanitizeCustomSections(s.customSections)
+  if (custom) merged.customSections = custom
   return merged
 }
 
