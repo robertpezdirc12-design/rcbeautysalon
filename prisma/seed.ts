@@ -67,7 +67,9 @@ async function main() {
   console.log('\nCreating users...')
 
   // ADMIN (no staff/customer profile)
-  const adminPassword = await hash('admin123', 12)
+  // #105: gesla se lahko prekrijejo prek env (SEED_*_PASSWORD) — javna defaults ostanejo samo za lokalni razvoj.
+  const adminPlain = process.env.SEED_ADMIN_PASSWORD ?? 'admin123'
+  const adminPassword = await hash(adminPlain, 12)
   const adminUser = await prisma.user.upsert({
     where: { email: 'admin@rcbeautysalon.org' },
     update: {},
@@ -82,7 +84,8 @@ async function main() {
   console.log(`✅ Admin: ${adminUser.email}`)
 
   // STAFF USERS (all staff can login)
-  const staffPassword = await hash('staff123', 12)
+  const staffPlain = process.env.SEED_STAFF_PASSWORD ?? 'staff123'
+  const staffPassword = await hash(staffPlain, 12)
 
   const lauraUser = await prisma.user.upsert({
     where: { email: 'laura@rcbeautysalon.org' },
@@ -134,7 +137,8 @@ async function main() {
   console.log(`✅ Staff Users: 4`)
 
   // CLIENT USERS (with Customer profiles)
-  const clientPassword = await hash('cliente123', 12)
+  const clientPlain = process.env.SEED_CLIENTE_PASSWORD ?? 'cliente123'
+  const clientPassword = await hash(clientPlain, 12)
   const clientUser = await prisma.user.upsert({
     where: { email: 'cliente@rcbeautysalon.org' },
     update: {},
@@ -1180,14 +1184,14 @@ async function main() {
   console.log(`   💵 Deposit: $${salonConfig.bookingDeposit.toFixed(2)} (non-refundable)`)
 
   console.log('\n👥 USERS (Login Credentials):')
-  console.log(`   🔑 Admin: admin@rcbeautysalon.org / admin123`)
+  console.log(`   🔑 Admin: admin@rcbeautysalon.org / ${process.env.SEED_ADMIN_PASSWORD ? '(nastavljeno prek SEED_ADMIN_PASSWORD)' : 'admin123'}`)
   console.log(`      → Full dashboard access`)
-  console.log(`   👨‍💼 Staff (password: staff123):`)
+  console.log(`   👨‍💼 Staff (password: ${process.env.SEED_STAFF_PASSWORD ? '(nastavljeno prek SEED_STAFF_PASSWORD)' : 'staff123'}):`)
   console.log(`      • laura@rcbeautysalon.org - ${staffLaura.name}`)
   console.log(`      • maria@rcbeautysalon.org - ${staffMaria.name}`)
   console.log(`      • sofia@rcbeautysalon.org - ${staffSofia.name}`)
   console.log(`      • ana@rcbeautysalon.org - ${staffAna.name}`)
-  console.log(`   👤 Clients (password: cliente123):`)
+  console.log(`   👤 Clients (password: ${process.env.SEED_CLIENTE_PASSWORD ? '(nastavljeno prek SEED_CLIENTE_PASSWORD)' : 'cliente123'}):`)
   console.log(`      • cliente@rcbeautysalon.org - ${customerJohn.name}`)
   console.log(`      • emily@example.com - ${customerEmily.name}`)
   console.log(`      • michael@example.com - ${customerMichael.name}`)
