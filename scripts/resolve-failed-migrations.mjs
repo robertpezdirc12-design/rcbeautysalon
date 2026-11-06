@@ -55,6 +55,15 @@ const RESOLVABLE = [
   // isFeatured to false + demo org vertical/name). Fully idempotent (WHERE
   // predicates on current values), so a retry after rollback is always safe.
   "20261130000000_p100_demo_front_neutralize",
+  // #110-sled (ba83849): schema_convergence_f2_f5 je odletela na produkciji
+  // (15:52 UTC 2026-11-06) in je bila REVERTIRANA iz repozitorija (3ab8398).
+  // Uspela je delno — objekti IF NOT EXISTS so obstali — tabela
+  // OrganizationModuleState je živa (modulna vrata delujejo na produkciji
+  // pred tem). Failed vrstica v _prisma_migrations je zastavila P3009 za
+  // vsak naslednji deploy. Fail CLOSED tukaj pomeni: platforma ne more
+  // deployati sploh. Resolve --rolled-back je varen: datoteka migracije
+  // ne obstaja več, migrate deploy je ne bo ponovil, objekti ostanejo.
+  "20261106090000_schema_convergence_f2_f5",
 ]
 
 function runPrisma(args, { input } = {}) {
