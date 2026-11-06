@@ -666,6 +666,18 @@ export function defaultSiteContent(vertical: string): SiteContent {
           { label: "Garancija na delo", value: "12 mes." },
         ],
       },
+      // #105-sled: mehanik preset je bil brez »features« — BrandingEditor
+      // je na Nastavitvah trdil nad undefined.title (Runtime TypeError).
+      // Polna vsebina + varovalka spodaj (v.features ?? generic fallback).
+      features: {
+        title: "Zakaj k nam",
+        subtitle: "Servis, ki mu zaupate",
+        items: [
+          { icon: "ShieldCheck", title: "Delovni nalog za vsak poseg", description: "Od sprejema do oddaje — vse dokumentirano in pregledno." },
+          { icon: "Wrench", title: "Diagnostika pred popravilom", description: "Jasna ponudba in cena še pred začetkom dela." },
+          { icon: "CalendarCheck", title: "Rezervacija termina", description: "Naročite se online — brez čakanja po telefonu." },
+        ],
+      },
       cta: {
         title: "Pripravljeni na servis?",
         text: "Rezervirajte termin ali oddajte povpraševanje — odgovorimo še isti delovni dan.",
@@ -796,7 +808,20 @@ export function defaultSiteContent(vertical: string): SiteContent {
   const v = byVertical[vertical] ?? byVertical.generic
   const base: SiteContent = {
     hero: v.hero as HeroContent,
-    features: v.features!,
+    // Varovalka: vertikal brez »features« nikoli ne sme proizvesti
+    // undefined (BrandingEditor bere content.features.title). Pademo na
+    // nevtralno generic vsebino.
+    features:
+      v.features ??
+      ({
+        title: "Zakaj izbrati nas",
+        subtitle: "Kar naredi naše poslovanje drugačno",
+        items: [
+          { icon: "CalendarCheck", title: "Enostavno naročanje", description: "Rezervirajte termin v nekaj klikih, 24/7." },
+          { icon: "Sparkles", title: "Kakovostna storitev", description: "Preverjeni postopki in kakovostni materiali." },
+          { icon: "ShoppingBag", title: "Spletna trgovina", description: "Artikli, kategorije, naročila in plačila v enem mestu." },
+        ],
+      } as SiteContent["features"]),
     services: {
       title: "Naše storitve",
       subtitle: "Najljubše storitve naših strank",
