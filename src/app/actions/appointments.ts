@@ -575,14 +575,12 @@ export async function createAppointment(
   data: CreateAppointmentData
 ): Promise<AppointmentCreationResult> {
   try {
-    console.error("[QA-MARK] createAppointment INVOKED");
     // Get current session to identify if user is authenticated
     const session = await auth()
 
     // Resolve the tenant organization for this booking
     const org = await resolveRequestOrg()
     if (!org) {
-      console.error("[QA-TRACE] createAppointment fail: Rezervacija trenutno ni na voljo");
       return { success: false, error: "Rezervacija trenutno ni na voljo" }
     }
 
@@ -592,13 +590,11 @@ export async function createAppointment(
       !data.serviceIds.length ||
       (!data.startTime && !(data.bookingDate && data.bookingTime))
     ) {
-      console.error("[QA-TRACE] createAppointment fail: Manjkajo obvezni podatki");
       return { success: false, error: "Manjkajo obvezni podatki" }
     }
 
     // Validate customer information (either authenticated user OR guest info)
     if (!session?.user && (!data.guestName || !data.guestEmail)) {
-      console.error("[QA-TRACE] createAppointment fail: Potrebni so kontakt podatki");
       return { success: false, error: "Potrebni so kontakt podatki" }
     }
 
@@ -621,19 +617,16 @@ export async function createAppointment(
         select: { id: true },
       })
       if (currentUserStaff && currentUserStaff.id === data.staffId) {
-        console.error("[QA-TRACE] createAppointment fail: Pri sebi ne morete rezervirati termina");
         return { success: false, error: "Pri sebi ne morete rezervirati termina" }
       }
     }
 
     // Fetch selected services and calculate totals (scoped to this organization)
-    console.error("[QA-MARK] after-services");
     const services = await getServicesForBooking(data.serviceIds)
     if (
       services.length === 0 ||
       services.length !== new Set(data.serviceIds).size
     ) {
-      console.error("[QA-TRACE] createAppointment fail: Neveljavna izbira storitev");
       return { success: false, error: "Neveljavna izbira storitev" }
     }
 
@@ -692,7 +685,6 @@ export async function createAppointment(
           : null
 
     if (!startInstant || isNaN(startInstant.getTime())) {
-      console.error("[QA-TRACE] createAppointment fail: Neveljaven datum ali ura termina");
       return { success: false, error: "Neveljaven datum ali ura termina" }
     }
 
@@ -727,7 +719,6 @@ export async function createAppointment(
     }
 
     // Verify the requested time slot is available
-    console.error("[QA-MARK] after-availability-check-start");
     const slots = await getAvailableTimeSlots(
       data.staffId,
       data.bookingDate ?? startInstant,
@@ -738,7 +729,6 @@ export async function createAppointment(
       (slot) => slot.time === requestedTime && slot.available
     )
 
-    console.error("[QA-MARK] availability-result");
     if (!slotAvailable) {
       return {
         success: false,
@@ -770,7 +760,6 @@ export async function createAppointment(
           select: { id: true },
         })
         if (!resourceRecord) {
-          console.error("[QA-TRACE] createAppointment fail: Izbrani prostor/vir ni več na voljo.");
           return { success: false, error: "Izbrani prostor/vir ni več na voljo." }
         }
         resourceRecordId = resourceRecord.id
@@ -842,7 +831,6 @@ export async function createAppointment(
     })
 
     if (!staff) {
-      console.error("[QA-TRACE] createAppointment fail: Neveljavna izbira specialista");
       return { success: false, error: "Neveljavna izbira specialista" }
     }
 
@@ -861,7 +849,6 @@ export async function createAppointment(
       appointment = await prisma.$transaction(async (tx) => {
       // Ključavnici: (najemnik, osebje) + (najemnik, vir) — urejen vrstni
       // red proti deadlocku. Ključavnica živi do commit/rollback.
-      console.error("[QA-MARK] before-locks");
       await acquireBookingLocks(
         tx,
         bookingLockKeys(org.id, data.staffId, resourceRecordId)
@@ -958,7 +945,6 @@ export async function createAppointment(
       }
 
       // Create the appointment with associated services
-      console.error("[QA-MARK] before-insert");
       const created = await tx.appointment.create({
         data: {
           organizationId: org.id,
@@ -1079,7 +1065,6 @@ export async function createAppointment(
       if (error instanceof BookingConflictError) {
         // Izgubljena dirka — lokalizirano sporočilo; rollback je že
         // povrnil morebitno porabljeno seanso.
-        console.error("[QA-TRACE] createAppointment fail: n/a");
         return { success: false, error: error.message }
       }
       throw error
