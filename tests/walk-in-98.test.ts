@@ -136,6 +136,14 @@ describe("#98 struktura: javna stran, akcije, proxy, navigacija", () => {
     expect(common).toContain('walkIn: "Walk-in queue"')
   })
 
+  it("proxy: HIDDEN/izklopljen walk-in → /vrsta PRAVI 404 (F5, vzorec P2 #46)", () => {
+    const proxy = read("src/proxy.ts")
+    expect(proxy).toContain("walkInEnabled?: boolean")
+    expect(proxy).toContain('if (sub === "/vrsta" && tenant.walkInEnabled === false)')
+    const resolve = read("src/app/api/public/resolve-tenant/route.ts")
+    expect(resolve).toContain("walkInEnabled: isCapabilityEnabled(profile, ")
+  })
+
   it("shema: WalkInEntry org-scoped, ticketCode unikaten, brez shranjene pozicije", () => {
     const schema = read("prisma/schema.prisma")
     const block = schema.slice(

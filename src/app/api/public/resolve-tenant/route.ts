@@ -108,6 +108,8 @@ export async function GET(request: Request) {
         // povezave na domači strani); izklopljeni forms mora /inquiry 404-at.
         shopEnabled: isCapabilityEnabled(profile, "shop"),
         formsEnabled: isCapabilityEnabled(profile, "forms"),
+        // #100 F5: HIDDEN/izklopljen walk-in → javna /vrsta PRAVI 404.
+        walkInEnabled: isCapabilityEnabled(profile, "walkIn"),
       },
       // PR #103 review round 2: PROXY-ONLY endpoint — responses must not
       // be stored/served by shared caches. The proxy keeps its own 15 s

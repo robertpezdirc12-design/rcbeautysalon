@@ -57,6 +57,7 @@ type TenantInfo = {
   servicesEnabled?: boolean
   /** #105-nadaljevanje (G1): izklopljena trgovina → /shop* pravi 404. */
   shopEnabled?: boolean
+  walkInEnabled?: boolean
   /** #105-nadaljevanje (G3): izklopljeni forms → /inquiry pravi 404. */
   formsEnabled?: boolean
 }
@@ -309,6 +310,12 @@ async function runTenantGates(opts: {
     // (Veja bookingEnabled===true zgoraj gre prva — tam je /inquiry
     // napačna stran za booking profile in se preusmeri na domačo.)
     if (sub === "/inquiry" && tenant.formsEnabled === false) {
+      return rewriteTo404(req, requestHeaders)
+    }
+
+    // #100 F5: HIDDEN ali izklopljen walk-in → /vrsta PRAVI 404 (ne
+    // soft 404 iz page-level notFound — isti razred kot P2 #46).
+    if (sub === "/vrsta" && tenant.walkInEnabled === false) {
       return rewriteTo404(req, requestHeaders)
     }
   }
