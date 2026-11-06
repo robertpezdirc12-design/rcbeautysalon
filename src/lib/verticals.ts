@@ -432,13 +432,24 @@ export function presetImageryFor(vertical: string): { hero?: string; about?: str
  */
 export function upgradeLegacyImagery(content: SiteContent, vertical: string): SiteContent {
   const preset = VERTICAL_IMAGERY[vertical] ?? {}
+  // Prazna shranjena slika → dejavnostni preset (prej je padla na salonski
+  // DEFAULT fallback v komponenti — napačna panoga za vse ostale dejavnosti).
   const upgrade = (stored: string | undefined, presetUrl?: string): string | undefined => {
     if (!presetUrl) return stored
-    return isSampleImageUrl(stored) ? presetUrl : stored
+    return !stored || isSampleImageUrl(stored) ? presetUrl : stored
   }
   return {
     ...content,
-    hero: { ...content.hero, imageUrl: upgrade(content.hero?.imageUrl, preset.hero) },
+    hero: {
+      ...content.hero,
+      imageUrl: upgrade(content.hero?.imageUrl, preset.hero),
+      // lastnik (6. 11. 2026): platformski privzeti VIDEO/POSTER (salon,
+      // hero-bg.webm/avif) na najemniški strani nikoli ni lastniška izbira —
+      // HeroVideo sicer pada na salonski DEFAULT_POSTER. Čistimo; slika
+      // dejavnosti (zgoraj) ostane edini vizual.
+      videoUrl: isSampleImageUrl(content.hero?.videoUrl) ? undefined : content.hero?.videoUrl,
+      posterUrl: isSampleImageUrl(content.hero?.posterUrl) ? undefined : content.hero?.posterUrl,
+    },
     about: { ...content.about, imageUrl: upgrade(content.about?.imageUrl, preset.about) },
     cta: { ...content.cta, imageUrl: upgrade(content.cta?.imageUrl, preset.cta) },
   }
