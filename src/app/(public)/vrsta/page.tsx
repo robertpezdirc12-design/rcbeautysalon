@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation"
 import { getPublicSiteData, redirectBareToTenant } from "@/lib/public-site"
 import { canonicalMetadata } from "@/lib/seo"
-import { resolveEffectiveProfile } from "@/lib/profiles/resolve"
+import { resolvePublicEffectiveProfile } from "@/lib/profiles/resolve"
 import { isCapabilityEnabled } from "@/lib/profiles/registry"
 
 import { WalkInPublicClient } from "@/components/public/walk-in-public"
@@ -28,7 +28,7 @@ export default async function WalkInPublicPage() {
   if (!site?.org) notFound()
 
   // Vrata modula: izklopljen capability (tudi prek overrides) = 404.
-  const profile = resolveEffectiveProfile(site.org)
+  const profile = resolvePublicEffectiveProfile(site.org)
   if (!isCapabilityEnabled(profile, "walkIn")) notFound()
 
   return (

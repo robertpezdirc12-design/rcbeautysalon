@@ -5,7 +5,7 @@ import {
   resolverExpectedOrigin,
   verifyResolverQueryForOrigin,
 } from "@/lib/tenant-proof"
-import { resolveEffectiveProfile } from "@/lib/profiles/resolve"
+import { resolvePublicEffectiveProfile } from "@/lib/profiles/resolve"
 import { isCapabilityEnabled } from "@/lib/profiles/registry"
 
 // ============================================================
@@ -89,7 +89,7 @@ export async function GET(request: Request) {
     // #100 8.C (F2) + #105-nadaljevanje: enkrat polni resolve (vertikala →
     // sekundarna → overrides → moduleStates) — modulna vrata veljajo tudi
     // za proxy (pravi 404).
-    const profile = resolveEffectiveProfile(org)
+    const profile = resolvePublicEffectiveProfile(org)
 
     return NextResponse.json(
       {

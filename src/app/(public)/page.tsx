@@ -9,7 +9,7 @@ import {
 import { HomeContent } from "@/components/landing/home-content"
 import { PlatformLanding } from "@/components/landing/platform-landing"
 import { resolveCtaLinks, resolveCtaSectionHref } from "@/lib/public-cta"
-import { resolveEffectiveProfile } from "@/lib/profiles/resolve"
+import { resolvePublicEffectiveProfile } from "@/lib/profiles/resolve"
 import { isCapabilityEnabled } from "@/lib/profiles/registry"
 import { sectionsForProfile } from "@/lib/home-sections"
 import { prisma } from "@/lib/prisma"
@@ -62,7 +62,7 @@ export default async function HomePage() {
   }
 
   const { org, content } = site
-  const profile = resolveEffectiveProfile(org)
+  const profile = resolvePublicEffectiveProfile(org)
   const bookingEnabled =
     profile.website.ctaMode === "booking" &&
     profile.capabilities.appointments !== "disabled"

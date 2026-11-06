@@ -46,7 +46,9 @@ export async function getModuleOverview(): Promise<{
   })
   const states: ModuleStateMap = {}
   for (const r of rows) {
-    if (r.state === "ACTIVE" || r.state === "DEACTIVATED") states[r.moduleId] = r.state
+    if (r.state === "ACTIVE" || r.state === "DEACTIVATED" || r.state === "HIDDEN") {
+      states[r.moduleId] = r.state
+    }
   }
 
   const profile = org
@@ -88,7 +90,9 @@ export async function setModuleState(
   })
   const states: ModuleStateMap = {}
   for (const r of rows) {
-    if (r.state === "ACTIVE" || r.state === "DEACTIVATED") states[r.moduleId] = r.state
+    if (r.state === "ACTIVE" || r.state === "DEACTIVATED" || r.state === "HIDDEN") {
+      states[r.moduleId] = r.state
+    }
   }
 
   const previous = states[moduleId] ?? "ACTIVE"

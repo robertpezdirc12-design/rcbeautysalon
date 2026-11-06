@@ -13,6 +13,7 @@ import {
   MODULE_IDS,
   dependentsOf,
   effectiveCapabilities,
+  effectivePublicCapabilities,
   getModule,
   missingDependencies,
 } from "../src/lib/modules/catalog"
@@ -87,6 +88,37 @@ describe("#100 8.C odvisnosti pri vklopu/izklopu", () => {
   })
 })
 
+describe("#100 F5 HIDDEN (skrito javno, plošča dela)", () => {
+  it("HIDDEN v plošči capability pusti delujočo (in odklene disabled)", () => {
+    const out = effectiveCapabilities({ appointments: "required", reviews: "disabled" }, {
+      appointments: "HIDDEN",
+      reviews: "HIDDEN",
+    })
+    expect(out.appointments).toBe("required")
+    expect(out.reviews).toBe("optional")
+  })
+
+  it("HIDDEN na JAVNI strani = izklopljen (javni vhodi se zaprejo)", () => {
+    const pub = effectivePublicCapabilities({ appointments: "required" }, {
+      appointments: "HIDDEN",
+    })
+    expect(pub.appointments).toBe("disabled")
+  })
+
+  it("ACTIVE na javni strani odklene disabled (enako kot plošča)", () => {
+    const pub = effectivePublicCapabilities({ appointments: "disabled" }, {
+      appointments: "ACTIVE",
+    })
+    expect(pub.appointments).toBe("optional")
+  })
+
+  it("DEACTIVATED je izklopljen na obeh površinah", () => {
+    const st = { shop: "DEACTIVATED" as const }
+    expect(effectiveCapabilities({ shop: "required" }, st).shop).toBe("disabled")
+    expect(effectivePublicCapabilities({ shop: "required" }, st).shop).toBe("disabled")
+  })
+})
+
 describe("#100 8.C struktura: resolve, akcije, UI, vrata", () => {
   it("resolve: org vključi moduleStates (getOrgBySlug/getOrgById/custom domena/platformski fallback)", () => {
     const tenant = read("src/lib/tenant.ts")
@@ -100,6 +132,8 @@ describe("#100 8.C struktura: resolve, akcije, UI, vrata", () => {
   it("resolveEffectiveProfile: moduleStates so zadnja beseda (celoten tok)", () => {
     const resolve = read("src/lib/profiles/resolve.ts")
     expect(resolve).toContain("effectiveCapabilities(")
+    expect(resolve).toContain("effectivePublicCapabilities(")
+    expect(resolve).toContain("resolvePublicEffectiveProfile")
     expect(resolve).toContain("statesFromOrg(org)")
   })
 
@@ -109,7 +143,8 @@ describe("#100 8.C struktura: resolve, akcije, UI, vrata", () => {
     expect(actions).toContain("dependentsOf(moduleId)")
     expect(actions).toContain("missingDependencies(moduleId, states)")
     expect(actions).toContain("recordConfigChange(")
-    expect(actions).toContain("entityKey: `module:${moduleId}`")
+    expect(actions).toContain('module:${moduleId}')
+    expect(actions).toContain('r.state === "HIDDEN"')
   })
 
   it("UI: kartica v2 v Modulih — izklop z opozorilom, brez tihih sprememb", () => {

@@ -111,7 +111,7 @@ describe("#98 vrata: capability walkIn na voljo VSEM profilom (AD-02)", () => {
 describe("#98 struktura: javna stran, akcije, proxy, navigacija", () => {
   it("javna stran: izklopljen modul = pravi notFound (§5.2)", () => {
     const page = read("src/app/(public)/vrsta/page.tsx")
-    expect(page).toContain("resolveEffectiveProfile(site.org)")
+    expect(page).toContain("resolvePublicEffectiveProfile(site.org)")
     expect(page).toContain("if (!isCapabilityEnabled(profile, \"walkIn\")) notFound()")
   })
 

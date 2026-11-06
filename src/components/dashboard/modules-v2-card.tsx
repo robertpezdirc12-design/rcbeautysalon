@@ -11,12 +11,12 @@ import { toast } from "sonner"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Switch } from "@/components/ui/switch"
 import {
   getModuleOverview,
   setModuleState,
   type ModuleView,
 } from "@/app/actions/modules"
+import { cn } from "@/lib/utils"
 import { useI18n } from "@/lib/i18n/provider"
 
 export function ModulesV2Card() {
@@ -37,8 +37,8 @@ export function ModulesV2Card() {
       .finally(() => setLoading(false))
   }, [])
 
-  function toggle(mod: ModuleView, next: boolean) {
-    const state = next ? "ACTIVE" : "DEACTIVATED"
+  function toggle(mod: ModuleView, next: ModuleView["state"]) {
+    const state = next
     startTransition(async () => {
       const res = await setModuleState(mod.id, state)
       if (!res.success) {
@@ -104,12 +104,37 @@ export function ModulesV2Card() {
                   </p>
                 )}
               </div>
-              <Switch
-                checked={m.state === "ACTIVE"}
-                onCheckedChange={(v) => toggle(m, v)}
-                disabled={pending || loading}
+              {/* F5: tri stanja — vklopljen / skrit iz javne strani / izklopljen */}
+              <div
+                role="radiogroup"
                 aria-label={`Modul ${sl(m)}`}
-              />
+                className="flex shrink-0 overflow-hidden rounded-lg border text-xs"
+              >
+                {(
+                  [
+                    ["ACTIVE", "Vklopljen"],
+                    ["HIDDEN", "Skrit"],
+                    ["DEACTIVATED", "Izklopljen"],
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    role="radio"
+                    aria-checked={m.state === value}
+                    disabled={pending || loading}
+                    onClick={() => {
+                      if (m.state !== value) toggle(m, value)
+                    }}
+                    className={cn(
+                      "px-2.5 py-1.5 transition-colors hover:bg-muted/50 disabled:opacity-50",
+                      m.state === value && "bg-primary/10 font-medium"
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
           )
         })}

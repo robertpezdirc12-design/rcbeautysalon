@@ -15,7 +15,11 @@ import { getProfile } from "./registry"
 import { applyOverrides, parseOverrides } from "./overrides"
 import { applySecondaryProfile } from "./secondary"
 import type { ActivityProfile } from "./types"
-import { effectiveCapabilities, type ModuleStateMap } from "@/lib/modules/catalog"
+import {
+  effectiveCapabilities,
+  effectivePublicCapabilities,
+  type ModuleStateMap,
+} from "@/lib/modules/catalog"
 
 interface OrgLike {
   vertical: string | null
@@ -29,11 +33,33 @@ interface OrgLike {
 function statesFromOrg(org: OrgLike | null | undefined): ModuleStateMap {
   const map: ModuleStateMap = {}
   for (const row of org?.moduleStates ?? []) {
-    if (row.state === "ACTIVE" || row.state === "DEACTIVATED") {
+    if (row.state === "ACTIVE" || row.state === "DEACTIVATED" || row.state === "HIDDEN") {
       map[row.moduleId] = row.state
     }
   }
   return map
+}
+
+function buildProfile(
+  org: OrgLike | null | undefined,
+  mode: "dashboard" | "public"
+): ActivityProfile {
+  const withSecondary = applySecondaryProfile(
+    getProfile(org?.vertical),
+    org?.secondaryVertical
+  )
+  const withOverrides = applyOverrides(withSecondary, parseOverrides(org?.profileOverrides))
+  const caps =
+    mode === "public"
+      ? effectivePublicCapabilities(
+          withOverrides.capabilities as unknown as Record<string, string>,
+          statesFromOrg(org)
+        )
+      : effectiveCapabilities(
+          withOverrides.capabilities as unknown as Record<string, string>,
+          statesFromOrg(org)
+        )
+  return { ...withOverrides, capabilities: caps } as unknown as ActivityProfile
 }
 
 // #105-nadaljevanje: sejna varianta (getSessionEffectiveProfile) je prestavljena
@@ -46,14 +72,16 @@ function statesFromOrg(org: OrgLike | null | undefined): ModuleStateMap {
  * the resolved tenant org here).
  */
 export function resolveEffectiveProfile(org: OrgLike | null | undefined): ActivityProfile {
-  const withSecondary = applySecondaryProfile(
-    getProfile(org?.vertical),
-    org?.secondaryVertical
-  )
-  const withOverrides = applyOverrides(withSecondary, parseOverrides(org?.profileOverrides))
-  const caps = effectiveCapabilities(
-    withOverrides.capabilities as unknown as Record<string, string>,
-    statesFromOrg(org)
-  )
-  return { ...withOverrides, capabilities: caps } as unknown as ActivityProfile
+  return buildProfile(org, "dashboard")
+}
+
+/**
+ * Efektivni profil za JAVNO stran: HIDDEN modul je izklopljen (javni
+ * vhodi 404/skriti), plošča pa ostane delujoča. Javne površine (proxy
+ * vrata, javne strani, javni CTA) uporabljajo TA resolver.
+ */
+export function resolvePublicEffectiveProfile(
+  org: OrgLike | null | undefined
+): ActivityProfile {
+  return buildProfile(org, "public")
 }

@@ -14,7 +14,7 @@
 
 import type { CapabilityKey } from "@/lib/profiles/types"
 
-export type ModuleState = "ACTIVE" | "DEACTIVATED"
+export type ModuleState = "ACTIVE" | "DEACTIVATED" | "HIDDEN"
 
 export interface ModuleDef {
   /** Stabilen id — za v1 = capability ključ (1 : 1 katalog). */
@@ -168,11 +168,13 @@ export function getModule(id: string): ModuleDef | null {
 export type ModuleStateMap = Record<string, ModuleState>
 
 /**
- * Efektivna capability matrika: vertikalni profil + moduleStates
+ * Efektivna capability matrika (DASHBOARD): vertikalni profil + moduleStates
  * (zadnja beseda — neodvisno od vertikale).
  *  - DEACTIVATED modul izklopi SVOJE capability-je (podatki ostanejo);
- *  - ACTIVE modul ODKLENE capability, ki jo je profil imel "disabled"
- *    (modul = samostojen, ne vezan na dejavnost — jedro 8.C);
+ *  - ACTIVE in HIDDEN pustita capability delujočo (HIDDEN = skrito samo
+ *    iz JAVNE strani — glej effectivePublicCapabilities);
+ *  - ACTIVE/HIDDEN modul ODKLENE capability, ki jo je profil imel
+ *    "disabled" (modul = samostojen, ne vezan na dejavnost — jedro 8.C);
  *  - nič vrstic = brez spremembe (obstoječi najemniki).
  */
 export function effectiveCapabilities(
@@ -192,6 +194,22 @@ export function effectiveCapabilities(
     }
   }
   return out
+}
+
+/**
+ * Efektivna matrika za JAVNO stran: HIDDEN modul je izklopljen (javni
+ * vhodi se zaprejo), DEACTIVATED prav tako; ACTIVE odklene disabled.
+ * Dashboard uporablja effectiveCapabilities (HIDDEN tam dela).
+ */
+export function effectivePublicCapabilities(
+  profileCapabilities: Record<string, string>,
+  states: ModuleStateMap
+): Record<string, string> {
+  const publicStates: ModuleStateMap = {}
+  for (const [id, state] of Object.entries(states)) {
+    publicStates[id] = state === "HIDDEN" ? "DEACTIVATED" : state
+  }
+  return effectiveCapabilities(profileCapabilities, publicStates)
 }
 
 /** Odvisni moduli (kdo zahteva ta modul) — za opozorilo pred izklopom. */

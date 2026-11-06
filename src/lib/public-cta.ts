@@ -1,5 +1,5 @@
 import { term } from "@/lib/profiles/registry"
-import { resolveEffectiveProfile } from "@/lib/profiles/resolve"
+import { resolvePublicEffectiveProfile } from "@/lib/profiles/resolve"
 import type { WebsiteCtaMode } from "@/lib/profiles/types"
 import type { CtaLink } from "@/lib/site-content"
 
@@ -37,7 +37,7 @@ export interface PublicOrgCtx {
 
 /** Effective profile za javne strani (org je že resolvan — moduli zadnja beseda). */
 function effective(org: PublicOrgCtx | null | undefined) {
-  return resolveEffectiveProfile({
+  return resolvePublicEffectiveProfile({
     vertical: org?.vertical ?? null,
     secondaryVertical: org?.secondaryVertical ?? null,
     profileOverrides: org?.profileOverrides,

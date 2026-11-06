@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma"
 import { PublicNavbar } from "@/components/layouts/public-navbar"
 import Footer from "@/components/layouts/footer"
 import { getPublicOrg, getTrustedOrgSlug } from "@/lib/tenant"
-import { resolveEffectiveProfile } from "@/lib/profiles/resolve"
+import { resolvePublicEffectiveProfile } from "@/lib/profiles/resolve"
 import { isCapabilityEnabled } from "@/lib/profiles/registry"
 import { resolveAvailableSections } from "@/lib/public-site"
 import { resolvePublicCta } from "@/lib/public-cta"
@@ -143,7 +143,7 @@ export default async function PublicLayout({
   // #98 (AD-02): povezava Živa vrsta — samo ko najemnikov profil modul
   // vklopi (capability + overrides); izklop = povezava ne obstaja (§5.2).
   const walkInEnabled = org
-    ? isCapabilityEnabled(resolveEffectiveProfile(org), "walkIn")
+    ? isCapabilityEnabled(resolvePublicEffectiveProfile(org), "walkIn")
     : false
 
   // P2 #67: owner affordance on THEIR OWN public site — resolved

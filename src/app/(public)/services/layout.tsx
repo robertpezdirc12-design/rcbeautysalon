@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation"
 import { getPublicOrg } from "@/lib/tenant"
-import { resolveEffectiveProfile } from "@/lib/profiles/resolve"
+import { resolvePublicEffectiveProfile } from "@/lib/profiles/resolve"
 import { isCapabilityEnabled } from "@/lib/profiles/registry"
 
 /**
@@ -23,7 +23,7 @@ export default async function ServicesLayout({
   const org = await getPublicOrg()
   if (
     org &&
-    !isCapabilityEnabled(resolveEffectiveProfile(org), "services")
+    !isCapabilityEnabled(resolvePublicEffectiveProfile(org), "services")
   ) {
     notFound()
   }
