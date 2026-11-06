@@ -193,6 +193,8 @@ describe("#61 — validatePublishRequirements coherence gate", () => {
     contactPhone: null,
     serviceCount: 0,
     productCount: 6,
+    bookingPromised: false,
+    activeStaffCount: 2,
     capabilities: { services: "disabled", shop: "required" } as const,
   }
 
@@ -206,6 +208,31 @@ describe("#61 — validatePublishRequirements coherence gate", () => {
     expect(r.errors.some((e) => e.includes("ne ustreza izbrani dejavnosti"))).toBe(true)
     expect(r.errors.some((e) => e.includes("Čebelarstvo"))).toBe(true)
     expect(r.mismatch?.matchedVerticalId).toBe("beekeeping")
+  })
+
+  it("#112-1: booking brez osebja BLOKIRA objavo z ukrepom", () => {
+    const r = validatePublishRequirements({
+      ...base,
+      bookingPromised: true,
+      activeStaffCount: 0,
+    })
+    expect(r.ok).toBe(false)
+    expect(r.errors.some((e) => e.includes("Rezervacije brez osebja ne delujejo"))).toBe(true)
+  })
+
+  it("#112-1: booking z osebjem in izklopljene rezervacije NE blokirajo", () => {
+    const withStaff = validatePublishRequirements({
+      ...base,
+      bookingPromised: true,
+      activeStaffCount: 2,
+    })
+    expect(withStaff.errors.some((e) => e.includes("Rezervacije brez osebja"))).toBe(false)
+    const noBooking = validatePublishRequirements({
+      ...base,
+      bookingPromised: false,
+      activeStaffCount: 0,
+    })
+    expect(noBooking.errors.some((e) => e.includes("Rezervacije brez osebja"))).toBe(false)
   })
 
   it("coherent tenant publishes with no warnings", () => {

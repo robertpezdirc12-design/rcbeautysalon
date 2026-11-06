@@ -11,6 +11,8 @@ const baseInput = {
   contactPhone: null,
   serviceCount: 3,
   productCount: 2,
+  bookingPromised: false,
+  activeStaffCount: 2,
   capabilities: { services: "required", shop: "optional" } as const,
 }
 
@@ -61,6 +63,8 @@ describe("validatePublishRequirements", () => {
       ...baseInput,
       serviceCount: 7,
       productCount: 0,
+      bookingPromised: false,
+      activeStaffCount: 2,
       capabilities: { services: "required", shop: "optional" },
     })
     expect(r.ok).toBe(true)
@@ -72,6 +76,8 @@ describe("validatePublishRequirements", () => {
       ...baseInput,
       serviceCount: 0,
       productCount: 5,
+      bookingPromised: false,
+      activeStaffCount: 2,
       capabilities: { services: "disabled", shop: "required" },
     })
     expect(ok.ok).toBe(true)
@@ -82,6 +88,8 @@ describe("validatePublishRequirements", () => {
       ...baseInput,
       serviceCount: 0,
       productCount: 0,
+      bookingPromised: false,
+      activeStaffCount: 2,
       capabilities: { services: "disabled", shop: "required" },
     })
     expect(blocked.ok).toBe(true)
@@ -93,6 +101,8 @@ describe("validatePublishRequirements", () => {
     const r = validatePublishRequirements({
       ...baseInput,
       productCount: 0,
+      bookingPromised: false,
+      activeStaffCount: 2,
       capabilities: { services: "disabled", shop: "required" },
     })
     expect(r.ok).toBe(true)
@@ -107,6 +117,8 @@ describe("validatePublishRequirements", () => {
       contactPhone: null,
       serviceCount: 0,
       productCount: 0,
+      bookingPromised: false,
+      activeStaffCount: 2,
       capabilities: { services: "required", shop: "required" } as const,
     })
     expect(r.ok).toBe(false)
@@ -121,6 +133,8 @@ describe("validatePublishRequirements", () => {
       ...baseInput,
       serviceCount: 0,
       productCount: 0,
+      bookingPromised: false,
+      activeStaffCount: 2,
       capabilities: { services: "disabled", shop: "disabled" },
     })
     expect(r.ok).toBe(true)

@@ -26,6 +26,10 @@ export interface PublishRequirementsInput {
   productCount: number
   /** Effective capability matrix (shared profile + owner overrides). */
   capabilities: Pick<CapabilityMatrix, "services" | "shop">
+  /** #112-1: ali javna stran obljublja rezervacije (appointments + booking CTA). */
+  bookingPromised: boolean
+  /** #112-1: število AKTIVNIH osebje (rezervacije brez njih padejo na čakalno listo). */
+  activeStaffCount: number
   /** P2 #61: raw stored content; null/undefined = vertical defaults (coherent). */
   siteContent?: unknown
   /** P2 #61: current activity id, e.g. "seamstress". */
@@ -75,6 +79,15 @@ export function validatePublishRequirements(
   if (input.capabilities.services === "required" && input.serviceCount < 1) {
     errors.push("Katalog je prazen — dodajte vsaj eno storitev.")
   }
+  // #112-1: objava, ki obljublja rezervacije (appointments + booking CTA),
+  // brez AKTIVNEGA osebja javno NE deluje — vsak gost pade na čakalno listo.
+  // Blokada (ne opozorilo): "objavi → dobi rezervacije" je obljuba platforme.
+  if (input.bookingPromised && input.activeStaffCount < 1) {
+    errors.push(
+      "Rezervacije brez osebja ne delujejo — dodajte vsaj enega aktivnega osebja (Osebje → Dodaj) ali izklopite rezervacije (Moduli → Rezervacije in koledar).",
+    )
+  }
+
   if (input.capabilities.shop === "required" && input.productCount < 1) {
     // #82: a required module that the tenant's PRESET cannot populate must not
     // block going live — 8 of 11 trades ship zero sample products, so this

@@ -30,13 +30,14 @@ export interface PublicationStatus {
 /** Current publication state for the Settings card. */
 export async function getPublicationStatus(): Promise<PublicationStatus> {
   const { org } = await requirePermissionOrg("settings.manage")
-  const [config, serviceCount, productCount] = await Promise.all([
+  const [config, serviceCount, productCount, activeStaffCount] = await Promise.all([
     prisma.salonConfig.findUnique({
       where: { organizationId: org.id },
       select: { email: true, phone: true, siteContent: true, publishedContentVersion: true },
     }),
     prisma.service.count({ where: { organizationId: org.id } }),
     prisma.product.count({ where: { organizationId: org.id } }),
+    prisma.staff.count({ where: { organizationId: org.id, isActive: true } }),
   ])
   const profile = resolveEffectiveProfile(org)
 
@@ -60,6 +61,11 @@ export async function getPublicationStatus(): Promise<PublicationStatus> {
       services: profile.capabilities.services,
       shop: profile.capabilities.shop,
     },
+    // #112-1: obljuba rezervacij = appointments omogočen + booking CTA.
+    bookingPromised:
+      profile.capabilities.appointments !== "disabled" &&
+      profile.website.ctaMode === "booking",
+    activeStaffCount,
     siteContent: config?.siteContent ?? null,
     vertical: org.vertical,
     usesOnlySampleImages,
@@ -93,13 +99,15 @@ export async function publishSite(): Promise<
 > {
   const { org } = await requirePermissionOrg("settings.manage")
 
-  const [config, serviceCount, productCount] = await Promise.all([
+  const [config, serviceCount, productCount, activeStaffCount] = await Promise.all([
     prisma.salonConfig.findUnique({
       where: { organizationId: org.id },
       select: { email: true, phone: true, siteContent: true },
     }),
     prisma.service.count({ where: { organizationId: org.id } }),
     prisma.product.count({ where: { organizationId: org.id } }),
+    // #112-1: rezervacije brez osebja javno ne delujejo (čakalna lista).
+    prisma.staff.count({ where: { organizationId: org.id, isActive: true } }),
   ])
   const profile = resolveEffectiveProfile(org)
 
@@ -125,6 +133,11 @@ export async function publishSite(): Promise<
       services: profile.capabilities.services,
       shop: profile.capabilities.shop,
     },
+    // #112-1: obljuba rezervacij = appointments omogočen + booking CTA.
+    bookingPromised:
+      profile.capabilities.appointments !== "disabled" &&
+      profile.website.ctaMode === "booking",
+    activeStaffCount,
     siteContent: config?.siteContent ?? null,
     vertical: org.vertical,
     usesOnlySampleImages,
