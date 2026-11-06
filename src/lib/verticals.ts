@@ -604,7 +604,11 @@ export function upgradeLegacyDefaultCopy(
     (content.cta?.title === l.beauty.ctaTitle && content.cta?.text === l.beauty.ctaText) ||
     (content.cta?.title === l.generic.ctaTitle && content.cta?.text === l.generic.ctaText)
   ) {
-    out.cta = m.cta
+    // lastnik (6. 11. 2026): širjenje namesto neposredne zamenjave —
+    // neposredno je POBRISALO imageUrl, ki ga je pravkar zapolnila
+    // upgradeLegacyImagery (cta je nato padel na salonski DEFAULT_CTA_
+    // IMAGE v komponenti — demo vulkanizer je kazal lepotilno sliko).
+    out.cta = { ...content.cta, ...m.cta }
   }
 
   return out

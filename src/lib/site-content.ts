@@ -719,6 +719,10 @@ export function defaultSiteContent(vertical: string): SiteContent {
         text: "Rezervirajte termin menjave in prepustite preostalo nam.",
         buttonLabel: "Rezerviraj termin",
         buttonHref: "/booking",
+        // lastnik (6. 11. 2026): slika v PRESETU (ne samo prek VERTICAL_
+        // IMAGERY) — produkcija je za prazno shrambo vseeno padla na
+        // salonski DEFAULT_CTA_IMAGE; preset garanta dejavnostno sliko.
+        imageUrl: "/img/presets/oilchange.jpg",
       },
     },
     beekeeping: {
