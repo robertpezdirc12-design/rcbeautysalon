@@ -37,6 +37,7 @@ async function scanProducts() {
       organizationId: true,
       name: true,
       sku: true,
+      description: true,
       isActive: true,
       presetSeed: true,
       createdAt: true,
