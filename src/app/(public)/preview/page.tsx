@@ -48,7 +48,8 @@ export default async function PreviewPage() {
   // nadgradijo enako kot na javni strani — predogled je resničen (WYSIWYG).
   const content = upgradeLegacyDefaultCopy(
     mergeSiteContent(config?.siteContent, org.vertical),
-    org.slug
+    org.slug,
+    org.vertical
   )
   const [featuredServices, featuredProducts, featuredStaff] = await Promise.all([
     getPublicFeaturedServices(org.id),

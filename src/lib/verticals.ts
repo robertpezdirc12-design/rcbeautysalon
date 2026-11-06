@@ -452,12 +452,6 @@ export function upgradeLegacyImagery(content: SiteContent, vertical: string): Si
 /** Demo / platformska najemniška stran (seed-orgs.ts, legacy default org). */
 export const DEMO_TENANT_SLUG = "rc-beauty"
 
-/** Novo platformsko privzeto besedilo (izhodišče = generic privzeti v site-content.ts). */
-function markecDefaults(): Pick<SiteContent, "hero" | "about" | "features" | "cta"> {
-  const d = defaultSiteContent("generic")
-  return { hero: d.hero, about: d.about, features: d.features, cta: d.cta }
-}
-
 /** Stara platformska privzeta besedila (bd532f4 seed + trenutne privzete različice), ki jih nadomešča MARKEC. */
 const LEGACY_COPY = {
   beauty: {
@@ -489,11 +483,63 @@ const LEGACY_COPY = {
   },
 } as const
 
-export function upgradeLegacyDefaultCopy(content: SiteContent, orgSlug: string): SiteContent {
-  if (orgSlug !== DEMO_TENANT_SLUG) return content
-  const m = markecDefaults()
-  const l = LEGACY_COPY
+// lastnik (6. 11. 2026): PLATFORMSKI PITCH na najemniški strani NI
+// nikoli lastniška izbira — besedilo "MARKEC, univerzalna poslovna
+// platforma / vklopite module" je pripadalo stari generični privzeti
+// vsebini (rebrand #100) in je lahko v bazi tudi pri najemnikih, ki so
+// v tistem obdobju shranili urejevalnik. Vsebina najemnikove strani
+// mora govoriti o NJEGOVI dejavnosti (strankam), ne o platformi.
+const PITCH_LEGACY = {
+  heroEyebrow: "MY BUSINESS PLATFORM",
+  heroTitle: "MARKEC, univerzalna poslovna platforma",
+  heroSubtitle:
+    "Spletna stran, trgovina, rezervacije, povpraševanja in dokumenti — ena platforma. Vklopite module, ki jih vaše podjetje potrebuje, in si sestavite svoj program.",
+  aboutTitle: "Ena platforma, vaši moduli",
+  featuresTitle: "Sestavite svoj program",
+  featuresSubtitle: "Module vklopite in izklopite — po svoje",
+  ctaTitle: "Začnite z MARKEC",
+} as const
+
+export function upgradeLegacyDefaultCopy(
+  content: SiteContent,
+  orgSlug: string,
+  vertical?: string | null
+): SiteContent {
+  // Cilj nadgradnje: privzeta vsebina NAJEMNIKOVE dejavnosti (pad na
+  // generic, kadar vertikal ni podan/ni profil). Platformski pitch pripada
+  // samo vstopni strani (/) in čarovniku (/start).
+  const m = vertical ? defaultSiteContent(vertical) : defaultSiteContent("generic")
   const out: SiteContent = { ...content }
+
+  // 1) PLATFORMSKI PITCH — za VSE najemnike (nikoli avtorsko besedilo):
+  //    sekcija se nadomesti samo, če se njeni ključni teksti TOČNO
+  //    ujemajo s starim platformskim pitchom; lastniško urejeno in
+  //    SLIKE ostanejo nedotaknjene.
+  const pitchHero =
+    content.hero?.eyebrow === PITCH_LEGACY.heroEyebrow &&
+    content.hero?.title === PITCH_LEGACY.heroTitle &&
+    content.hero?.subtitle === PITCH_LEGACY.heroSubtitle
+  if (pitchHero) {
+    out.hero = { ...content.hero, ...m.hero }
+  }
+  if (content.about?.title === PITCH_LEGACY.aboutTitle) {
+    out.about = { ...content.about, ...m.about }
+  }
+  if (
+    content.features?.title === PITCH_LEGACY.featuresTitle &&
+    content.features?.subtitle === PITCH_LEGACY.featuresSubtitle
+  ) {
+    out.features = m.features
+  }
+  if (content.cta?.title === PITCH_LEGACY.ctaTitle) {
+    out.cta = { ...content.cta, ...m.cta }
+  }
+
+  // 2) STARE SEEDSKE PRIVZETE VSEBINE — samo demo najemnik (obstoječe
+  //    vedenje rebranda #100, cilj zdaj dejavnost najemnika namesto
+  //    platformskega pitcha).
+  if (orgSlug !== DEMO_TENANT_SLUG) return out
+  const l = LEGACY_COPY
 
   // HERO — all-or-nothing: niz se nadomesti samo, če so VSE ključne
   // vrednosti še vedno enake stari platformski privzeti vrednosti.
@@ -503,7 +549,7 @@ export function upgradeLegacyDefaultCopy(content: SiteContent, orgSlug: string):
   const heroTitleIsLegacy =
     content.hero?.title === l.beauty.heroTitle || content.hero?.title === l.generic.heroTitle
   if (heroTitleIsLegacy && heroIsLegacy) {
-    out.hero = { ...m.hero, imageUrl: IMG.heroWorkspace, videoUrl: undefined, posterUrl: undefined }
+    out.hero = { ...content.hero, ...m.hero }
   }
 
   // ABOUT
@@ -511,7 +557,7 @@ export function upgradeLegacyDefaultCopy(content: SiteContent, orgSlug: string):
     content.about?.title === l.beauty.aboutTitle ||
     content.about?.title === l.generic.aboutTitle
   ) {
-    out.about = { ...m.about, imageUrl: IMG.workspace }
+    out.about = { ...content.about, ...m.about }
   }
 
   // FEATURES

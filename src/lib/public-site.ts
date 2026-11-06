@@ -67,7 +67,8 @@ export const getPublicSiteData = cache(
     const rawContent = published ? config.publishedSiteContent : config?.siteContent
     const content = upgradeLegacyDefaultCopy(
       upgradeLegacyImagery(mergeSiteContent(rawContent, org.vertical), org.vertical),
-      org.slug
+      org.slug,
+      org.vertical
     )
     return { org, config, content }
   }

@@ -801,43 +801,6 @@ export function defaultSiteContent(vertical: string): SiteContent {
         imageUrl: "/img/presets/craft.jpg",
       },
     },
-    // lastnik (6. 11. 2026): VULKANIZER & AVTOSERVIS (tire-service) je
-    // profil v čarovniku, ampak predloge NI imel → strani so padle na
-    // generiko in prikazovale platformski tekst namesto menjave gum.
-    // Strankam-obrnjena vsebina: gume, servis, delovni nalog.
-    "tire-service": {
-      hero: {
-        eyebrow: "Vulkanizer & avtoservis",
-        title: "Menjava gum in servis — brez čakanja",
-        subtitle:
-          "Sezonska menjava gum, servis vozil in preverjeni rezervni deli. Rezervirajte termin vnaprej ali se vpišite v živo vrsto — delo opravimo takoj, ko ste na potezi.",
-        primaryCta: { label: "Rezerviraj termin", href: "/booking" },
-        secondaryCta: { label: "Cenik storitev", href: "/services" },
-      },
-      about: {
-        title: "Vaše vozilo v zanesljivih rokah",
-        paragraphs: [
-          "Vozilo sprejmemo z zapisom stanja in kilometrov. Pred vsakim posegom vam povejmo obseg dela in ceno — brez presenečenj pri plačilu.",
-          "Delamo s preverjenimi rezervnimi deli, za vsak poseg pa vam izdamo delovni nalog: veste, kaj je narejeno in česa plačujete.",
-        ],
-        stats: [],
-      },
-      features: {
-        title: "Zakaj k nam",
-        subtitle: "Hitro, pošteno, z delovnim nalogom",
-        items: [
-          { icon: "CalendarCheck", title: "Termini brez čakanja", description: "Rezervirajte na spletu ali se vpišite v živo vrsto — brez stoje v čakalnici." },
-          { icon: "Wrench", title: "Preverjeni deli", description: "Rezervni deli kakovostnih dobaviteljev, primerni za vaše vozilo." },
-          { icon: "FileText", title: "Delovni nalog", description: "Jasna ponudba pred začetkom dela — veste, česa plačujete." },
-        ],
-      },
-      cta: {
-        title: "Rezervirajte menjavo gum",
-        text: "Sezona ne čaka — rezervirajte termin vnaprej ali se vpišite v živo vrsto in spremljajte svoje mesto od doma.",
-        buttonLabel: "Rezerviraj termin",
-        buttonHref: "/booking",
-      },
-    },
   }
 
   // P2 #85: neznan/legacy vertikal pade na NAJBOLJ NEVTRALNO vsebino

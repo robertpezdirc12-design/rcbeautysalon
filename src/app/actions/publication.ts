@@ -45,7 +45,8 @@ export async function getPublicationStatus(): Promise<PublicationStatus> {
   // publish action uses — behavior can never drift between surfaces.
   const rendered = upgradeLegacyDefaultCopy(
     mergeSiteContent(config?.siteContent, org.vertical),
-    org.slug
+    org.slug,
+    org.vertical
   )
   const usesOnlySampleImages =
     isSampleImageUrl(rendered.hero.imageUrl) &&
@@ -116,7 +117,8 @@ export async function publishSite(): Promise<
   // to the preset samples).
   const rendered = upgradeLegacyDefaultCopy(
     mergeSiteContent(config?.siteContent, org.vertical),
-    org.slug
+    org.slug,
+    org.vertical
   )
   const usesOnlySampleImages =
     isSampleImageUrl(rendered.hero.imageUrl) &&

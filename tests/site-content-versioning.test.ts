@@ -6,6 +6,7 @@ import {
   normalizeSections,
   type SectionMeta,
 } from "../src/lib/site-content"
+import { upgradeLegacyDefaultCopy } from "../src/lib/verticals"
 import {
   computeRevert,
   hasUnpublishedChanges,
@@ -180,5 +181,68 @@ describe("computeRevert", () => {
     expect(
       computeRevert({ contentVersion: 3, publishedSiteContent: null, publishedContentVersion: null })
     ).toEqual({ ok: false, reason: "no-published-version" })
+  })
+})
+
+// ============================================================
+// lastnik (6. 11. 2026): najemnikova javna stran = NJEGOVA dejavnost,
+// NE platformski pitch. Stara generična privzeta vsebina (rebrand
+// #100: "MARKEC, univerzalna poslovna platforma") je pri najemnikih,
+// ki so v tem obdobju shranili urejevalnik, padla v bazo kot "vsebina".
+// upgradeLegacyDefaultCopy jo mora za VSE najemnike nadgraditi na
+// privzeto vsebino NJIHOVE dejavnosti — slike pa ohraniti.
+// ============================================================
+describe("upgradeLegacyDefaultCopy — platformski pitch → dejavnost", () => {
+  const pitchContent = {
+    hero: {
+      eyebrow: "MY BUSINESS PLATFORM",
+      title: "MARKEC, univerzalna poslovna platforma",
+      subtitle:
+        "Spletna stran, trgovina, rezervacije, povpraševanja in dokumenti — ena platforma. Vklopite module, ki jih vaše podjetje potrebuje, in si sestavite svoj program.",
+      primaryCta: { label: "Oddaj povpraševanje", href: "/inquiry" },
+      secondaryCta: { label: "Poglej storitve", href: "/services" },
+      imageUrl: "/img/owner-uploaded-hero.jpg",
+    },
+    about: { title: "Ena platforma, vaši moduli", paragraphs: ["pitch"], stats: [] },
+    features: {
+      title: "Sestavite svoj program",
+      subtitle: "Module vklopite in izklopite — po svoje",
+      items: [],
+    },
+    cta: {
+      title: "Začnite z MARKEC",
+      text: "Vklopite module, ki jih potrebujete.",
+      buttonLabel: "Oddaj povpraševanje",
+      buttonHref: "/inquiry",
+      imageUrl: "/img/presets/craft.jpg",
+    },
+  } as never as Parameters<typeof upgradeLegacyDefaultCopy>[0]
+
+  it("vulkanizer (tire-service) dobi svojo dejavnost, ne platforme", () => {
+    const out = upgradeLegacyDefaultCopy(pitchContent, "rc-beauty", "tire-service")
+    expect(out.hero.title).toBe("Vaše vozilo v najboljših rokah")
+    expect(out.hero.eyebrow).toBe("Vulkanizer & avtoservis")
+    expect(out.about.title).toBe("Hitro, pošteno, profesionalno")
+    expect(out.cta.title).not.toContain("MARKEC")
+  })
+
+  it("lastniška slika (imageUrl) ostane ohranjena", () => {
+    const out = upgradeLegacyDefaultCopy(pitchContent, "kakrsenkoli-slug", "tire-service")
+    expect(out.hero.imageUrl).toBe("/img/owner-uploaded-hero.jpg")
+  })
+
+  it("lastniško urejen hero (besedilo ≠ pitch) ostane nedotaknjen", () => {
+    const owned = {
+      ...pitchContent,
+      hero: { ...pitchContent.hero, title: "Moj lastni naslov", eyebrow: "Moja značka" },
+    } as never as Parameters<typeof upgradeLegacyDefaultCopy>[0]
+    const out = upgradeLegacyDefaultCopy(owned, "kakrsenkoli-slug", "tire-service")
+    expect(out.hero.title).toBe("Moj lastni naslov")
+  })
+
+  it("generic najemnik dobi strankam-obrnjen generiko (brez 'MARKEC')", () => {
+    const out = upgradeLegacyDefaultCopy(pitchContent, "kakrsenkoli-slug", "generic")
+    expect(out.hero.title).toBe("Kakovostne storitve, poštene cene")
+    expect(JSON.stringify(out)).not.toContain("univerzalna poslovna platforma")
   })
 })
