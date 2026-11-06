@@ -103,7 +103,7 @@ export async function generateMetadata(): Promise<Metadata> {
     if (barePlatform) {
       const productTitle = "MARKEC – MY BUSINESS PLATFORM"
       const productDescription =
-        "Spletna stran, rezervacije, trgovina in povpraševanja za katerokoli dejavnost — od salona do obrti, trgovine in storitev. V nekaj minutah, brez kodiranja."
+        "Tvoje podjetje. Tvoja spletna stran. Tvoje stranke. Tvoja platforma. MARKEC ni izdelovalec spletnih strani — je enostaven sistem, v katerem podjetnik brez programiranja upravlja celotno svojo spletno poslovno prisotnost: spletno stran, trgovino, rezervacije in stranke."
       return {
         title: productTitle,
         description: productDescription,

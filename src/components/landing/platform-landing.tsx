@@ -37,25 +37,30 @@ export function PlatformLanding() {
       </header>
 
       <main>
-        {/* Hero — #112 UX: vstopni CTA mora biti VIDEN v prvem ekranu
-            (prej: pt-24 + text-6xl naslov je CTA potisnil pod zavihek —
-            nov obiskovalec ni vedel, kje vstopi v aplikacijo). */}
+        {/* Hero — #112 UX: vstopni CTA mora biti VIDEN v prvem ekranu.
+            lastnik (7. 11. 2026) — STRATEŠKA USMERITEV: MARKEC ni izdelovalec
+            spletnih strani, ampak sistem za CELOTNO spletno poslovno
+            prisotnost podjetnika. Hero pove model: vstop z računom → vse
+            predpripravljeno → uredi v svojem prostoru → predogled → objava →
+            stranke javno rezervirajo in kupujejo. */}
         <section className="container mx-auto px-4 pt-10 pb-10 text-center md:pt-14">
           <p className="text-primary-text mb-3 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-medium">
             <Sparkles className="size-4" aria-hidden="true" />
             MARKEC – MY BUSINESS PLATFORM
           </p>
           <h1 className="mx-auto max-w-3xl text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl">
-            Univerzalna poslovna platforma —{" "}
+            Tvoje podjetje. Tvoja spletna stran. Tvoje stranke.{" "}
             <span className="from-primary to-accent bg-linear-to-r bg-clip-text text-transparent">
-              vaše podjetje
-            </span>{" "}
-            v nekaj minutah
+              Tvoja platforma.
+            </span>
           </h1>
+          <p className="text-muted-foreground mt-2 text-xs font-medium tracking-[0.2em] uppercase">
+            Your Business. Your Website. Your Customers. Your Platform.
+          </p>
           <p className="text-muted-foreground mx-auto mt-4 max-w-2xl text-base md:text-lg">
-            Vklopite module, ki jih vaše podjetje potrebuje: spletno stran,
-            trgovino, rezervacije, povpraševanja. Brez razvijalca, brez
-            postavitve — vsebino urejate sami in objavite, ko ste pripravljeni.
+            MARKEC ni samo še en izdelovalec spletnih strani — je enostaven
+            sistem, v katerem podjetnik brez programiranja upravlja celotno
+            svojo spletno poslovno prisotnost.
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <Button asChild size="lg" className="min-h-12 shadow-lg">
@@ -69,7 +74,8 @@ export function PlatformLanding() {
             </Button>
           </div>
           <p className="text-muted-foreground mt-3 text-xs">
-            Brez kartice · V 3 korakih · Spletna stran, trgovina in rezervacije samodejno
+            Brez kartice · V 3 korakih · Spletna stran, trgovina in rezervacije
+            so predpripravljene
           </p>
         </section>
 
@@ -111,23 +117,25 @@ export function PlatformLanding() {
           </ul>
         </section>
 
-        {/* How it works */}
+        {/* How it works — lastnik (7. 11. 2026): tok po njegovem opisu:
+            vstop z računom → vse predpripravljeno → uredi v svojem prostoru
+            → predogled → objava → stranke javno rezervirajo/kupujejo. */}
         <section className="border-border/40 bg-muted/30 border-t py-16">
           <div className="container mx-auto px-4">
             <h2 className="text-center text-3xl font-bold">Kako deluje</h2>
             <ol className="mx-auto mt-10 grid max-w-4xl gap-8 md:grid-cols-3">
               {[
                 {
-                  title: "Ustvarite podjetje",
-                  text: "Izbira dejavnosti je neobvezna — lahko jo preskočite in začnete z železno osnovo platforme.",
+                  title: "Vstopite z računom",
+                  text: "Prijava in vse je pripravljeno: predpripravljena spletna stran, trgovina, rezervacije, slike in katalogi za vašo dejavnost.",
                 },
                 {
-                  title: "Vklopite module",
-                  text: "Spletna stran, trgovina, rezervacije, povpraševanja — vklopite, kar potrebujete; izklop ne izbriše podatkov.",
+                  title: "Uredite v svojem prostoru",
+                  text: "Besedila, slike, cene in urnik spreminjate sami — vse znotraj vašega prostora. Vsako spremembo pred objavo vidite v predogledu.",
                 },
                 {
-                  title: "Objavite in prodajajte",
-                  text: "Vsebino, slike in cene urejate sami. Stran objavite, ko ste pripravljeni.",
+                  title: "Objavite — stranke pridejo",
+                  text: "Z enim klikom gre stran na splet. Vaše stranke javno rezervirajo termine, naročajo iz trgovine in vas najdejo na spletu.",
                 },
               ].map((s, i) => (
                 <li key={s.title} className="text-center">
