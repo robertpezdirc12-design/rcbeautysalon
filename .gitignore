@@ -18,3 +18,5 @@ playwright/.cache/
 .pgdata/
 .v4b-db.mjs
 .zcode-audit/
+prod.log
+dev.log
