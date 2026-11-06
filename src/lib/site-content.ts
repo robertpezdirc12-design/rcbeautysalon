@@ -757,48 +757,85 @@ export function defaultSiteContent(vertical: string): SiteContent {
         buttonHref: "/shop",
       },
     },
-    // #100 MARKEC (dopolnitev rebranda): nevtralna vsebina za „Univerzalno“
-    // je zdaj predstavitev platforme same — vmesnik pove, da gre za
-    // univerzalno poslovno platformo, ne za vnaprej določeno dejavnost
-    // (zahteva iz issue #100: „Nova identiteta mora biti nevtralna in
-    // primerna za katerokoli dejavnost“). CTA kaže na /inquiry, ker generic
-    // ima appointments: "optional" in privzeto brez koledarja.
+    // lastnik (6. 11. 2026, korekcija #100): NEVTRALNA ≠ platformski
+    // prodajni tekst. Najemnikova javna stran govori STRANKAM o NJEGOVI
+    // dejavnosti — platformski pitch ("MARKEC, univerzalna platforma,
+    // vklopite module") pripada IZKLJUČNO vstopni strani (/) in čarovniku
+    // (/start). Generic je splošno podjetje: storitve, cene, kontakt,
+    // rezervacija/povpraševanje. CTA /inquiry, ker generic ima
+    // appointments: "optional" in privzeto brez koledarja.
     generic: {
       hero: {
-        eyebrow: "MY BUSINESS PLATFORM",
-        title: "MARKEC, univerzalna poslovna platforma",
+        eyebrow: "Dobrodošli",
+        title: "Kakovostne storitve, poštene cene",
         subtitle:
-          "Spletna stran, trgovina, rezervacije, povpraševanja in dokumenti — ena platforma. Vklopite module, ki jih vaše podjetje potrebuje, in si sestavite svoj program.",
+          "Storitve, izdelki, urnik in kontakt — vse na enem mestu. Rezervirajte termin ali oddajte povpraševanje; odgovorimo v najkrajšem možnem času.",
         primaryCta: { label: "Oddaj povpraševanje", href: "/inquiry" },
-        secondaryCta: { label: "Poglej storitve", href: "/services" },
+        secondaryCta: { label: "Storitve in cene", href: "/services" },
       },
       about: {
-        title: "Ena platforma, vaši moduli",
+        title: "O nas",
         paragraphs: [
-          "MARKEC je univerzalna poslovna platforma: ista osnova, isti vmesnik in isti sistem upravljanja za vsako podjetje. Dejavnost ni obvezna izbira — začnete s spletno stranjo in module vklopite, ko jih potrebujete.",
-          "Izklop modula nikoli ne izbriše podatkov. Nastavitve, vsebine in zgodovina ostanejo ohranjene — modul znova vklopite, ko ga spet potrebujete.",
+          "Vaše podjetje stoji za vsakim naročilom — kvalitetno delo, poštena cena in jasna komunikacija. Na strani najdete storitve, cene in urnik.",
+          "Pokličite, pišite ali oddajte povpraševanje prek strani — svetujemo brez obveznosti.",
         ],
         stats: [],
       },
       features: {
-        title: "Sestavite svoj program",
-        subtitle: "Module vklopite in izklopite — po svoje",
+        title: "Kaj nudimo",
+        subtitle: "Storitve, izdelki in hitra komunikacija",
         items: [
-          { icon: "LayoutGrid", title: "Spletna stran", description: "Strani, barve, slike in besedila urejate sami, brez razvijalca." },
-          { icon: "ShoppingBag", title: "Spletna trgovina", description: "Artikli, kategorije, naročila in plačila v enem mestu." },
-          { icon: "CalendarCheck", title: "Rezervacije in povpraševanja", description: "Storitve, koledar in stranke — po potrebi vklopite." },
+          { icon: "Zap", title: "Hitri odgovor", description: "Povpraševanje oddate v minuti — odgovorimo še isti delovni dan." },
+          { icon: "Receipt", title: "Jasne cene", description: "Cenik je javen — veste, česa pričakovati, še preden pokličete." },
+          { icon: "CalendarCheck", title: "Enostavno naročanje", description: "Rezervacije in kontakt vedno na dosegu roke, tudi s telefona." },
         ],
       },
       cta: {
-        title: "Začnite z MARKEC",
-        text: "Vklopite module, ki jih potrebujete, dodajte svojo vsebino in objavite stran, ko ste pripravljeni.",
+        title: "Vprašajte nas",
+        text: "Imate vprašanje ali želite termin? Pokličite, pišite ali oddajte povpraševanje — odgovorimo v najkrajšem možnem času.",
         buttonLabel: "Oddaj povpraševanje",
         buttonHref: "/inquiry",
-        // #100: nevtralna slika (roke obrtnika) — brez nje je ozadje CTA
+        // Nevtralna slika (roke obrtnika) — brez nje je ozadje CTA
         // sekcije padlo na lepotilni transform.avif fallback (DEFAULT_CTA_
-        // IMAGE), kar je predstavitvi platforme vtisnilo lepotilni salon.
-        // Isti preset kot VERTICAL_IMAGERY.generic.cta (verticals.ts).
+        // IMAGE). Isti preset kot VERTICAL_IMAGERY.generic.cta (verticals.ts).
         imageUrl: "/img/presets/craft.jpg",
+      },
+    },
+    // lastnik (6. 11. 2026): VULKANIZER & AVTOSERVIS (tire-service) je
+    // profil v čarovniku, ampak predloge NI imel → strani so padle na
+    // generiko in prikazovale platformski tekst namesto menjave gum.
+    // Strankam-obrnjena vsebina: gume, servis, delovni nalog.
+    "tire-service": {
+      hero: {
+        eyebrow: "Vulkanizer & avtoservis",
+        title: "Menjava gum in servis — brez čakanja",
+        subtitle:
+          "Sezonska menjava gum, servis vozil in preverjeni rezervni deli. Rezervirajte termin vnaprej ali se vpišite v živo vrsto — delo opravimo takoj, ko ste na potezi.",
+        primaryCta: { label: "Rezerviraj termin", href: "/booking" },
+        secondaryCta: { label: "Cenik storitev", href: "/services" },
+      },
+      about: {
+        title: "Vaše vozilo v zanesljivih rokah",
+        paragraphs: [
+          "Vozilo sprejmemo z zapisom stanja in kilometrov. Pred vsakim posegom vam povejmo obseg dela in ceno — brez presenečenj pri plačilu.",
+          "Delamo s preverjenimi rezervnimi deli, za vsak poseg pa vam izdamo delovni nalog: veste, kaj je narejeno in česa plačujete.",
+        ],
+        stats: [],
+      },
+      features: {
+        title: "Zakaj k nam",
+        subtitle: "Hitro, pošteno, z delovnim nalogom",
+        items: [
+          { icon: "CalendarCheck", title: "Termini brez čakanja", description: "Rezervirajte na spletu ali se vpišite v živo vrsto — brez stoje v čakalnici." },
+          { icon: "Wrench", title: "Preverjeni deli", description: "Rezervni deli kakovostnih dobaviteljev, primerni za vaše vozilo." },
+          { icon: "FileText", title: "Delovni nalog", description: "Jasna ponudba pred začetkom dela — veste, česa plačujete." },
+        ],
+      },
+      cta: {
+        title: "Rezervirajte menjavo gum",
+        text: "Sezona ne čaka — rezervirajte termin vnaprej ali se vpišite v živo vrsto in spremljajte svoje mesto od doma.",
+        buttonLabel: "Rezerviraj termin",
+        buttonHref: "/booking",
       },
     },
   }

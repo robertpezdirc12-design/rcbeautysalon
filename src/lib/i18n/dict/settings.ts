@@ -427,7 +427,7 @@ export const settingsSl = {
     eyebrowLabel: "Značka nad naslovom",
     eyebrowPlaceholder: "Dobrodošli",
     requiredHint: "Obvezen podatek.",
-    heroTitlePlaceholder: "MARKEC, univerzalna poslovna platforma",
+    heroTitlePlaceholder: "npr. Menjava gum in servis — brez čakanja",
     imageWidthHint: "Priporočena širina vsaj 1400 px.",
     videoUrlLabel: "Video URL (neobvezno)",
     videoUrlHint:
@@ -1041,7 +1041,7 @@ export const settingsEn: SettingsDict = {
     eyebrowLabel: "Badge above title",
     eyebrowPlaceholder: "Welcome",
     requiredHint: "Required.",
-    heroTitlePlaceholder: "MARKEC, universal business platform",
+    heroTitlePlaceholder: "e.g. Tire change and service — no waiting",
     imageWidthHint: "Recommended width at least 1400 px.",
     videoUrlLabel: "Video URL (optional)",
     videoUrlHint:
