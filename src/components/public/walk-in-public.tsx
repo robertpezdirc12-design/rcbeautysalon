@@ -19,6 +19,10 @@ export function WalkInPublicClient() {
   const [position, setPosition] = useState<number | null>(null)
   const [servingNow, setServingNow] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // lastnik (#112 UX): preverba po kodi je ZA VRNJENE goste — na prvem
+  // zaslonu skrita, odpre se prek majhne povezave (prej je stala med
+  // vpisnim gumbom in je delovala kot nepotrebna).
+  const [showCheck, setShowCheck] = useState(false)
   const [pending, startTransition] = useTransition()
 
   function checkStatus(code: string, fromInput: boolean) {
@@ -125,23 +129,34 @@ export function WalkInPublicClient() {
           {pending ? "Vpisujem …" : "Vpiši me v vrsto"}
         </Button>
 
-        <div className="flex items-center gap-2 pt-2">
-          <Input
-            value={ticket ?? ""}
-            onChange={(e) => setTicket(e.target.value.toUpperCase())}
-            placeholder="Koda vstopnice (preveri pozicijo)"
-            maxLength={6}
-            aria-label="Koda vstopnice"
-            className="font-mono tracking-widest"
-          />
-          <Button
-            variant="outline"
-            onClick={() => ticket && checkStatus(ticket, true)}
-            disabled={pending || !ticket}
+        {showCheck ? (
+          <div className="flex items-center gap-2">
+            <Input
+              value={ticket ?? ""}
+              onChange={(e) => setTicket(e.target.value.toUpperCase())}
+              placeholder="Številka vstopnice"
+              maxLength={6}
+              aria-label="Številka vstopnice"
+              className="font-mono tracking-widest"
+              autoFocus
+            />
+            <Button
+              variant="outline"
+              onClick={() => ticket && checkStatus(ticket, true)}
+              disabled={pending || !ticket}
+            >
+              Preveri
+            </Button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setShowCheck(true)}
+            className="text-muted-foreground hover:text-foreground text-sm underline underline-offset-4"
           >
-            Preveri
-          </Button>
-        </div>
+            Imate že številko? Preverite svojo pozicijo
+          </button>
+        )}
       </CardContent>
     </Card>
   )
