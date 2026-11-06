@@ -37,28 +37,30 @@ export function PlatformLanding() {
       </header>
 
       <main>
-        {/* Hero */}
-        <section className="container mx-auto px-4 pt-16 pb-12 text-center md:pt-24">
-          <p className="text-primary-text mb-4 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-medium">
+        {/* Hero — #112 UX: vstopni CTA mora biti VIDEN v prvem ekranu
+            (prej: pt-24 + text-6xl naslov je CTA potisnil pod zavihek —
+            nov obiskovalec ni vedel, kje vstopi v aplikacijo). */}
+        <section className="container mx-auto px-4 pt-10 pb-10 text-center md:pt-14">
+          <p className="text-primary-text mb-3 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-medium">
             <Sparkles className="size-4" aria-hidden="true" />
             MARKEC – MY BUSINESS PLATFORM
           </p>
-          <h1 className="mx-auto max-w-3xl text-4xl font-bold tracking-tight md:text-6xl">
+          <h1 className="mx-auto max-w-3xl text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl">
             Univerzalna poslovna platforma —{" "}
             <span className="from-primary to-accent bg-linear-to-r bg-clip-text text-transparent">
               vaše podjetje
             </span>{" "}
             v nekaj minutah
           </h1>
-          <p className="text-muted-foreground mx-auto mt-6 max-w-2xl text-lg">
+          <p className="text-muted-foreground mx-auto mt-4 max-w-2xl text-base md:text-lg">
             Vklopite module, ki jih vaše podjetje potrebuje: spletno stran,
             trgovino, rezervacije, povpraševanja. Brez razvijalca, brez
             postavitve — vsebino urejate sami in objavite, ko ste pripravljeni.
           </p>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <Button asChild size="lg" className="min-h-12 shadow-lg">
               <Link href="/start">
-                Ustvari svoje podjetje
+                Ustvari svoje podjetje — brezplačno
                 <ArrowRight className="ml-2 size-5" aria-hidden="true" />
               </Link>
             </Button>
@@ -66,6 +68,9 @@ export function PlatformLanding() {
               <Link href="#dejavnosti">Poglej dejavnosti</Link>
             </Button>
           </div>
+          <p className="text-muted-foreground mt-3 text-xs">
+            Brez kartice · V 3 korakih · Spletna stran, trgovina in rezervacije samodejno
+          </p>
         </section>
 
         {/* Activities — deep-link cards into the wizard */}
