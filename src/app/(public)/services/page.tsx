@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import Image from "next/image"
+import { getServerI18n } from "@/lib/i18n/server"
 import { getPublicSiteData, getPublicServicesGrouped, getPublicCategories, getPublicActiveStaffOptions, redirectBareToTenant } from "@/lib/public-site"
 import { canonicalMetadata } from "@/lib/seo"
 import { orgPath } from "@/lib/org-path"
@@ -42,10 +43,11 @@ export default async function ServicesPage() {
 
   const { org, content } = site
   const slug = org.slug
+  const { t } = await getServerI18n()
 
   // Get all data for services page (tenant-scoped)
   const [servicesByCategory, categories, staff] = await Promise.all([
-    getPublicServicesGrouped(org.id),
+    getPublicServicesGrouped(org.id, t.products.uncategorized),
     getPublicCategories(org.id),
     getPublicActiveStaffOptions(org.id),
   ])

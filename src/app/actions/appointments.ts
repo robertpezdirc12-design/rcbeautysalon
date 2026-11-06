@@ -598,8 +598,20 @@ export async function createAppointment(
       return { success: false, error: "Potrebni so kontakt podatki" }
     }
 
+    // #105-sled: izračun se preseli NAD samorezervacijsko zaščito —
+    // lastnik-mehanik (ADMIN, vezan na svoj Staff profil) SME dodeliti
+    // termine strankam samemu sebi kot izvajalcu (pogost scenarij:
+    // lastnik JE osebje). Brez izjeme je plošča vrnila "Pri sebi ne
+    // morete rezervirati termina" za vsak termin svojega profila.
+    const isAdminCreating = session?.user?.role === "ADMIN" && !!data.guestName
+
     // Prevent employees from booking appointments with themselves
-    if (session?.user && ["STAFF", "ADMIN"].includes(session.user.role)) {
+    // (izjema: ADMIN ustvarja termin ZA stranko — glej komentar zgoraj)
+    if (
+      session?.user &&
+      ["STAFF", "ADMIN"].includes(session.user.role) &&
+      !isAdminCreating
+    ) {
       const currentUserStaff = await prisma.staff.findUnique({
         where: { userId: session.user.id },
         select: { id: true },
@@ -645,9 +657,6 @@ export async function createAppointment(
       )
     }
     const { addonPrice, addonDurationMin } = computeAddonTotals(selectedAddons)
-
-    // Check if admin is creating appointment for a customer
-    const isAdminCreating = session?.user?.role === "ADMIN" && data.guestName
 
     // SECURITY: employee discount is derived server-side from the session role,
     // never trusted from client arguments. It only applies when an authenticated

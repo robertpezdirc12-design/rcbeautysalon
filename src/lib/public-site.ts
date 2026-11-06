@@ -213,8 +213,13 @@ export async function getPublicTestimonials(orgId: string) {
   })
 }
 
-/** All active services grouped by category (services page). */
-export async function getPublicServicesGrouped(orgId: string) {
+/** All active services grouped by category (services page + booking).
+ *  #105-sled: oznaka za storitve brez kategorije mora biti lokalizirana —
+ *  prej je trdo "Uncategorized" padla na slovensko stran kot angleščina. */
+export async function getPublicServicesGrouped(
+  orgId: string,
+  uncategorizedLabel = "Brez kategorije"
+) {
   const services = await prisma.service.findMany({
     where: { organizationId: orgId, isActive: true },
     include: { category: true },
@@ -222,7 +227,7 @@ export async function getPublicServicesGrouped(orgId: string) {
   })
   return services.reduce(
     (acc, service) => {
-      const categoryName = service.category?.name || "Uncategorized"
+      const categoryName = service.category?.name || uncategorizedLabel
       if (!acc[categoryName]) acc[categoryName] = []
       acc[categoryName].push(service)
       return acc

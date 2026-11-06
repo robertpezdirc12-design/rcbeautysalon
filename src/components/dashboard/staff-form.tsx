@@ -330,7 +330,12 @@ export function StaffForm({ services, staff, mode = "create", onSubmit, onDelete
                     min="0"
                     max="100"
                     placeholder="10.00"
-                    {...register("defaultTipPercent", { valueAsNumber: true })}
+                    {...register("defaultTipPercent", {
+                      setValueAs: (v) =>
+                        v === "" || v == null || Number.isNaN(Number(v))
+                          ? undefined
+                          : Number(v),
+                    })}
                     disabled={isSubmitting}
                   />
                   <p className="text-muted-foreground text-xs">{t.staff.form.defaultTipPercentHint}</p>
@@ -358,7 +363,12 @@ export function StaffForm({ services, staff, mode = "create", onSubmit, onDelete
                       min="0"
                       max="100"
                       placeholder="10.00"
-                      {...register("commissionValue", { valueAsNumber: true })}
+                      {...register("commissionValue", {
+                        setValueAs: (v) =>
+                          v === "" || v == null || Number.isNaN(Number(v))
+                            ? undefined
+                            : Number(v),
+                      })}
                       disabled={isSubmitting}
                     />
                   </div>
@@ -372,7 +382,12 @@ export function StaffForm({ services, staff, mode = "create", onSubmit, onDelete
                       step="0.01"
                       min="0"
                       placeholder="2.00"
-                      {...register("commissionValue", { valueAsNumber: true })}
+                      {...register("commissionValue", {
+                        setValueAs: (v) =>
+                          v === "" || v == null || Number.isNaN(Number(v))
+                            ? undefined
+                            : Number(v),
+                      })}
                       disabled={isSubmitting}
                     />
                   </div>

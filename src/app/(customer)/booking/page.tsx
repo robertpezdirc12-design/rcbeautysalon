@@ -134,7 +134,8 @@ export default async function BookingPage(props: BookingPageProps) {
   // ============================================
   if (!serviceSlug) {
     if (!org) redirect("/")
-    const servicesByCategory = await getPublicServicesGrouped(org.id)
+    const { t } = await getServerI18n()
+    const servicesByCategory = await getPublicServicesGrouped(org.id, t.products.uncategorized)
     const categories = Object.entries(servicesByCategory)
 
     return (

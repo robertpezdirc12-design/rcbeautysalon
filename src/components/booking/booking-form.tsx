@@ -278,6 +278,8 @@ export function BookingForm(props: BookingFormProps) {
 
       const parsed = schema.safeParse(parsedValues)
       if (!parsed.success) {
+        // TEMP-DEBUG
+
         const fieldErrors = zodIssuesToFieldErrors(parsed.error)
         for (const [field, message] of Object.entries(fieldErrors)) {
           setError(field as keyof BookingFormValues, { message })
@@ -371,6 +373,8 @@ export function BookingForm(props: BookingFormProps) {
           guestPhone: parsed.data.phone || undefined,
           notes: parsed.data.notes || undefined,
         })
+
+        // TEMP-DEBUG
 
         if (result.success && result.checkoutUrl) {
           window.location.assign(result.checkoutUrl)
