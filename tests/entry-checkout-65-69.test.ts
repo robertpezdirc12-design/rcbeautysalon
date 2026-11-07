@@ -11,6 +11,7 @@ import { describe, it, expect } from "vitest"
 import { readFileSync } from "node:fs"
 import { listProfileOptions } from "@/lib/profiles/registry"
 import { PLANS } from "@/lib/plans/registry"
+import { landingSl } from "@/lib/i18n/dict/landing"
 
 const read = (p: string) => readFileSync(__dirname + "/../" + p, "utf8")
 
@@ -108,17 +109,31 @@ describe("#66 — platform landing + wizard deep-link", () => {
     expect(layout).toContain("<PublicI18nProvider org={null}>")
   })
 
-  it("landing lists ALL registry activities with deep links", () => {
+  // Owner decision 7. 11. 2026: "teh 6 so samo primeri univerzalna lahko
+  // umaknes". The showcase is now a SAMPLE of 5 real profiles, not the
+  // full 12-profile taxonomy; `generic` stays in StartWizard only.
+  it("landing shows 5 real sample activities with wizard deep links", () => {
     const landing = read("src/components/landing/platform-landing.tsx")
-    expect(landing).toContain("listProfileOptions()")
     expect(landing).toContain("/start?vertical=")
-    // deep link target exists in the registry — spot-check both directions
+    expect(landing).not.toContain("listProfileOptions()")
+
     const ids = listProfileOptions().map((v) => v.id)
     // #100-nadaljevanje: 11 → 12 (dodan profil "mehanik" / Avtomehanik).
     expect(ids.length).toBe(12)
     expect(ids).toContain("seamstress")
     expect(ids).toContain("beekeeping")
     expect(ids).toContain("mehanik")
+
+    const examples = landingSl.examples.items
+    expect(examples).toHaveLength(5)
+    expect(examples.map((e) => e.vertical)).not.toContain("generic")
+    for (const example of examples) {
+      expect(ids, `${example.vertical} must be a real profile`).toContain(
+        example.vertical
+      )
+      expect(example.alt.trim().length).toBeGreaterThan(0)
+    }
+
     // plans section is registry-driven (no hardcoded pricing)
     expect(landing).toContain("PLANS")
     for (const plan of Object.values(PLANS)) {

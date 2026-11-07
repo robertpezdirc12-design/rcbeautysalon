@@ -18,6 +18,8 @@ import { inventorySl, inventoryEn } from "./dict/inventory"
 import { projectsSl, projectsEn } from "./dict/projects"
 import { bookingSl, bookingEn } from "./dict/booking"
 import { publicSl, publicEn } from "./dict/public"
+// F1: URL-localised platform landing ("/" + "/en").
+import { landingSl, landingEn } from "./dict/landing"
 
 const dictionaries = {
   sl: {
@@ -39,6 +41,7 @@ const dictionaries = {
     projects: projectsSl,
     booking: bookingSl,
     public: publicSl,
+    landing: landingSl,
   },
   en: {
     common: commonEn,
@@ -59,6 +62,7 @@ const dictionaries = {
     projects: projectsEn,
     booking: bookingEn,
     public: publicEn,
+    landing: landingEn,
   },
 } as const
 

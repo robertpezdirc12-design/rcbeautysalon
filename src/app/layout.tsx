@@ -23,6 +23,11 @@ import {
   type SeoContext,
 } from "@/lib/seo"
 import { getLocaleFromCookies } from "@/lib/i18n/server"
+import {
+  PLATFORM_LOCALE_HEADER,
+  resolveHtmlLocale,
+} from "@/lib/i18n/platform-locale"
+import { headers } from "next/headers"
 import type { Organization } from "@prisma/client"
 
 // P0 #1 (walkthrough): Rouge Script NIMA latin-ext subseta (šumniki š/č/ž so
@@ -69,6 +74,12 @@ const lora = Lora({ variable: "--font-lora", subsets: ["latin", "latin-ext"], di
  *  so no tenant loses branding; auth is platform-level by design (#53). */
 async function resolveBrandOrg(): Promise<Organization | null> {
   try {
+    // F1: /en is a PLATFORM marketing route. The proxy sets this header
+    // only for that path (and strips any visitor-supplied value), so a
+    // signed-in tenant owner must not see their own theme/JSON-LD wrapped
+    // around the English landing. The session fallback below would
+    // otherwise re-brand it (the session is platform-wide by design).
+    if ((await headers()).get(PLATFORM_LOCALE_HEADER) === "en") return null
     const slug = await getTrustedOrgSlug()
     if (slug) {
       const org = await getOrgBySlug(slug)
@@ -115,6 +126,16 @@ export async function generateMetadata(): Promise<Metadata> {
           title: productTitle,
           description: productDescription,
           locale: "sl_SI",
+          // #73 + F1: the product needs a social preview when its link
+          // is shared. The /en route overrides this block with en_US.
+          images: [
+            {
+              url: `${appUrl}/og-default.png`,
+              width: 1200,
+              height: 630,
+              alt: "MARKEC – MY BUSINESS PLATFORM",
+            },
+          ],
         },
         robots: { index: true, follow: true },
       }
@@ -220,7 +241,14 @@ export default async function RootLayout({
     themeCss = platformThemeCss()
   }
 
-  const htmlLocale = await getLocaleFromCookies()
+  // F1: <html lang> follows the URL on the English landing. The value is
+  // set (and stripped on the way in) by the proxy; the admin cookie still
+  // decides the language everywhere else. Never trust a raw visitor header.
+  const cookieLocale = await getLocaleFromCookies()
+  const htmlLocale = resolveHtmlLocale(
+    cookieLocale,
+    (await headers()).get(PLATFORM_LOCALE_HEADER)
+  )
 
   return (
     <html

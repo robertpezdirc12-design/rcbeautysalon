@@ -4,6 +4,7 @@ import { isBookingEnabled } from "@/lib/public-cta"
 import { isCapabilityEnabled } from "@/lib/profiles/registry"
 import { resolveEffectiveProfile } from "@/lib/profiles/resolve"
 import { isInternalTenantSlug } from "@/lib/tenant-flags"
+import { platformSitemapEntries } from "@/lib/sitemap-builder"
 
 /**
  * sitemap.xml (SEO odkrivanje) — javne strani vsake OBJAVLJENE organizacije.
@@ -89,8 +90,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }))
   })
 
-  // P1 #39-5: goli korenski URL preusmerja na kanonično /s/{slug} pot
-  // (permanentRedirect), zato ga v sitemap ne objavljamo več — vsi URL-ji
-  // v sitemapu vračajo 200 s samo-referencirajočim canonicalom.
-  return tenantEntries
+  // F1: since P1 #66 the bare root is the indexable product landing, not
+  // a redirect to the oldest tenant. Publish "/" and "/en" with reciprocal
+  // hreflang + x-default BEFORE the tenant entries (highest priority).
+  return [...platformSitemapEntries(appUrl), ...tenantEntries]
 }

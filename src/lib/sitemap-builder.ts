@@ -72,6 +72,41 @@ export function tenantSitemapEntries(org: SitemapOrg): MetadataRoute.Sitemap {
   }))
 }
 
+/**
+ * F1 — the PLATFORM landing itself is a public, indexable page.
+ *
+ * P1 #39-5's old comment ("bare root redirects to /s/{slug}") is stale:
+ * since P1 #66 the bare "/" serves <PlatformLanding /> with a 200 and a
+ * self-referencing canonical. Both "/" and "/en" therefore belong in the
+ * sitemap, each with the SAME reciprocal hreflang set + x-default.
+ *
+ * Pure function — no DB, testable in tests/landing/platform-landing.test.ts.
+ */
+export function platformSitemapEntries(
+  baseUrl: string = resolveAppUrl()
+): MetadataRoute.Sitemap {
+  const base = baseUrl.replace(/\/+$/, "")
+  const languages = {
+    sl: base,
+    en: `${base}/en`,
+    "x-default": base,
+  }
+  return [
+    {
+      url: base,
+      changeFrequency: "weekly",
+      priority: 1,
+      alternates: { languages },
+    },
+    {
+      url: `${base}/en`,
+      changeFrequency: "weekly",
+      priority: 0.9,
+      alternates: { languages },
+    },
+  ]
+}
+
 /** XML odgovor za enega najemnika (application/xml, no-store — vsebina je glede na najemnika). */
 export function tenantSitemapXml(org: SitemapOrg): string {
   const entries = tenantSitemapEntries(org)

@@ -13,11 +13,41 @@ import { resolvePublicEffectiveProfile } from "@/lib/profiles/resolve"
 import { isCapabilityEnabled } from "@/lib/profiles/registry"
 import { sectionsForProfile } from "@/lib/home-sections"
 import { prisma } from "@/lib/prisma"
+import type { Metadata } from "next"
 import { headers } from "next/headers"
 import { auth } from "@/lib/auth/auth"
+import { resolveAppUrl } from "@/lib/seo"
 import { getTrustedOrgSlug } from "@/lib/tenant"
 import { hostFromHostHeader, isPlatformHost } from "@/lib/domains/normalize"
 import { getPlatformHosts } from "@/lib/domains/provider"
+import { landingSl } from "@/lib/i18n/dict/landing"
+
+// F1 — URL-localised platform landing. hreflang/canonical belong to the
+// bare platform root ONLY: a tenant home (or a custom domain) keeps the
+// tenant metadata produced by the root layout. Page-level metadata also
+// guarantees the tags are not inherited by /login, /start, /dashboard …
+export async function generateMetadata(): Promise<Metadata> {
+  if (await getTrustedOrgSlug()) return {}
+  const h = await headers()
+  const requestHost = hostFromHostHeader(h.get("host"))
+  if (requestHost && !isPlatformHost(requestHost, getPlatformHosts())) return {}
+  const appUrl = resolveAppUrl()
+  // Keep the landing dictionary as the single source of copy: without an
+  // explicit page-level title the root layout's generic product title
+  // would win here, while /en would use its own dictionary title.
+  return {
+    title: landingSl.meta.title,
+    description: landingSl.meta.description,
+    alternates: {
+      canonical: appUrl,
+      languages: {
+        sl: appUrl,
+        en: `${appUrl}/en`,
+        "x-default": appUrl,
+      },
+    },
+  }
+}
 
 export default async function HomePage() {
   // P1 #66: the PLATFORM ROOT is the product landing, not a tenant.
@@ -40,7 +70,7 @@ export default async function HomePage() {
       // redirect to their own (or the default) tenant site.
       await redirectBareToTenant("/")
     }
-    return <PlatformLanding />
+    return <PlatformLanding locale="sl" />
   }
 
   // P1 #39-5: goli "/" (fail-open preostanek, ko proxy ni preusmeril)

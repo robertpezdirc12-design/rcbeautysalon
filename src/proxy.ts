@@ -12,6 +12,10 @@ import {
 } from "@/lib/tenant-proof"
 import { hostFromHostHeader, isPlatformHost } from "@/lib/domains/normalize"
 import { getPlatformHostsFromEnv } from "@/lib/domains/platform-hosts"
+import {
+  PLATFORM_LOCALE_HEADER,
+  platformLocaleForPath,
+} from "@/lib/i18n/platform-locale"
 
 // ------------------------------------------------------------
 // P1 #39-5 (re-audit 2026-11): goli javni dostop ("/services", …)
@@ -330,8 +334,11 @@ async function runTenantGates(opts: {
 // upravnik, ki odpre /dashboard na tuj domeni, mora videti SVOJ
 // dashboard (glava najemnika bi mu servezala tuje podatke).
 // ------------------------------------------------------------
+// F1: /en is a PLATFORM marketing route, not a tenant surface — on a
+// verified custom domain it must never inherit that tenant's signed
+// header, branding or theme.
 const CUSTOM_DOMAIN_HEADER_DENYLIST =
-  /^\/(?:dashboard|staff-portal|my-account|platform|login|register|start|forgot-password|reset-password|verify-email)(\/|$)/
+  /^\/(?:dashboard|staff-portal|my-account|platform|login|register|start|forgot-password|reset-password|verify-email|en)(\/|$)/
 
 export default auth(async (req) => {
   const { pathname } = req.nextUrl
@@ -352,6 +359,14 @@ export default auth(async (req) => {
     : false
 
   const requestHeaders = new Headers(req.headers)
+
+  // F1 — URL LOCALE TRUST GATE. A visitor must not be able to change
+  // <html lang> (or the /en metadata) by sending a header: strip any
+  // incoming value, then set it ONLY for the explicit English path.
+  requestHeaders.delete(PLATFORM_LOCALE_HEADER)
+  const urlLocale = platformLocaleForPath(pathname)
+  if (urlLocale) requestHeaders.set(PLATFORM_LOCALE_HEADER, urlLocale)
+
   const clearTenantHeader = () => {
     requestHeaders.delete(ORG_HEADER)
     requestHeaders.delete(ORG_PROOF_HEADER)
