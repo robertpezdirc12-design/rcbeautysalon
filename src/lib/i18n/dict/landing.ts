@@ -175,18 +175,23 @@ export const landingSl = {
   steps: {
     eyebrow: "Voden začetek",
     title: "Kako deluje",
+    // URADNA ZASNOVA MARKEC vstopa (lastnik, 7. 11. 2026).
     items: [
       {
-        title: "Vstopite z računom",
-        body: "Prijava in vse je pripravljeno: predpripravljena spletna stran, trgovina, rezervacije, slike in katalogi za vašo dejavnost.",
+        title: "Izberite glavno področje",
+        body: "Lepota, vozila, obrt, kmetijstvo ali univerzalno — imenik po uradni klasifikaciji SKD 2025.",
       },
       {
-        title: "Uredite v svojem prostoru",
-        body: "Besedila, slike, cene in urnik spreminjate sami — vse znotraj vašega prostora. Vsako spremembo pred objavo vidite v predogledu.",
+        title: "Izberite konkretno dejavnost",
+        body: "Pripravljena predloga z moduli, katalogom, obrazci, procesi in vsebino strani za vašo dejavnost.",
       },
       {
-        title: "Objavite — stranke pridejo",
-        body: "Z enim klikom gre stran na splet. Vaše stranke javno rezervirajo termine, naročajo iz trgovine in vas najdejo na spletu.",
+        title: "Vstopite v pripravljeno podjetje",
+        body: "Račun in vodena namestitev — vse je predpripravljeno: spletna stran, trgovina, rezervacije, slike.",
+      },
+      {
+        title: "Urejajte vsak posebej",
+        body: "Spletno stran, dodatne module, podatke in poslovanje urejate ločeno — z predogledom pred vsako objavo.",
       },
     ],
   },
@@ -395,18 +400,23 @@ export const landingEn: LandingDictionary = {
   steps: {
     eyebrow: "Guided start",
     title: "How it works",
+    // Official MARKEC entry design (owner, 2026-11-07).
     items: [
       {
-        title: "Sign in with your account",
-        body: "Log in and everything is ready: a prepared website, shop, bookings, images and catalogs for your activity.",
+        title: "Pick your main field",
+        body: "Beauty, vehicles, crafts, agriculture or universal — a directory based on the official SKD 2025 classification.",
       },
       {
-        title: "Edit it in your own space",
-        body: "You change the copy, images, prices and opening hours yourself — all inside your own space. Every change is visible in a preview before publishing.",
+        title: "Pick your exact business",
+        body: "A prepared template with modules, catalog, forms, workflows and website content for your line of work.",
       },
       {
-        title: "Publish — customers arrive",
-        body: "One click puts the site online. Your customers publicly book appointments, order from the shop and find you on the web.",
+        title: "Step into your ready company",
+        body: "Account and guided setup — everything is prepared: website, shop, bookings, images.",
+      },
+      {
+        title: "Manage each part separately",
+        body: "Website, extra modules, data and operations are managed separately — with a preview before every publish.",
       },
     ],
   },

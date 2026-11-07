@@ -54,22 +54,47 @@ import { cn } from "@/lib/utils"
 // Single-source activity options (EPIC #1 registry).
 const ACTIVITY_OPTIONS = listProfileOptions()
 
-// lastnik (7. 11. 2026): 12 kartic → EN spustni meni, razporejen po logiki
-// imenika (SKD 2025 področja). "Univerzalno" je posebna skupina na dnu —
-// ni področje, ampak železna osnova platforme.
-const ACTIVITY_GROUP_MAP: { areaKey: string | null; ids: string[] }[] = [
+// URADNA ZASNOVA MARKEC vstopa (lastnik, 7. 11. 2026):
+//   1. Izberi glavno področje → 2. Izberi konkretno dejavnost →
+//   3. Vstopi v pripravljeno podjetje → 4. Urejaj vsak posebej.
+// Področja = SKD 2025 imenik; "universal" je železna osnova platforme.
+const ACTIVITY_GROUP_MAP: { areaKey: string; ids: string[] }[] = [
   { areaKey: "beauty", ids: ["beauty", "frizer", "barber", "nails", "cosmetica", "massage", "epilation"] },
   { areaKey: "vehicles", ids: ["tire-service", "mehanik"] },
   { areaKey: "crafts", ids: ["seamstress"] },
   { areaKey: "agriculture", ids: ["beekeeping"] },
-  { areaKey: null, ids: ["generic"] },
+  { areaKey: "universal", ids: ["generic"] },
 ]
+
+const AREAS = ACTIVITY_GROUP_MAP.map(({ areaKey, ids }) => {
+  const options = ids
+    .map((id) => ACTIVITY_OPTIONS.find((v) => v.id === id))
+    .filter((v): v is (typeof ACTIVITY_OPTIONS)[number] => !!v)
+  return {
+    key: areaKey,
+    name:
+      areaKey === "universal"
+        ? "Univerzalno"
+        : SKD_AREAS.find((a) => a.key === areaKey)?.name ?? "Drugo",
+    description:
+      areaKey === "universal"
+        ? "Za podjetja z lastnim katalogom — vse zmogljivosti so izbirne"
+        : undefined,
+    ids,
+    activityCount: options.length,
+  }
+}).filter((a) => a.activityCount > 0)
+
+function areaOfVertical(id: string | null | undefined): string | null {
+  if (!id) return null
+  return ACTIVITY_GROUP_MAP.find((g) => g.ids.includes(id))?.areaKey ?? null
+}
 
 const GROUPED_ACTIVITIES = ACTIVITY_GROUP_MAP.map(({ areaKey, ids }) => ({
   label:
-    areaKey != null
-      ? SKD_AREAS.find((a) => a.key === areaKey)?.name ?? "Drugo"
-      : "Univerzalno",
+    areaKey === "universal"
+      ? "Univerzalno"
+      : SKD_AREAS.find((a) => a.key === areaKey)?.name ?? "Drugo",
   options: ids
     .map((id) => ACTIVITY_OPTIONS.find((v) => v.id === id))
     .filter((v): v is (typeof ACTIVITY_OPTIONS)[number] => !!v),
@@ -146,6 +171,11 @@ export function StartWizard({
   // P1 #66: deep-link preselect — the landing's trade cards land here with
   // the activity already chosen; "Naprej" is enabled immediately.
   const [vertical, setVertical] = useState<string | null>(initialVertical)
+  // URADNA ZASNOVA (7. 11. 2026): korak 1a — glavno področje; deep-link
+  // /start?vertical=X izpelje področje iz dejavnosti.
+  const [selectedArea, setSelectedArea] = useState<string | null>(() =>
+    areaOfVertical(initialVertical)
+  )
   const [secondary, setSecondary] = useState<string | null>(null)
   // #81: `palette` is the owner's EXPLICIT override; the effective value
   // follows the activity's preset so a deep-linked activity alone is enough
@@ -246,6 +276,14 @@ export function StartWizard({
     () => PALETTE_OPTIONS.find((p) => p.id === effectivePalette) ?? null,
     [effectivePalette]
   )
+  // URADNA ZASNOVA: dejavnosti izbranega področja (korak 1b).
+  const areaActivities = useMemo(() => {
+    const group = ACTIVITY_GROUP_MAP.find((g) => g.areaKey === selectedArea)
+    if (!group) return []
+    return group.ids
+      .map((id) => ACTIVITY_OPTIONS.find((v) => v.id === id))
+      .filter((v): v is (typeof ACTIVITY_OPTIONS)[number] => !!v)
+  }, [selectedArea])
 
   // Debounced slug availability check (state is set in change handlers;
   // this effect only schedules the async lookup)
@@ -668,47 +706,91 @@ export function StartWizard({
             <p className="mt-2 text-muted-foreground">
               Izberite dejavnost — pripravili vam bomo module, katalog, obrazce, procese in vsebino strani.
             </p>
-            {/* lastnik (7. 11. 2026): kartice → EN spustni meni po skupinah
-                imenika (SKD področja); izbrana dejavnost dobi povzetek spodaj. */}
-            <div className="mt-6 max-w-xl">
-              <Select value={vertical ?? undefined} onValueChange={(v) => selectVertical(v)}>
-                <SelectTrigger
-                  aria-label="Izberite dejavnost"
-                  className="min-h-12 w-full text-base"
-                >
-                  <SelectValue placeholder="Izberite dejavnost (npr. frizer, mehanik …)" />
-                </SelectTrigger>
-                <SelectContent className="max-h-80">
-                  <GroupedActivityItems />
-                </SelectContent>
-              </Select>
-
-              {selectedVertical && (
-                <div
-                  role="status"
-                  className="mt-3 flex items-start gap-3 rounded-xl border border-primary/30 bg-primary/5 p-4"
-                >
-                  <span className="mt-0.5 flex shrink-0 items-center">
-                    <span
-                      className="h-5 w-5 rounded-full ring-1 ring-border"
-                      style={{ backgroundColor: selectedPalette?.primary ?? "#000000" }}
-                    />
-                    <span
-                      className="-ml-2 h-5 w-5 rounded-full ring-1 ring-border"
-                      style={{ backgroundColor: selectedPalette?.accent ?? "#d4af37" }}
-                    />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block font-semibold leading-tight">
-                      {selectedVertical.label}
-                    </span>
-                    <span className="mt-1 block text-sm text-muted-foreground">
-                      {selectedVertical.description}
-                    </span>
-                  </span>
+            {/* URADNA ZASNOVA MARKEC vstopa (lastnik, 7. 11. 2026):
+                1. Izberi glavno področje → 2. Izberi konkretno dejavnost.
+                Področja so SKD imenik; Univerzalno je posebno področje. */}
+            {selectedArea === null ? (
+              <fieldset className="mt-6">
+                <legend className="text-sm font-semibold text-muted-foreground">
+                  1. korak — glavno področje
+                </legend>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  {AREAS.map((area) => (
+                    <button
+                      key={area.key}
+                      type="button"
+                      onClick={() => {
+                        setSelectedArea(area.key)
+                        if (!ACTIVITY_GROUP_MAP.find((g) => g.areaKey === area.key)?.ids.includes(vertical ?? "")) {
+                          setVertical(null)
+                          setSecondary(null)
+                        }
+                      }}
+                      aria-pressed={selectedArea === area.key}
+                      className="flex items-start gap-3 rounded-xl border p-4 text-left transition-all hover:border-primary/50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <span className="min-w-0">
+                        <span className="block font-semibold leading-tight">{area.name}</span>
+                        <span className="mt-1 block text-sm text-muted-foreground">
+                          {area.description ??
+                            (area.activityCount === 1
+                              ? "pripravljena dejavnost"
+                              : `${area.activityCount} pripravljenih dejavnosti`)}
+                        </span>
+                      </span>
+                    </button>
+                  ))}
                 </div>
-              )}
-            </div>
+              </fieldset>
+            ) : (
+              <fieldset className="mt-6">
+                <legend className="text-sm font-semibold text-muted-foreground">
+                  2. korak — konkretna dejavnost
+                </legend>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  {areaActivities.map((v) => {
+                    const paletteOption = PALETTE_OPTIONS.find((p) => p.id === v.palette)
+                    const isSelected = vertical === v.id
+                    return (
+                      <button
+                        key={v.id}
+                        type="button"
+                        onClick={() => selectVertical(v.id)}
+                        aria-pressed={isSelected}
+                        className={cn(
+                          "flex items-start gap-3 rounded-xl border p-4 text-left transition-all hover:border-primary/50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                          isSelected && "border-primary bg-primary/5 ring-2 ring-primary/20"
+                        )}
+                      >
+                        <span className="mt-0.5 flex shrink-0 items-center">
+                          <span
+                            className="h-5 w-5 rounded-full ring-1 ring-border"
+                            style={{ backgroundColor: paletteOption?.primary ?? "#000000" }}
+                          />
+                          <span
+                            className="-ml-2 h-5 w-5 rounded-full ring-1 ring-border"
+                            style={{ backgroundColor: paletteOption?.accent ?? "#d4af37" }}
+                          />
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block font-semibold leading-tight">{v.label}</span>
+                          <span className="mt-1 block text-sm text-muted-foreground">
+                            {v.description}
+                          </span>
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedArea(null)}
+                  className="text-muted-foreground hover:text-foreground mt-3 text-sm underline underline-offset-4"
+                >
+                  ← Nazaj na področja
+                </button>
+              </fieldset>
+            )}
 
             {/* Secondary activity (E2-4): optional capability union — the primary
                 activity keeps terminology, forms, workflows and site content. */}

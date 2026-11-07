@@ -387,7 +387,7 @@ export function PlatformLanding({
           </div>
         </section>
 
-        {/* How it works — owner's three-step flow (15aa272). */}
+        {/* How it works — URADNA ZASNOVA (7. 11. 2026): področje → dejavnost → pripravljeno podjetje → urejanje vsak posebej. */}
         <section id="koraki" className="container mx-auto px-4 py-16">
           <div className="text-center">
             <p className="text-primary-text text-xs font-semibold tracking-wider uppercase">
@@ -395,7 +395,7 @@ export function PlatformLanding({
             </p>
             <h2 className="mt-3 text-3xl font-bold">{t.steps.title}</h2>
           </div>
-          <ol className="mx-auto mt-10 grid max-w-5xl gap-8 md:grid-cols-3">
+          <ol className="mx-auto mt-10 grid max-w-6xl gap-8 sm:grid-cols-2 md:grid-cols-4">
             {t.steps.items.map((step, i) => (
               <li key={step.title} className="text-center">
                 <div className="bg-primary/10 text-primary-text mx-auto mb-4 flex size-12 items-center justify-center rounded-full text-xl font-bold">

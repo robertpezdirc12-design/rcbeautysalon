@@ -91,13 +91,20 @@ describe("landing dictionary", () => {
     )
   })
 
-  it("keeps the owner's three-step flow", () => {
+  it("URADNA ZASNOVA (lastnik 7. 11. 2026): področje → dejavnost → pripravljeno podjetje → urejanje vsak posebej", () => {
     expect(landingSl.steps.items.map((s) => s.title)).toEqual([
-      "Vstopite z računom",
-      "Uredite v svojem prostoru",
-      "Objavite — stranke pridejo",
+      "Izberite glavno področje",
+      "Izberite konkretno dejavnost",
+      "Vstopite v pripravljeno podjetje",
+      "Urejajte vsak posebej",
     ])
-    expect(landingEn.steps.items).toHaveLength(3)
+    expect(landingEn.steps.items).toHaveLength(4)
+    expect(landingEn.steps.items.map((s) => s.title)).toEqual([
+      "Pick your main field",
+      "Pick your exact business",
+      "Step into your ready company",
+      "Manage each part separately",
+    ])
   })
 
   it("no invented price, popularity claim or fake social proof", () => {
