@@ -206,8 +206,8 @@ describe("SEO — both landing URLs", () => {
   it("explicit routes exist and both render the localised component", () => {
     const sl = read("src/app/(public)/page.tsx")
     const en = read("src/app/en/page.tsx")
-    expect(sl).toContain('<PlatformLanding locale="sl" />')
-    expect(en).toContain('<PlatformLanding locale="en" />')
+    expect(sl).toContain('<PlatformLanding locale="sl"')
+    expect(en).toContain('<PlatformLanding locale="en"')
     expect(en).toContain("export async function generateMetadata")
     expect(en).toContain('locale: "en_US"')
   })

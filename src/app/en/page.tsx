@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import { auth } from "@/lib/auth/auth"
 import { PlatformLanding } from "@/components/landing/platform-landing"
 import { landingEn } from "@/lib/i18n/dict/landing"
 import { resolveAppUrl } from "@/lib/seo"
@@ -53,6 +54,13 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
-export default function EnglishLandingPage() {
-  return <PlatformLanding locale="en" />
+export default async function EnglishLandingPage() {
+  // lastnik (7. 11. 2026): kot na "/" — prijavljen lastnik vidi izložbo
+  // z "My dashboard", brez preusmeritve na najemnika.
+  const session = await auth()
+  const dashboardHref =
+    session?.user?.role === "ADMIN" || session?.user?.role === "STAFF"
+      ? "/dashboard"
+      : null
+  return <PlatformLanding locale="en" dashboardHref={dashboardHref} />
 }

@@ -36,7 +36,15 @@ import type { Locale } from "@/lib/i18n/config"
 
 const MODULE_ICONS = [CalendarDays, ShoppingBag, PencilLine, Languages]
 
-export function PlatformLanding({ locale }: { locale: Locale }) {
+export function PlatformLanding({
+  locale,
+  dashboardHref,
+}: {
+  locale: Locale
+  /** lastnik (7. 11. 2026): prijavljen lastnik vidi VSTOPNO stran (glavna
+   * MARKEC reklama) — le glava pokaže "Moja plošča" namesto prijave. */
+  dashboardHref?: string | null
+}) {
   const t = getDictionary(locale).landing
   const plans = Object.values(PLANS)
   const isEn = locale === "en"
@@ -97,10 +105,10 @@ export function PlatformLanding({ locale }: { locale: Locale }) {
             {langLink("/en", t.languages.en, isEn)}
           </div>
           <Link
-            href="/login"
+            href={dashboardHref ?? "/login"}
             className="text-muted-foreground hover:text-foreground hidden text-sm md:inline"
           >
-            {t.nav.login}
+            {dashboardHref ? t.nav.dashboard : t.nav.login}
           </Link>
           <Button
             asChild
@@ -532,7 +540,7 @@ export function PlatformLanding({ locale }: { locale: Locale }) {
           </nav>
           <nav aria-label={t.aria.footer} className="flex flex-wrap gap-4">
             <Link href="/login" className="hover:text-foreground">
-              {t.foot.login}
+              {dashboardHref ? t.foot.dashboard : t.foot.login}
             </Link>
             <Link href="/start" className="hover:text-foreground">
               {t.foot.start}

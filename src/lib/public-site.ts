@@ -1,7 +1,7 @@
 import "server-only"
 
 import { cache } from "react"
-import { notFound, permanentRedirect } from "next/navigation"
+import { notFound, redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import {
   getPublicOrg,
@@ -113,7 +113,10 @@ export async function redirectBareToTenant(
       : null)
   if (!org) notFound()
 
-  permanentRedirect(`/s/${org.slug}${path}`)
+  // lastnik (7. 11. 2026): preusmeritev je odvisna od SEJE, ne od URL-ja —
+  // permanentRedirect (308) jo brskalnik SHRANI in potem / večno skače na
+  // najemnika tudi po odjavi. Vedno 307 (začasno).
+  redirect(`/s/${org.slug}${path}`)
 }
 
 // ------------------------------------------------------------

@@ -33,7 +33,11 @@ function tail(text, max = 1_200) {
   return clean.length <= max ? clean : "…" + clean.slice(-max)
 }
 
-/** Fail-fast, če ni baze — ponovitve ne rešijo manjkajoče konfiguracije. */
+/**
+ * Fail-fast, če ni baze — ponovitve ne rešijo manjkajoče konfiguracije.
+ * @param {{ DATABASE_URL?: string }} [env]
+ * @param {{ log: (...a: unknown[]) => void, error: (...a: unknown[]) => void }} [log]
+ */
 export function ensureDatabaseUrl(env = process.env, log = console) {
   if (!env.DATABASE_URL) {
     log.error(
@@ -48,6 +52,9 @@ export function ensureDatabaseUrl(env = process.env, log = console) {
 /**
  * Čista (vbrizgana) jedra za teste: `runner(attempt)` izvede en poskus in
  * vrže ob napaki; `sleep(ms)` čaka. Vrne { ok, attempts, output }.
+ */
+/**
+ * @param {{ runner: (attempt: number) => Promise<void>, attempts?: number, backoffMs?: number, sleep?: (ms: number) => Promise<void>, log?: { log: (...a: unknown[]) => void, error: (...a: unknown[]) => void } }} opts
  */
 export async function runMigrationsWithRetry({
   runner,

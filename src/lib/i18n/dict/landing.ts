@@ -32,6 +32,7 @@ export const landingSl = {
     steps: "Kako deluje",
     plans: "Paketi",
     login: "Prijava za podjetnike",
+    dashboard: "Moja plošča",
     cta: "Začni brezplačno",
   },
   aria: {
@@ -233,6 +234,7 @@ export const landingSl = {
     terms: "Pogoji",
     cookies: "Piškotki",
     login: "Prijava",
+    dashboard: "Moja plošča",
     start: "Ustvari podjetje",
   },
 }
@@ -257,6 +259,7 @@ export const landingEn: LandingDictionary = {
     steps: "How it works",
     plans: "Plans",
     login: "Business login",
+    dashboard: "My dashboard",
     cta: "Start for free",
   },
   aria: {
@@ -451,6 +454,7 @@ export const landingEn: LandingDictionary = {
     terms: "Terms",
     cookies: "Cookies",
     login: "Login",
+    dashboard: "My dashboard",
     start: "Create a business",
   },
 }

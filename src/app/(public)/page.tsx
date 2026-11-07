@@ -64,13 +64,17 @@ export default async function HomePage() {
     (!!requestHost && !isPlatformHost(requestHost, getPlatformHosts()))
 
   if (!isTenantContext) {
+    // lastnik (7. 11. 2026): "MARKEC je glavna naša stran na vercelu" —
+    // gol naslov VEDNO pokaže VSTOPNO reklamo, tudi prijavljenemu
+    // lastniku (prej: permanentRedirect 308 na njegovega najemnika —
+    // lastnik nikoli ni videl lastne izložbe, 308 pa ga je brskalnik
+    // še zapisal). Prijavljen dobi "Moja plošča" v glavi.
     const session = await auth()
-    if (session?.user?.role === "ADMIN" || session?.user?.role === "STAFF") {
-      // Logged-in staff/owner: bare "/" keeps its existing behavior —
-      // redirect to their own (or the default) tenant site.
-      await redirectBareToTenant("/")
-    }
-    return <PlatformLanding locale="sl" />
+    const dashboardHref =
+      session?.user?.role === "ADMIN" || session?.user?.role === "STAFF"
+        ? "/dashboard"
+        : null
+    return <PlatformLanding locale="sl" dashboardHref={dashboardHref} />
   }
 
   // P1 #39-5: goli "/" (fail-open preostanek, ko proxy ni preusmeril)

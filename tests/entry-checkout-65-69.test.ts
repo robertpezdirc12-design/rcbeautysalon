@@ -95,12 +95,18 @@ describe("#66 — platform landing + wizard deep-link", () => {
     expect(line).toContain("(services|staff|shop|booking|cart|inquiry|vrsta)")
   })
 
-  it("home page: platform branch (landing for anonymous, own-site redirect for staff)", () => {
+  it("home page: platform branch — landing za VSE, prijavljen dobi Moja plošča (lastnik 7. 11. 2026)", () => {
     const page = read("src/app/(public)/page.tsx")
     expect(page).toContain("PlatformLanding")
     expect(page).toContain("isTenantContext")
-    expect(page).toContain('session?.user?.role === "ADMIN"')
-    expect(page).toContain("redirectBareToTenant(\"/\")")
+    // lastnik: "MARKEC je glavna naša stran na vercelu" — prijavljen
+    // lastnik NE sme biti preusmerjen z golih "/" na najemnika (prej:
+    // permanentRedirect 308, brskalnik ga zapisal — izložba zanje ni
+    // obstajala). Vrstica za prijavo je zdaj "Moja plošča" → /dashboard.
+    expect(page).toContain('? "/dashboard"')
+    expect(page).toContain("VEDNO pokaže VSTOPNO reklamo")
+    expect(page).not.toContain("keeps its existing behavior")
+    expect(page).toContain("platform root + logged-in owner")
   })
 
   it("layout: platform root renders WITHOUT tenant chrome", () => {
