@@ -12,7 +12,9 @@ import { Label } from "@/components/ui/label"
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
@@ -51,6 +53,47 @@ import { cn } from "@/lib/utils"
 
 // Single-source activity options (EPIC #1 registry).
 const ACTIVITY_OPTIONS = listProfileOptions()
+
+// lastnik (7. 11. 2026): 12 kartic → EN spustni meni, razporejen po logiki
+// imenika (SKD 2025 področja). "Univerzalno" je posebna skupina na dnu —
+// ni področje, ampak železna osnova platforme.
+const ACTIVITY_GROUP_MAP: { areaKey: string | null; ids: string[] }[] = [
+  { areaKey: "beauty", ids: ["beauty", "frizer", "barber", "nails", "cosmetica", "massage", "epilation"] },
+  { areaKey: "vehicles", ids: ["tire-service", "mehanik"] },
+  { areaKey: "crafts", ids: ["seamstress"] },
+  { areaKey: "agriculture", ids: ["beekeeping"] },
+  { areaKey: null, ids: ["generic"] },
+]
+
+const GROUPED_ACTIVITIES = ACTIVITY_GROUP_MAP.map(({ areaKey, ids }) => ({
+  label:
+    areaKey != null
+      ? SKD_AREAS.find((a) => a.key === areaKey)?.name ?? "Drugo"
+      : "Univerzalno",
+  options: ids
+    .map((id) => ACTIVITY_OPTIONS.find((v) => v.id === id))
+    .filter((v): v is (typeof ACTIVITY_OPTIONS)[number] => !!v),
+})).filter((g) => g.options.length > 0)
+
+/** Grupirani SelectItem-i — skupna uporaba za glavno in dodatno dejavnost. */
+function GroupedActivityItems({ excludeId }: { excludeId?: string | null }) {
+  return (
+    <>
+      {GROUPED_ACTIVITIES.map((group) => (
+        <SelectGroup key={group.label}>
+          <SelectLabel>{group.label}</SelectLabel>
+          {group.options
+            .filter((v) => v.id !== excludeId)
+            .map((v) => (
+              <SelectItem key={v.id} value={v.id}>
+                {v.label}
+              </SelectItem>
+            ))}
+        </SelectGroup>
+      ))}
+    </>
+  )
+}
 
 // E4-4 — registry allowlists for draft validation (unknown ids fail closed).
 const ALLOWED_VERTICAL_IDS = ACTIVITY_OPTIONS.map((v) => v.id)
@@ -135,6 +178,8 @@ export function StartWizard({
   const [skdSearch, setSkdSearch] = useState("")
   const [tagInput, setTagInput] = useState("")
   const [skippedVertical, setSkippedVertical] = useState(false)
+  // lastnik (7. 11. 2026): SKD katalog je zložljiv — privzeto zaprt.
+  const [skdOpen, setSkdOpen] = useState(false)
 
   const skdSuggestions = useMemo(
     () => suggestModulesForSkd(skdCodes),
@@ -623,38 +668,46 @@ export function StartWizard({
             <p className="mt-2 text-muted-foreground">
               Izberite dejavnost — pripravili vam bomo module, katalog, obrazce, procese in vsebino strani.
             </p>
-            <div className="mt-6 grid gap-3 sm:grid-cols-2">
-              {ACTIVITY_OPTIONS.map((v) => {
-                const paletteOption = PALETTE_OPTIONS.find((p) => p.id === v.palette)
-                const isSelected = vertical === v.id
-                return (
-                  <button
-                    key={v.id}
-                    type="button"
-                    onClick={() => selectVertical(v.id)}
-                    aria-pressed={isSelected}
-                    className={cn(
-                      "flex items-start gap-3 rounded-xl border p-4 text-left transition-all hover:border-primary/50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                      isSelected && "border-primary bg-primary/5 ring-2 ring-primary/20"
-                    )}
-                  >
-                    <span className="mt-0.5 flex shrink-0 items-center">
-                      <span
-                        className="h-5 w-5 rounded-full ring-1 ring-border"
-                        style={{ backgroundColor: paletteOption?.primary ?? "#000000" }}
-                      />
-                      <span
-                        className="-ml-2 h-5 w-5 rounded-full ring-1 ring-border"
-                        style={{ backgroundColor: paletteOption?.accent ?? "#d4af37" }}
-                      />
+            {/* lastnik (7. 11. 2026): kartice → EN spustni meni po skupinah
+                imenika (SKD področja); izbrana dejavnost dobi povzetek spodaj. */}
+            <div className="mt-6 max-w-xl">
+              <Select value={vertical ?? undefined} onValueChange={(v) => selectVertical(v)}>
+                <SelectTrigger
+                  aria-label="Izberite dejavnost"
+                  className="min-h-12 w-full text-base"
+                >
+                  <SelectValue placeholder="Izberite dejavnost (npr. frizer, mehanik …)" />
+                </SelectTrigger>
+                <SelectContent className="max-h-80">
+                  <GroupedActivityItems />
+                </SelectContent>
+              </Select>
+
+              {selectedVertical && (
+                <div
+                  role="status"
+                  className="mt-3 flex items-start gap-3 rounded-xl border border-primary/30 bg-primary/5 p-4"
+                >
+                  <span className="mt-0.5 flex shrink-0 items-center">
+                    <span
+                      className="h-5 w-5 rounded-full ring-1 ring-border"
+                      style={{ backgroundColor: selectedPalette?.primary ?? "#000000" }}
+                    />
+                    <span
+                      className="-ml-2 h-5 w-5 rounded-full ring-1 ring-border"
+                      style={{ backgroundColor: selectedPalette?.accent ?? "#d4af37" }}
+                    />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block font-semibold leading-tight">
+                      {selectedVertical.label}
                     </span>
-                    <span className="min-w-0">
-                      <span className="block font-semibold leading-tight">{v.label}</span>
-                      <span className="mt-1 block text-sm text-muted-foreground">{v.description}</span>
+                    <span className="mt-1 block text-sm text-muted-foreground">
+                      {selectedVertical.description}
                     </span>
-                  </button>
-                )
-              })}
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Secondary activity (E2-4): optional capability union — the primary
@@ -677,13 +730,9 @@ export function StartWizard({
                     <SelectTrigger aria-label="Dodatna dejavnost">
                       <SelectValue placeholder="Izberite dodatno dejavnost" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="max-h-80">
                       <SelectItem value="none">Brez dodatne dejavnosti</SelectItem>
-                      {ACTIVITY_OPTIONS.filter((v) => v.id !== vertical).map((v) => (
-                        <SelectItem key={v.id} value={v.id}>
-                          {v.label}
-                        </SelectItem>
-                      ))}
+                      <GroupedActivityItems excludeId={vertical} />
                     </SelectContent>
                   </Select>
                 </div>
@@ -694,14 +743,30 @@ export function StartWizard({
                 iskanje, več izbir, lastne oznake in preskok. Izbira le
                 PREDLAGA module — vklop/izklop ostane pri lastniku. */}
             <div className="mt-6 rounded-xl border bg-muted/30 p-4 sm:p-5">
-              <h2 className="text-sm font-semibold">
-                Ne najdete svoje dejavnosti? (neobvezno)
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Izberite področje ali sekcijo po uradni klasifikaciji SKD 2025 —
-                lahko več hkrati. Samo izpisujemo, kaj vam lahko prižgemo; nič
-                ni vklopljeno brez vaše potrditve.
-              </p>
+              {/* lastnik (7. 11. 2026): SKD katalog + preskok združeni v
+                  zložljivo sekcijo — korak 1 ostane kompaktzen (meni + povzetek). */}
+              <button
+                type="button"
+                onClick={() => setSkdOpen((o) => !o)}
+                aria-expanded={skdOpen}
+                className="flex w-full items-center justify-between gap-2 text-left"
+              >
+                <span>
+                  <span className="block text-sm font-semibold">
+                    Ne najdete svoje dejavnosti? — SKD 2025 katalog (neobvezno)
+                  </span>
+                  <span className="mt-0.5 block text-sm text-muted-foreground">
+                    Iskanje po uradni klasifikaciji, več izbir hkrati, lastne
+                    oznake ali preskok. Nič ni vklopljeno brez vaše potrditve.
+                  </span>
+                </span>
+                <span aria-hidden="true" className="text-muted-foreground text-lg">
+                  {skdOpen ? "−" : "+"}
+                </span>
+              </button>
+
+              {skdOpen && (
+              <>
 
               {skippedVertical && (
                 <div
@@ -887,6 +952,8 @@ export function StartWizard({
                   </div>
                 )}
               </div>
+              </>
+              )}
             </div>
           </section>
         )}
