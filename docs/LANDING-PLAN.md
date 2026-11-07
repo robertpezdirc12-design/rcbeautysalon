@@ -98,7 +98,7 @@ Viri: [Adfirm — CRO framework 2026](https://www.adfirm.net/blog/cro-framework-
 ### 5.4 Vercel
 - `vercel.json` (cron `/api/cron/tick`) ostane nedotaknjen.
 - Obvezni env: `NEXT_PUBLIC_APP_URL`, `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, `DATABASE_URL`, `CRON_SECRET`, `RESEND_API_KEY` (po potrebi), `PLATFORM_ADMIN_EMAILS`.
-- **Opozorilo P2-C:** `npm run build` = `prisma generate && node scripts/resolve-failed-migrations.mjs && prisma migrate deploy && next build`. Build na Vercelu lahko z `prisma migrate resolve --rolled-back` spremeni zgodovino migracij **produkcijske** baze. Pred prvim deployem ta skript ločiti od builda ali ga vsaj pregledati.
+- **Opozorilo P2-C — REŠENO (7. 11. 2026, `migrate-with-retry.mjs`):** build korak je zavitek v ponovitve z odmiki (4 poskusi, 15 s × poskus; fail-fast brez DATABASE_URL). Prehoden Neon izpad ne more več odnesti deploya (so 7. 11. zgodilo — dc2495b); trajna migracijska napaka pade na vseh poskusih z jasnim dnevnikom. Skript še vedno teče v buildu (migracije MORAJO prehiteti objavo — ločitev bi zahtevala ročni release proces).
 - Po deployu preveriti: `/` 200 in platformna izložba, `/en` 200, `/login` `noindex`, `/s/<slug>` še vedno najemnik, custom domena še vedno deluje, OG kartica v deljenju.
 
 ---
@@ -222,7 +222,7 @@ Popravek ni vključen v ta commit, ker je globalen: vrnitev SSR bi razkrila komp
 | Povezave | `/privacy`, `/terms`, `/cookies`, `/login`, `/start`, `/og-default.png` in preseti → vsi 200 |
 | Izložba | 6 referenc na presete, nobena povezava na `generic` |
 
-Opomba iz pregleda še vedno velja: `build` skripta izvaja `prisma migrate deploy` in lahko med buildom spreminja produkcijsko zgodovino migracij (P2-C).
+Opomba iz pregleda: `build` skripta izvaja `prisma migrate deploy` (P2-C) — od 7. 11. 2026 utrjena z `scripts/migrate-with-retry.mjs` (4 poskusi z odmiki; prehoden izpad baze ne ustavi deploya več).
 
 ---
 
@@ -270,5 +270,5 @@ Opomba iz pregleda še vedno velja: `build` skripta izvaja `prisma migrate deplo
 
 1. **F2b:** resnični posnetki izdelka, AVIF/WebP, `public/img/presets/ATTRIBUTION.md`, meritev LCP (cilj < 2,5 s).
 2. **Široki SSR popravek:** vse ostale poti imajo še vedno prazen surovi `<body>`; zahteva zavarovanje vseh `window.*` dostopov v renderju.
-3. **P2-C:** `npm run build` izvaja `prisma migrate deploy` — ločiti od builda pred produkcijsko migracijo.
+3. **P2-C — REŠENO (7. 11. 2026):** migracijski korak v buildu utrjen z retry-jem (`scripts/migrate-with-retry.mjs`); glej §5.4.
 4. Odločitve lastnika iz §8 (cene, kanonična domena, uporabniško ime, dodatni jeziki, izvor slik, reference).

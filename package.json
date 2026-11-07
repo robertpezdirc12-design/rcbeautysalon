@@ -5,7 +5,7 @@
   "packageManager": "pnpm@10.34.9",
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "prisma generate && node scripts/resolve-failed-migrations.mjs && prisma migrate deploy && next build",
+    "build": "prisma generate && node scripts/migrate-with-retry.mjs && next build",
     "start": "next start",
     "lint": "eslint src",
     "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,md}\"",
