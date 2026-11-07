@@ -61,23 +61,9 @@ export function PlatformLanding({ locale }: { locale: Locale }) {
 
   return (
     <div className="from-background via-background to-muted/40 min-h-screen bg-linear-to-b">
-      {/* Platform-level structured data (tenant JSON-LD is injected by the
-          root layout only when a published tenant brands the request). */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "SoftwareApplication",
-            name: "MARKEC",
-            applicationCategory: "BusinessApplication",
-            operatingSystem: "Web",
-            description: t.meta.description,
-            inLanguage: ["sl", "en"],
-          }),
-        }}
-      />
-      <meta property="og:locale:alternate" content={isEn ? "sl_SI" : "en_US"} />
+      {/* F2: SoftwareApplication JSON-LD and og:locale:alternate are emitted
+          by the root layout's <head> (see src/app/layout.tsx). Keeping them
+          here would duplicate the structured data in the rendered HTML. */}
       {/* Header */}
       <header className="border-border/40 dark:bg-background/80 sticky top-0 z-40 border-b bg-white/80 backdrop-blur">
         <div className="container mx-auto flex items-center gap-4 px-4 py-3">

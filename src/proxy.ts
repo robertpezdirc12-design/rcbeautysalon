@@ -16,6 +16,11 @@ import {
   PLATFORM_LOCALE_HEADER,
   platformLocaleForPath,
 } from "@/lib/i18n/platform-locale"
+import {
+  PLATFORM_LANDING_HEADER,
+  PLATFORM_LANDING_HEADER_VALUE,
+  isPlatformLandingPath,
+} from "@/lib/platform-shell"
 
 // ------------------------------------------------------------
 // P1 #39-5 (re-audit 2026-11): goli javni dostop ("/services", …)
@@ -364,6 +369,7 @@ export default auth(async (req) => {
   // <html lang> (or the /en metadata) by sending a header: strip any
   // incoming value, then set it ONLY for the explicit English path.
   requestHeaders.delete(PLATFORM_LOCALE_HEADER)
+  requestHeaders.delete(PLATFORM_LANDING_HEADER)
   const urlLocale = platformLocaleForPath(pathname)
   if (urlLocale) requestHeaders.set(PLATFORM_LOCALE_HEADER, urlLocale)
 
@@ -380,6 +386,26 @@ export default auth(async (req) => {
   const requestHost = hostFromHostHeader(req.headers.get("host"))
   const isCustomDomainHost =
     !!requestHost && !isPlatformHost(requestHost, getPlatformHostsFromEnv())
+
+  // ------------------------------------------------------------
+  // F2 — PLATFORM LANDING SSR GATE (narrow variant, LANDING-PLAN §10).
+  // The root layout omits its client-only CartProvider wrapper ONLY on
+  // the two marketing routes, so <h1> and structured data reach crawlers.
+  // Exclusions matter: a rewritten /s/<slug> -> / pass already carries
+  // the signed ORG_HEADER (a tenant home, not the platform landing), and
+  // "/" on a verified custom domain is that tenant's home. "/en" is the
+  // exception: it is denylisted on custom domains on purpose (F1), so it
+  // stays a platform route. The incoming value was stripped above — a
+  // visitor cannot opt a dashboard or cart page out of the wrapper.
+  // ------------------------------------------------------------
+  const isPlatformLanding =
+    isPlatformLandingPath(pathname) &&
+    !requestHeaders.has(ORG_HEADER) &&
+    (pathname === "/en" || !isCustomDomainHost)
+  if (isPlatformLanding) {
+    requestHeaders.set(PLATFORM_LANDING_HEADER, PLATFORM_LANDING_HEADER_VALUE)
+  }
+
   if (isCustomDomainHost) {
     clearTenantHeader()
     const cdSlugMatch = pathname.match(/^\/s\/([^/]+)(\/.*)?$/)

@@ -23,10 +23,16 @@ import {
   type SeoContext,
 } from "@/lib/seo"
 import { getLocaleFromCookies } from "@/lib/i18n/server"
+import { getDictionary } from "@/lib/i18n/dictionaries"
 import {
   PLATFORM_LOCALE_HEADER,
   resolveHtmlLocale,
+  resolvePlatformLandingLocale,
 } from "@/lib/i18n/platform-locale"
+import {
+  PLATFORM_LANDING_HEADER,
+  isPlatformLandingRequest,
+} from "@/lib/platform-shell"
 import { headers } from "next/headers"
 import type { Organization } from "@prisma/client"
 
@@ -244,11 +250,41 @@ export default async function RootLayout({
   // F1: <html lang> follows the URL on the English landing. The value is
   // set (and stripped on the way in) by the proxy; the admin cookie still
   // decides the language everywhere else. Never trust a raw visitor header.
-  const cookieLocale = await getLocaleFromCookies()
-  const htmlLocale = resolveHtmlLocale(
-    cookieLocale,
-    (await headers()).get(PLATFORM_LOCALE_HEADER)
+  // F2: on the two marketing routes the URL decides the language outright —
+  // an owner with an English admin cookie must not get lang="en" on the
+  // Slovenian "/" landing.
+  const requestHeaders = await headers()
+  const isPlatformLanding = isPlatformLandingRequest(
+    requestHeaders.get(PLATFORM_LANDING_HEADER)
   )
+  const urlLocaleHeader = requestHeaders.get(PLATFORM_LOCALE_HEADER)
+  const landingLocale = resolvePlatformLandingLocale(urlLocaleHeader)
+  const cookieLocale = await getLocaleFromCookies()
+  const htmlLocale = isPlatformLanding
+    ? landingLocale
+    : resolveHtmlLocale(cookieLocale, urlLocaleHeader)
+
+  // F2: structured data belongs in <head>, not in a client-gated <body>.
+  // Tenant JSON-LD is built above only for published tenants; a platform
+  // landing must never emit both.
+  const platformJsonLd =
+    isPlatformLanding && !org
+      ? {
+          "@context": "https://schema.org",
+          "@type": "SoftwareApplication",
+          name: "MARKEC",
+          applicationCategory: "BusinessApplication",
+          operatingSystem: "Web",
+          description: getDictionary(landingLocale).landing.meta.description,
+          inLanguage: ["sl", "en"],
+        }
+      : null
+
+  // CartProvider is a client-only gate that returns null on the server and
+  // used to blank the ENTIRE SSR body. On the platform landing we skip that
+  // one wrapper; every other route keeps the original behaviour (a global
+  // removal would expose window.* reads in tenant/admin components).
+  const pageTree = <TooltipProvider>{children}</TooltipProvider>
 
   return (
     <html
@@ -265,6 +301,18 @@ export default async function RootLayout({
             dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
           />
         )}
+        {platformJsonLd && (
+          <>
+            <script
+              type="application/ld+json"
+              dangerouslySetInnerHTML={{ __html: JSON.stringify(platformJsonLd) }}
+            />
+            <meta
+              property="og:locale:alternate"
+              content={landingLocale === "en" ? "sl_SI" : "en_US"}
+            />
+          </>
+        )}
       </head>
       <body
         className={`${rougeScript.variable} ${poppins.variable} ${playfair.variable} ${cormorant.variable} ${oswald.variable} ${montserrat.variable} ${inter.variable} ${lora.variable} antialiased`}
@@ -277,9 +325,11 @@ export default async function RootLayout({
         >
           <SessionProvider>
             <CurrencyProvider currency={orgCurrency}>
-              <CartProvider>
-                <TooltipProvider>{children}</TooltipProvider>
-              </CartProvider>
+              {isPlatformLanding ? (
+                pageTree
+              ) : (
+                <CartProvider>{pageTree}</CartProvider>
+              )}
             </CurrencyProvider>
 
             <Toaster position="top-right" richColors />

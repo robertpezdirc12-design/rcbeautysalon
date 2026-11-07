@@ -31,3 +31,15 @@ export function resolveHtmlLocale(
 ): Locale {
   return headerValue === "en" ? "en" : cookieLocale
 }
+
+/**
+ * F2 — on the two platform landing routes the URL alone decides <html lang>.
+ * The admin cookie is NOT a valid signal here: an owner whose dashboard is
+ * in English must still get lang="sl" on "/" (Slovenian copy) and lang="en"
+ * on "/en". Unknown/tampered header values fall back to Slovenian.
+ */
+export function resolvePlatformLandingLocale(
+  headerValue: string | null | undefined
+): Locale {
+  return headerValue === "en" ? "en" : "sl"
+}

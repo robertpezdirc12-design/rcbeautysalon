@@ -16,7 +16,14 @@ import {
   PLATFORM_LOCALE_HEADER,
   platformLocaleForPath,
   resolveHtmlLocale,
+  resolvePlatformLandingLocale,
 } from "@/lib/i18n/platform-locale"
+import {
+  PLATFORM_LANDING_HEADER,
+  PLATFORM_LANDING_HEADER_VALUE,
+  isPlatformLandingPath,
+  isPlatformLandingRequest,
+} from "@/lib/platform-shell"
 import { platformSitemapEntries } from "@/lib/sitemap-builder"
 
 const read = (p: string) => readFileSync(join(__dirname, "../../", p), "utf8")
@@ -255,5 +262,78 @@ describe("SEO — both landing URLs", () => {
     expect(landingEn.languages.en).toBe("English")
     expect(landing).not.toContain("localStorage")
     expect(landing).not.toContain("accept-language")
+  })
+})
+
+// ============================================================
+// F2 — narrow SSR gate. CartProvider returns null on the server and
+// used to blank the whole <body>, so crawlers saw no <h1> and no
+// structured data. The proxy now tags only "/" and "/en"; the root
+// layout omits that one wrapper there and emits JSON-LD in <head>.
+// ============================================================
+describe("F2 — server-rendered platform landing", () => {
+  it("tags exactly the two marketing routes", () => {
+    expect(isPlatformLandingPath("/")).toBe(true)
+    expect(isPlatformLandingPath("/en")).toBe(true)
+    expect(isPlatformLandingPath("/en/")).toBe(false)
+    expect(isPlatformLandingPath("/english")).toBe(false)
+    expect(isPlatformLandingPath("/login")).toBe(false)
+    expect(isPlatformLandingPath("/dashboard")).toBe(false)
+    expect(isPlatformLandingPath("/s/frizer-ana")).toBe(false)
+  })
+
+  it("accepts only the exact proxy value (no forged header)", () => {
+    expect(PLATFORM_LANDING_HEADER).toBe("x-markec-platform-landing")
+    expect(isPlatformLandingRequest(PLATFORM_LANDING_HEADER_VALUE)).toBe(true)
+    expect(isPlatformLandingRequest(null)).toBe(false)
+    expect(isPlatformLandingRequest("true")).toBe(false)
+    expect(isPlatformLandingRequest("1 ")).toBe(false)
+    expect(isPlatformLandingRequest("")).toBe(false)
+  })
+
+  it("URL decides <html lang> on the landing, never the admin cookie", () => {
+    expect(resolvePlatformLandingLocale(null)).toBe("sl")
+    expect(resolvePlatformLandingLocale("en")).toBe("en")
+    expect(resolvePlatformLandingLocale("de")).toBe("sl")
+    expect(resolvePlatformLandingLocale("EN")).toBe("sl")
+  })
+
+  it("proxy strips the incoming value and excludes tenant/custom-domain roots", () => {
+    const proxy = read("src/proxy.ts")
+    expect(proxy).toContain("requestHeaders.delete(PLATFORM_LANDING_HEADER)")
+    expect(proxy).toContain("isPlatformLandingPath(pathname)")
+    // a rewritten /s/<slug> -> / pass carries the signed tenant header
+    expect(proxy).toContain("!requestHeaders.has(ORG_HEADER)")
+    // "/" on a verified custom domain is that tenant's home, not ours;
+    // "/en" is denylisted there on purpose (F1) and stays a platform route
+    expect(proxy).toContain('pathname === "/en" || !isCustomDomainHost')
+    expect(proxy).toContain(
+      "requestHeaders.set(PLATFORM_LANDING_HEADER, PLATFORM_LANDING_HEADER_VALUE)"
+    )
+  })
+
+  it("root layout keeps the gate everywhere else and moves JSON-LD into <head>", () => {
+    const layout = read("src/app/layout.tsx")
+    expect(layout).toContain("isPlatformLandingRequest(")
+    expect(layout).toContain("isPlatformLanding ?")
+    expect(layout).toContain("<CartProvider>{pageTree}</CartProvider>")
+    expect(layout).toContain("resolvePlatformLandingLocale")
+    expect(layout).toContain('"@type": "SoftwareApplication"')
+    expect(layout).toContain('property="og:locale:alternate"')
+  })
+
+  it("landing component has an <h1> and no duplicate structured data", () => {
+    const landing = read("src/components/landing/platform-landing.tsx")
+    expect(landing).toContain("<h1")
+    expect(landing).not.toContain("application/ld+json")
+    expect(landing).not.toContain('property="og:locale:alternate"')
+    // the component must remain a server component
+    expect(landing).not.toContain('"use client"')
+  })
+
+  it("CartProvider is still the only client-only gate (unchanged globally)", () => {
+    const cart = read("src/components/providers/cart-provider.tsx")
+    expect(cart).toContain("if (!isClient)")
+    expect(cart).toContain("return null")
   })
 })
