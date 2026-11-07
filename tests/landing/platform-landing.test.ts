@@ -331,9 +331,13 @@ describe("F2 — server-rendered platform landing", () => {
     expect(landing).not.toContain('"use client"')
   })
 
-  it("CartProvider is still the only client-only gate (unchanged globally)", () => {
+  it("CartProvider is SSR-safe and no longer blanks the body (F2b)", () => {
     const cart = read("src/components/providers/cart-provider.tsx")
-    expect(cart).toContain("if (!isClient)")
-    expect(cart).toContain("return null")
+    // The client-only gate that returned null on the server is gone; the
+    // provider must render its children on every render so the whole
+    // platform server-renders instead of shipping an empty shell.
+    expect(cart).not.toContain("isClient")
+    expect(cart).not.toContain("return null")
+    expect(cart).toContain("<>{children}</>")
   })
 })

@@ -280,10 +280,11 @@ export default async function RootLayout({
         }
       : null
 
-  // CartProvider is a client-only gate that returns null on the server and
-  // used to blank the ENTIRE SSR body. On the platform landing we skip that
-  // one wrapper; every other route keeps the original behaviour (a global
-  // removal would expose window.* reads in tenant/admin components).
+  // CartProvider is now SSR-safe (it renders children on the server — see
+  // src/components/providers/cart-provider.tsx).It used to return null on the
+  // server and blank the entire SSR body; that gate is gone, so the whole
+  // platform server-renders. We still keep the landing branch for clarity but
+  // it no longer changes rendering behaviour.
   const pageTree = <TooltipProvider>{children}</TooltipProvider>
 
   return (

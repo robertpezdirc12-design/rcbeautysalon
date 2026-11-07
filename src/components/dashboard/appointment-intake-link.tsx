@@ -21,7 +21,9 @@ export function AppointmentIntakeLink({
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
-  const url = token ? `${window.location.origin}/intake/${token}` : null
+  // F2b: window.location.origin is client-only. Show the relative path (safe
+  // to server-render) and build the absolute URL only inside the copy handler.
+  const url = token ? `/intake/${token}` : null
 
   function handleCreate() {
     setError(null)
@@ -37,8 +39,9 @@ export function AppointmentIntakeLink({
 
   async function handleCopy() {
     if (!url) return
+    const absolute = `${window.location.origin}${url}`
     try {
-      await navigator.clipboard.writeText(url)
+      await navigator.clipboard.writeText(absolute)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch {
