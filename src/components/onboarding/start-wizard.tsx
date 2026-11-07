@@ -36,6 +36,7 @@ import {
   SKD_SECTIONS,
   suggestModulesForSkd,
 } from "@/lib/skd/catalog"
+import { ActivityDirectoryPicker } from "@/components/onboarding/activity-directory-picker"
 import { checkSlugAvailability, createSalonOrganization } from "@/app/actions/onboarding"
 import {
   WIZARD_DRAFT_KEY,
@@ -158,8 +159,6 @@ export function StartWizard({
   // P1 #66: deep-link preselect — the landing's trade cards land here with
   // the activity already chosen; "Naprej" is enabled immediately.
   const [vertical, setVertical] = useState<string | null>(initialVertical)
-  // Hibridni iskalni vzorec: iskanje filtrira ploščice (prazno = vse).
-  const [activitySearch, setActivitySearch] = useState("")
   const [secondary, setSecondary] = useState<string | null>(null)
   // #81: `palette` is the owner's EXPLICIT override; the effective value
   // follows the activity's preset so a deep-linked activity alone is enough
@@ -189,31 +188,12 @@ export function StartWizard({
   // kasneje (modules-configurator) — nič ni zaklenjeno.
   const [skdCodes, setSkdCodes] = useState<string[]>([])
   const [customTags, setCustomTags] = useState<string[]>([])
-  const [skdSearch, setSkdSearch] = useState("")
-  const [tagInput, setTagInput] = useState("")
   const [skippedVertical, setSkippedVertical] = useState(false)
-  // lastnik (7. 11. 2026): SKD katalog je zložljiv — privzeto zaprt.
-  const [skdOpen, setSkdOpen] = useState(false)
 
   const skdSuggestions = useMemo(
     () => suggestModulesForSkd(skdCodes),
     [skdCodes]
   )
-  const skdFiltered = useMemo(() => {
-    const q = skdSearch.trim().toLowerCase()
-    if (!q) return { areas: SKD_AREAS, sections: SKD_SECTIONS }
-    return {
-      areas: SKD_AREAS.filter(
-        (a) =>
-          a.name.toLowerCase().includes(q) ||
-          a.sections.some((s) => s.toLowerCase() === q)
-      ),
-      sections: SKD_SECTIONS.filter(
-        (s) =>
-          s.name.toLowerCase().includes(q) || s.code.toLowerCase() === q
-      ),
-    }
-  }, [skdSearch])
 
   function toggleSkdCode(code: string) {
     setSkdCodes((prev) =>
@@ -221,11 +201,10 @@ export function StartWizard({
     )
   }
 
-  function addCustomTag() {
-    const value = tagInput.trim().slice(0, 40)
-    if (!value) return
-    setCustomTags((prev) => (prev.includes(value) ? prev : [...prev, value].slice(0, 10)))
-    setTagInput("")
+  function addTag(value: string) {
+    const clean = value.trim().slice(0, 40)
+    if (!clean) return
+    setCustomTags((prev) => (prev.includes(clean) ? prev : [...prev, clean].slice(0, 10)))
   }
 
   // F1: preskok = izbira brez dejavnosti (generična osnova). SKD oznake
@@ -260,14 +239,6 @@ export function StartWizard({
     () => PALETTE_OPTIONS.find((p) => p.id === effectivePalette) ?? null,
     [effectivePalette]
   )
-  // Hibridni iskalni vzorec: prazen niz = vseh 12 ploščic na pogled.
-  const filteredActivities = useMemo(() => {
-    const q = normalizeHr(activitySearch)
-    if (!q) return ACTIVITY_OPTIONS
-    return ACTIVITY_OPTIONS.filter((v) =>
-      normalizeHr(`${v.label} ${v.description}`).includes(q)
-    )
-  }, [activitySearch])
 
   // Debounced slug availability check (state is set in change handlers;
   // this effect only schedules the async lookup)
@@ -690,64 +661,20 @@ export function StartWizard({
             <p className="mt-2 text-muted-foreground">
               Izberite dejavnost — pripravili vam bomo module, katalog, obrazce, procese in vsebino strani.
             </p>
-            {/* lastnik (7. 11. 2026): EN korak — iskanje + ploščice vseh
-                dejavnosti (hibridni vzorec: iskanje filtrira, ploščice
-                ponudijo vse na pogled). Ni področij, ni dropdowna. */}
-            <div className="mt-6">
-              <Input
-                type="search"
-                value={activitySearch}
-                onChange={(e) => setActivitySearch(e.target.value)}
-                placeholder="Iščite ali izberite — npr. frizer, mehanik, čebelar …"
-                aria-label="Iskanje dejavnosti"
-                maxLength={60}
-                className="min-h-12 text-base"
+            {/* lastnik (7. 11. 2026): VSE v EN padajoči meni — imenik
+                (predloge po področjih + SKD področja + sekcije A–V + lastna
+                oznaka) se odpre šele ob kliku; vmesnik ostane čist. */}
+            <div className="mt-6 max-w-xl">
+              <ActivityDirectoryPicker
+                vertical={vertical}
+                onSelectActivity={selectVertical}
+                skdCodes={skdCodes}
+                onToggleSkd={toggleSkdCode}
+                customTags={customTags}
+                onAddTag={addTag}
+                onRemoveTag={(t) => setCustomTags((prev) => prev.filter((x) => x !== t))}
+                suggestions={skdSuggestions}
               />
-
-              {filteredActivities.length > 0 ? (
-                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {filteredActivities.map((v) => {
-                    const paletteOption = PALETTE_OPTIONS.find((p) => p.id === v.palette)
-                    const isSelected = vertical === v.id
-                    return (
-                      <button
-                        key={v.id}
-                        type="button"
-                        onClick={() => selectVertical(v.id)}
-                        aria-pressed={isSelected}
-                        className={cn(
-                          "flex items-start gap-3 rounded-xl border p-3 text-left transition-all hover:border-primary/50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                          isSelected && "border-primary bg-primary/5 ring-2 ring-primary/20"
-                        )}
-                      >
-                        <span className="mt-0.5 flex shrink-0 items-center">
-                          <span
-                            className="h-4 w-4 rounded-full ring-1 ring-border"
-                            style={{ backgroundColor: paletteOption?.primary ?? "#000000" }}
-                          />
-                          <span
-                            className="-ml-1.5 h-4 w-4 rounded-full ring-1 ring-border"
-                            style={{ backgroundColor: paletteOption?.accent ?? "#d4af37" }}
-                          />
-                        </span>
-                        <span className="min-w-0">
-                          <span className="block text-sm font-semibold leading-tight">
-                            {v.label}
-                          </span>
-                          <span className="mt-0.5 block text-xs text-muted-foreground">
-                            {v.description}
-                          </span>
-                        </span>
-                      </button>
-                    )
-                  })}
-                </div>
-              ) : (
-                <p role="status" className="text-muted-foreground mt-4 text-sm">
-                  Ni zadetkov med pripravljenimi predlogami — uporabite spodnji
-                  SKD 2025 katalog ali dodajte lastno oznako.
-                </p>
-              )}
             </div>
 
             {/* Secondary activity (E2-4): optional capability union — the primary
@@ -779,222 +706,40 @@ export function StartWizard({
               </div>
             </div>
 
-            {/* F1 #100 — SKD 2025 katalog (nasvet, ne zaklep; AD-05):
-                iskanje, več izbir, lastne oznake in preskok. Izbira le
-                PREDLAGA module — vklop/izklop ostane pri lastniku. */}
-            <div className="mt-6 rounded-xl border bg-muted/30 p-4 sm:p-5">
-              {/* lastnik (7. 11. 2026): SKD katalog + preskok združeni v
-                  zložljivo sekcijo — korak 1 ostane kompaktzen (meni + povzetek). */}
-              <button
+            {!skippedVertical && (
+              <Button
                 type="button"
-                onClick={() => setSkdOpen((o) => !o)}
-                aria-expanded={skdOpen}
-                className="flex w-full items-center justify-between gap-2 text-left"
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground mt-2"
+                onClick={skipActivity}
               >
-                <span>
-                  <span className="block text-sm font-semibold">
-                    Ne najdete svoje dejavnosti? — SKD 2025 katalog (neobvezno)
-                  </span>
-                  <span className="mt-0.5 block text-sm text-muted-foreground">
-                    Iskanje po uradni klasifikaciji, več izbir hkrati, lastne
-                    oznake ali preskok. Nič ni vklopljeno brez vaše potrditve.
-                  </span>
-                </span>
-                <span aria-hidden="true" className="text-muted-foreground text-lg">
-                  {skdOpen ? "−" : "+"}
-                </span>
-              </button>
+                Preskoči dejavnost — želim generično osnovo
+              </Button>
+            )}
 
-              {skdOpen && (
-              <>
-
-              {skippedVertical && (
-                <div
-                  role="status"
-                  className="mt-3 rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm"
+            {skippedVertical && (
+              <div
+                role="status"
+                className="border-primary/30 bg-primary/5 mt-3 max-w-xl rounded-xl border p-4 text-sm"
+              >
+                <p className="font-medium">Dejavnost preskočena.</p>
+                <p className="text-muted-foreground mt-0.5">
+                  Dobili boste generično osnovo (vse osnovne module lahko
+                  prižgete ali ugasnete v nastavitvah). Lahko pa vseeno
+                  izberete dejavnost zgoraj.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-2"
+                  onClick={unSkipActivity}
                 >
-                  <p className="font-medium">Dejavnost preskočena.</p>
-                  <p className="text-muted-foreground mt-0.5">
-                    Dobili boste generično osnovo (vse osnovne module lahko
-                    prižgete ali ugasnete v nastavitvah). Lahko pa vseeno
-                    izberete dejavnost spodaj.
-                  </p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="mt-2"
-                    onClick={unSkipActivity}
-                  >
-                    Vseeno izberem dejavnost
-                  </Button>
-                </div>
-              )}
-
-              <div className="mt-4 space-y-4">
-                <Input
-                  type="search"
-                  value={skdSearch}
-                  onChange={(e) => setSkdSearch(e.target.value)}
-                  placeholder="Iščite področje ali sekcijo (npr. frizer, trgovina, S …)"
-                  aria-label="Iskanje po SKD 2025 katalogu"
-                  maxLength={60}
-                />
-
-                {skdCodes.length > 0 && (
-                  <div className="flex flex-wrap gap-2" aria-label="Izbrane SKD oznake">
-                    {skdCodes.map((code) => {
-                      const label = code.startsWith("area:")
-                        ? SKD_AREAS.find((a) => a.key === code.slice(5))?.name ?? code
-                        : SKD_SECTIONS.find((s) => s.code === code)?.name ?? code
-                      return (
-                        <button
-                          key={code}
-                          type="button"
-                          onClick={() => toggleSkdCode(code)}
-                          className="border-primary bg-primary/10 text-foreground inline-flex max-w-full items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium"
-                          aria-label={`Odstrani ${label}`}
-                        >
-                          <span className="truncate">{label}</span>
-                          <span aria-hidden="true">×</span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
-
-                {skdFiltered.areas.length > 0 && (
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      Področja
-                    </p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {skdFiltered.areas.map((a) => {
-                        const code = `area:${a.key}`
-                        const isSelected = skdCodes.includes(code)
-                        return (
-                          <button
-                            key={a.key}
-                            type="button"
-                            onClick={() => toggleSkdCode(code)}
-                            aria-pressed={isSelected}
-                            className={cn(
-                              "rounded-full border px-3 py-1.5 text-xs transition-colors hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                              isSelected && "border-primary bg-primary/10 font-medium"
-                            )}
-                          >
-                            {a.name}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {skdFiltered.sections.length > 0 && (
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      Sekcije SKD 2025
-                    </p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {skdFiltered.sections.map((s) => {
-                        const isSelected = skdCodes.includes(s.code)
-                        return (
-                          <button
-                            key={s.code}
-                            type="button"
-                            onClick={() => toggleSkdCode(s.code)}
-                            aria-pressed={isSelected}
-                            title={s.name}
-                            className={cn(
-                              "rounded-full border px-3 py-1.5 text-xs transition-colors hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                              isSelected && "border-primary bg-primary/10 font-medium"
-                            )}
-                          >
-                            <span className="font-mono font-semibold">{s.code}</span>{" "}
-                            <span className="text-muted-foreground">
-                              {s.name.length > 34 ? `${s.name.slice(0, 34)}…` : s.name}
-                            </span>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {skdFiltered.areas.length === 0 && skdFiltered.sections.length === 0 && (
-                  <p className="text-sm text-muted-foreground">
-                    Ni zadetkov. Lahko dodate lastno oznako spodaj.
-                  </p>
-                )}
-
-                <div className="space-y-2">
-                  <Label htmlFor="skd-tag">Lastna oznaka (neobvezno)</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="skd-tag"
-                      value={tagInput}
-                      onChange={(e) => setTagInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault()
-                          addCustomTag()
-                        }
-                      }}
-                      placeholder="npr. vulkanizer po meri"
-                      maxLength={40}
-                    />
-                    <Button type="button" variant="outline" onClick={addCustomTag}>
-                      Dodaj
-                    </Button>
-                  </div>
-                  {customTags.length > 0 && (
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      {customTags.map((tag) => (
-                        <button
-                          key={tag}
-                          type="button"
-                          onClick={() =>
-                            setCustomTags((prev) => prev.filter((t) => t !== tag))
-                          }
-                          className="bg-secondary text-secondary-foreground inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium"
-                          aria-label={`Odstrani oznako ${tag}`}
-                        >
-                          {tag}
-                          <span aria-hidden="true">×</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {skdSuggestions.length > 0 && (
-                  <div className="rounded-lg border bg-background p-3">
-                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      Predlogi modulov (samo nasvet — vklopite, kar potrebujete)
-                    </p>
-                    <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
-                      {skdSuggestions.map((m) => (
-                        <li key={m} className="flex items-center gap-1">
-                          <SparkleIcon size={14} className="text-primary" aria-hidden="true" />
-                          {SKD_MODULE_LABELS[m]}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {!skippedVertical && (
-                  <div className="border-t pt-3">
-                    <Button type="button" variant="ghost" size="sm" onClick={skipActivity}>
-                      Preskoči dejavnost — želim generično osnovo
-                    </Button>
-                  </div>
-                )}
+                  Vseeno izberem dejavnost
+                </Button>
               </div>
-              </>
-              )}
-            </div>
+            )}
           </section>
         )}
 
