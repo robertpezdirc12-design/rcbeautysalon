@@ -110,7 +110,7 @@ Viri: [Adfirm — CRO framework 2026](https://www.adfirm.net/blog/cro-framework-
 | **F0** | Raziskava + odločitve + delujoč prototip v `markec-landing/index.html` (sl/en, 7 odsekov + zaglavje/trust pas/noga, 5 kart primerov, 6 realnih slik, register izvora) | ✅ narejeno in validirano |
 | **F1** | Prenos v `platform-landing.tsx`, nov slovar `landing.ts`, `/en` pot, metadata/hreflang/canonical/OG, sitemap, proxy test | naslednji korak |
 | **F2a** | Ozki popravek SSR lupine za `/` in `/en` (H1 + JSON-LD v surovem HTML), `<html lang>` iz URL-ja | ✅ narejeno in objavljeno (commit `2e5b199`, §11) |
-| **F2b** | Resnični posnetki izdelka, optimizacija v AVIF/WebP, `ATTRIBUTION.md`, LCP meritev | odprto |
+| **F2b** | **Globalni SSR popravek — celotna platforma se zdaj streže s strežnika (commit `0d0fe88`);** preostanek: resnični posnetki izdelka, AVIF/WebP, `ATTRIBUTION.md`, LCP meritev | delno — globalni SSR ✅, posnetki odprto |
 | **F3** | Vertikalne strani (`/za/frizerje`, `/en/for/hairdressers`) z ujemanjem oglasnega sporočila | po meritvah F1 |
 | **F4** | Deploy na Vercel + tedenska kohortna meritev | po potrditvi lastnika |
 
@@ -209,7 +209,7 @@ Odločitev lastnika: **»Merge, keep owner H1«**. H1, angleški tagline, strate
 
 Popravek ni vključen v ta commit, ker je globalen: vrnitev SSR bi razkrila komponente, ki v renderju neposredno berejo `window` (npr. `dashboard/appointment-intake-link.tsx:24`), in bi lahko zlomila najemniške/administrativne strani. **Predlog za ločeno F2:** (a) ozko — proxy označi samo platformski `/` in `/en`, korenski layout tam izpusti `CartProvider` in v `<head>` vstavi platformski JSON-LD; ali (b) široko — odstrani `if (!isClient) return null` in hkrati zavaruje vse `window.*` dostope v renderju. Variant (a) je varnejša in dovolj za vstopno stran.
 
-**Stanje:** izvedena je varianta (a) v commitu `2e5b199` (F2a) — glej §11. Prazen SSR `<body>` na vseh *ostalih* poteh je namerno ohranjen; široki popravek (b) ostane ločena, tvegana naloga.
+**Stanje:** varianta (a) v commitu `2e5b199` (F2a) za `/` in `/en`; široki popravek (b) — **globalni SSR** — je zdaj izveden v commitu `0d0fe88` (CartProvider narejen SSR-varen, edina render-time `window` uporaba v `appointment-intake-link.tsx` popravljena). Celotna platforma (javne, avtenticirane in strankarske poti) se zdaj streže s strežnika; preverjeno na produkciji (`/`, `/en`, `/start`, `/login`, `/register`, `/forgot-password` vračajo vsebino v surovem HTML). Preostanek F2b (posnetki, AVIF/WebP, ATTRIBUTION.md, LCP) ostaja odprt.
 
 **Vercel — deploy uspešen (`state: success`, »Deployment has completed«).** Git integracija je sama zgradila `main`; API `v2/user` z `VERCEL_TOKEN` deluje, projektni klici pa vračajo `403` zaradi SAML scope (`robertpezdirc12-designs-projects`), zato je status preverjen prek GitHub commit statusov in HTTP.
 
