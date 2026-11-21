@@ -19,7 +19,6 @@ import {
 } from "@/lib/einvoice/providers"
 import { MAX_RETRIES } from "@/lib/einvoice/channel"
 import type { ChannelCfg, SubmitPayload } from "@/lib/einvoice/channel"
-// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import type { HttpsTransport } from "@/lib/einvoice/providers"
 
 const ORG = "org-1"
@@ -27,7 +26,7 @@ const cfg: ChannelCfg = {
   id: "cfg-1",
   organizationId: ORG,
   channel: "direct",
-  providerEndpoint: "https://partner.local/invoice",
+  providerEndpoint: "https://provider.example/invoice",
   credentials: { apiKey: "secret" },
   config: {},
 }
@@ -151,12 +150,15 @@ describe("F5.5.4.6.4 — CertHttpProvider (UJP/PEPPOL mTLS)", () => {
     expect(opts.hostname).toBe("ujp-ppap.example")
   })
 
-  it("rejectUnauthorized je false ob explicitnem insecureSkipVerify (samo interno)", () => {
+  it("insecureSkipVerify je ignoriran — rejectUnauthorized ostane TRUE (preverjanje cert vedno vklopljeno)", () => {
+    // Faza 1.3 (#1318): nekdanji `insecureSkipVerify` preklop je bil umaknjen.
+    // Tudi če config vsebuje insecureSkipVerify, preverjanje certifikata ne sme
+    // biti izklopljeno — produkcija nikoli ne sme imeti mTLS brez verifikacije.
     const opts = buildHttpsRequestOptions(
       { ...certCfg, config: { insecureSkipVerify: true } },
       {}
     )
-    expect(opts.rejectUnauthorized).toBe(false)
+    expect(opts.rejectUnauthorized).toBe(true)
   })
 
   it("eSlogJointWrapper ovije UBL XML v vd:JointDokument", () => {

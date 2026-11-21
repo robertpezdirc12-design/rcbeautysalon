@@ -42,6 +42,7 @@ import {
 } from "./channel"
 import { xmlDsigSign } from "./xmldsig"
 import { buildAs4Multipart } from "./as4"
+import { assertPublicHttpsUrl, resolveAndVerifyEndpoint } from "./endpoint-validation"
 
 /** Vedno anajdi trenutni globalni fetch (testabilno; brez enkratne zamrznitve). */
 function getGlobalFetch(): typeof fetch {
@@ -80,6 +81,35 @@ export class DirectHttpProvider implements EInvoiceProvider {
       }
     }
 
+    // #1318 SSRF-zaščita: endpoint mora biti veljaven JAVEN HTTPS URL (ne
+    // private IP, loopback, link-local ali notranje ime) in NE sledi
+    // preusmeritvam. Preverimo ob vsakem pošiljanju, ne samo ob shranjevanju
+    // (pokrije spremembo po shranjevanju).
+    const v = assertPublicHttpsUrl(cfg.providerEndpoint)
+    if (!v.ok) {
+      return {
+        accepted: false,
+        providerMessageId: null,
+        state: "FAILED",
+        technicalOnly: false,
+        errors: [`SSRF: ${v.error}`],
+      }
+    }
+    // DNS-rebinding zaščita ob pošiljanju: razrešivo javno ime se ne sme
+    // razrešiti v zasebno mrežo. Ne-razrešljiva imena (npr. testni .example TLD)
+    // niso SSRF-vektor, zato `resolveAndVerifyEndpoint` zanje vrne ok:true in
+    // pošiljanje nadaljuje — transport bo vrnil mrežno napako oz. mock odgovor.
+    const dnsCheck = await resolveAndVerifyEndpoint(v.publicHost)
+    if (!dnsCheck.ok) {
+      return {
+        accepted: false,
+        providerMessageId: null,
+        state: "FAILED",
+        technicalOnly: false,
+        errors: [`SSRF: ${dnsCheck.error}`],
+      }
+    }
+
     const errors: string[] = []
     let lastStatus = 0
     let lastText = ""
@@ -89,6 +119,7 @@ export class DirectHttpProvider implements EInvoiceProvider {
       try {
         const res = await getGlobalFetch()(cfg.providerEndpoint, {
           method: "POST",
+          redirect: "manual", // #1318: ne sledi 3xx na morebiti notranji naslov
           headers: {
             "Content-Type": "application/xml; charset=utf-8",
             Accept: "application/json, application/xml",
@@ -249,7 +280,6 @@ export function buildHttpsRequestOptions(cfg: ChannelCfg, headers: Record<string
   if (!cfg.providerEndpoint) throw new Error("CHANNEL_NOT_READY: providerEndpoint ni nastavljen.")
   const url = new URL(cfg.providerEndpoint)
   const cred = cfg.credentials ?? {}
-  const insecure = cfg.config?.insecureSkipVerify === true
   return {
     hostname: url.hostname,
     port: url.port ? Number(url.port) : url.protocol === "https:" ? 443 : undefined,
@@ -261,7 +291,12 @@ export function buildHttpsRequestOptions(cfg: ChannelCfg, headers: Record<string
     ...(cred.key ? { key: cred.key } : {}),
     ...(cred.ca ? { ca: cred.ca } : {}),
     ...(cred.passphrase ? { passphrase: cred.passphrase } : {}),
-    rejectUnauthorized: insecure ? false : true,
+    // #1318 TLS-zaščita: preverjanje certifikata je VEDNO vklopljeno
+    // (rejectUnauthorized: true). Nekdanji `insecureSkipVerify` preklop je bil
+    // umaknjen, da produkcija nikoli ne more izklopiti preverjanja in da testna
+    // izjema ne more nenamerno priti v produkcijo. Testi uporabijo pravo testno
+    // CA, ne izklopa preverjanja.
+    rejectUnauthorized: true,
     timeout: 20_000,
   } as https.RequestOptions & { timeout?: number }
 }
@@ -377,8 +412,15 @@ export class CertHttpProvider implements EInvoiceProvider {
       }
     }
 
+    const errors: string[] = []
     let opts: https.RequestOptions
     try {
+      // #1318 SSRF-zaščita pred obema pošiljalskima potema: endpoint mora biti
+      // veljaven JAVEN URL, DNS pa ne smem razrešiti v zasebno mrežo.
+      const v = assertPublicHttpsUrl(cfg.providerEndpoint)
+      if (!v.ok) return { accepted: false, providerMessageId: null, state: "FAILED", technicalOnly: false, errors: [`SSRF: ${v.error}`] }
+      const dns = await resolveAndVerifyEndpoint(v.publicHost)
+      if (!dns.ok) return { accepted: false, providerMessageId: null, state: "FAILED", technicalOnly: false, errors: [`SSRF: ${dns.error}`] }
       opts = buildHttpsRequestOptions(cfg, this.headersFor(cfg, payload, contentType))
     } catch (e) {
       return {
@@ -389,8 +431,6 @@ export class CertHttpProvider implements EInvoiceProvider {
         errors: [e instanceof Error ? e.message : "CHANNEL_NOT_READY"],
       }
     }
-
-    const errors: string[] = []
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
         const res = await this.transport(opts, body)

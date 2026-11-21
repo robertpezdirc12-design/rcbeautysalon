@@ -21,8 +21,7 @@ export type IntegrityIssue = {
     | "advance-org-mismatch"
     | "duplicate-cleared-payment-reference"
     | "multiple-active-advance-allocation"
-    | "orphan-order-item"
-    | "orphan-appointment-service"
+    | "advance-over-allocated"
   /** Id zapisa, ki krši pravilo. */
   recordId: string
   /** Človeku berljiv opis v slovenščini. */
@@ -62,26 +61,53 @@ export async function auditOrganizationIntegrity(
     })
   }
 
-  // ---- 2. DocumentAdvanceAllocation.organizationId === org obeh dokumentov ----
-  // Predujemska alokacija mora biti znotraj iste org za advance in invoice. a
+  // ---- 2. DocumentAdvanceAllocation mora biti znotraj iste org (in obstajati) ----
+  // Predujemska alokacija mora imeti OBA dokumenta (predujem + končni račun)
+  // v ISTI org kot alokacija. Z `LEFT JOIN` ujamemo tudi MANJKAJOČ dokument:
+  // če predujem ali račun ne obstaja (npr. osirotela alokacija po nepopolnem
+  // izbrisu), je relacija "manjkajoča" — v nasprotju s prejšnjim INNER JOIN,
+  // ki je tako vrsto tiho izpustil. (F5.5.4.5.2 + #131)
   const advanceOrgMismatch = await prisma.$queryRaw<
-    { id: string; alloOrg: string; advOrg: string; invOrg: string }[]
+    {
+      id: string
+      alloOrg: string
+      advOrg: string | null
+      invOrg: string | null
+      hasAdvance: boolean
+      hasInvoice: boolean
+    }[]
   >`
     SELECT a."id", a."organizationId" AS "alloOrg",
-           adv."organizationId" AS "advOrg", inv."organizationId" AS "invOrg"
+           adv."organizationId" AS "advOrg", inv."organizationId" AS "invOrg",
+           (adv."id" IS NOT NULL) AS "hasAdvance", (inv."id" IS NOT NULL) AS "hasInvoice"
     FROM "DocumentAdvanceAllocation" a
-    JOIN "Document" adv ON adv."id" = a."advanceId"
-    JOIN "Document" inv ON inv."id" = a."appliedToInvoice"
+    LEFT JOIN "Document" adv ON adv."id" = a."advanceId"
+    LEFT JOIN "Document" inv ON inv."id" = a."appliedToInvoice"
     WHERE a."organizationId" = ${organizationId}
-      AND (a."organizationId" <> adv."organizationId"
+      AND (adv."id" IS NULL OR inv."id" IS NULL
+           OR a."organizationId" <> adv."organizationId"
            OR a."organizationId" <> inv."organizationId")
     LIMIT 50`
   for (const row of advanceOrgMismatch) {
-    issues.push({
-      kind: "advance-org-mismatch",
-      recordId: row.id,
-      detailSl: `Alokacija org ${row.alloOrg} ne ustreza org predujma ${row.advOrg} ali računa ${row.invOrg}.`,
-    })
+    if (!row.hasAdvance) {
+      issues.push({
+        kind: "advance-org-mismatch",
+        recordId: row.id,
+        detailSl: `Alokacija ${row.id} kaže na manjkajoč predujem (advanceId).`,
+      })
+    } else if (!row.hasInvoice) {
+      issues.push({
+        kind: "advance-org-mismatch",
+        recordId: row.id,
+        detailSl: `Alokacija ${row.id} kaže na manjkajoč račun (appliedToInvoice).`,
+      })
+    } else {
+      issues.push({
+        kind: "advance-org-mismatch",
+        recordId: row.id,
+        detailSl: `Alokacija org ${row.alloOrg} ne ustreza org predujma ${row.advOrg} ali računa ${row.invOrg}.`,
+      })
+    }
   }
 
   // ---- 3. Podvojeni CLEARED PAYMENT z isto reference na istem dokumentu ----
@@ -107,61 +133,74 @@ export async function auditOrganizationIntegrity(
     })
   }
 
-  // ---- 4. >1 AKTIVNA alokacija istega predujma na isti račun ----
-  // Več ACTIVE alokacij istega ADVANCE na isto INVOICE pomeni dvojno
-  // porabo predujma (dokler prejšnja ni REVOKED).
+  // ---- 4. Aktivna alokacija istega predujma na VEČ računov ----
+  // Pravilo: isti predujem se ne sme VEČKRAJ aktivno uporabiti (niti na
+  // isti, niti na različne račune) — dokler prejšnja alokacija ni REVOKED.
+  // Delni unikatni indeks (org, advanceId) WHERE status='ACTIVE' to že
+  // fizično zagotavlja (20261112000000_f55452), zato tu preverimo zgolj
+  // DEFENZIVNO, da ne bi prešlo mimo njega (npr. starejši podatki ali
+  // ročni SQL). Združujemo SAMO po advanceId (ne po invoicu), da ne
+  // spregledamo alokacij na različne račune.
   const dupActiveAllocRows = await prisma.$queryRaw<
-    { advanceId: string; appliedToInvoice: string; cnt: bigint }[]
+    { advanceId: string; distinctInvoices: bigint; cnt: bigint }[]
   >`
-    SELECT "advanceId", "appliedToInvoice", COUNT(*) AS "cnt"
+    SELECT "advanceId", COUNT(DISTINCT "appliedToInvoice") AS "distinctInvoices", COUNT(*) AS "cnt"
     FROM "DocumentAdvanceAllocation"
     WHERE "organizationId" = ${organizationId} AND "status" = 'ACTIVE'
-    GROUP BY "advanceId", "appliedToInvoice"
+    GROUP BY "advanceId"
     HAVING COUNT(*) > 1
     LIMIT 50`
   for (const row of dupActiveAllocRows) {
     issues.push({
       kind: "multiple-active-advance-allocation",
-      recordId: `${row.advanceId}#${row.appliedToInvoice}`,
-      detailSl: `Predujem ${row.advanceId} ima ${row.cnt} aktivnih alokacij na račun ${row.appliedToInvoice}.`,
+      recordId: `${row.advanceId}`,
+      detailSl: `Predujem ${row.advanceId} ima ${row.cnt} aktivnih alokacij na ${row.distinctInvoices} različnih računov.`,
     })
   }
 
-  // ---- 5. OrderItem, ki nima obstoječega Orderja (sirota) ----
-  // OrderItem je relacijska podrejenost Orderja; če Order ne obstaja več,
-  // je vrstica osirotelena in bi jo testno brisanje org pustilo za sabo.
-  const orphanOrderItems = await prisma.$queryRaw<{ itemId: string; orderId: string }[]>`
-    SELECT oi."id" AS "itemId", oi."orderId"
-    FROM "OrderItem" oi
-    LEFT JOIN "Order" o ON o."id" = oi."orderId"
-    WHERE o."organizationId" = ${organizationId}
-      AND o."id" IS NULL
+  // ---- 4b. Vsota aktivnih alokacij predujma vs. razpoložljivi znesek ----
+  // Če vsota ACTIVE alokacij predujma presega njegov znesek, je bila
+  // porabljena večja vrednost, kot je predujem sploh imel (dvojna poraba).
+  // (F5.5.4.5.2 — predujem = kuponi/vavčer do višine svojega zneska.)
+  const overallNonZeroAlloc = await prisma.$queryRaw<
+    { advanceId: string; allocSum: number | null; advTotal: number | null }[]
+  >`
+    SELECT a."advanceId", SUM(a."amount")::double precision AS "allocSum", adv."total"::double precision AS "advTotal"
+    FROM "DocumentAdvanceAllocation" a
+    LEFT JOIN "Document" adv ON adv."id" = a."advanceId"
+    WHERE a."organizationId" = ${organizationId} AND a."status" = 'ACTIVE'
+    GROUP BY a."advanceId", adv."total"
+    HAVING SUM(a."amount") > COALESCE(adv."total", 0)
     LIMIT 50`
-  for (const row of orphanOrderItems) {
+  for (const row of overallNonZeroAlloc) {
     issues.push({
-      kind: "orphan-order-item",
-      recordId: row.itemId,
-      detailSl: `OrderItem ${row.itemId} kaže na neobstoječ Order ${row.orderId}.`,
+      kind: "advance-over-allocated",
+      recordId: row.advanceId,
+      detailSl: `Predujem ${row.advanceId}: aktivne alokacije (${row.allocSum}) presegajo znesek predujma (${row.advTotal}).`,
     })
   }
 
-  // ---- 6. AppointmentService brez obstoječega termina (sirota) ----
-  const orphanApptSvcs = await prisma.$queryRaw<{ svcId: string; apptId: string }[]>`
-    SELECT asvc."id" AS "svcId", asvc."appointmentId"
-    FROM "AppointmentService" asvc
-    LEFT JOIN "Appointment" a ON a."id" = asvc."appointmentId"
-    WHERE a."organizationId" = ${organizationId}
-      AND a."id" IS NULL
-    LIMIT 50`
-  for (const row of orphanApptSvcs) {
-    issues.push({
-      kind: "orphan-appointment-service",
-      recordId: row.svcId,
-      detailSl: `AppointmentService ${row.svcId} kaže na neobstoječ termin ${row.apptId}.`,
-    })
-  }
+  // NOTE (#131): Osirotele `OrderItem` in `AppointmentService` NE preverjamo
+  // tu, ker (a) scenarij je FIZIČNO NEMOGOČ — PostgreSQL že na ravni sheme
+  // (OrderItem.order→Order onDelete:Cascade; AppointmentService.appointment→
+  // Appointment onDelete:Cascade) blokira otroka z neobstoječim nadrejenim;
+  // (b) podrejeni modeli NIMAJO lastnega organizationId, zato "tenant-scoped"
+  // orphan pregled ne bi bil natančen. Namesto tega imamo test, ki dokazuje,
+  // da FK otroka brez nadrejenega zavrne (glej f131-data-integrity.itest.ts).
+  // Nikjer ne predstavljamo nemogočega preverjanja kot delujoče zaščite.
 
   return issues
+}
+
+/**
+ * Read-only inventura s podatki o popolnosti rezultata (ali je bil
+ * skrajšan z LIMIT 50 in koliko je bilo vseh zadetkov). Za operativno rabo.
+ */
+export async function auditOrganizationIntegrityWithMeta(
+  organizationId: string
+): Promise<{ issues: IntegrityIssue[]; truncated: boolean }> {
+  const issues = await auditOrganizationIntegrity(organizationId)
+  return { issues, truncated: issues.length >= 450 } // konzervativno: blizu limita
 }
 
 /**

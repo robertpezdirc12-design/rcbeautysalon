@@ -34,6 +34,11 @@ export const PERMISSION_KEYS = [
   "settings.manage",
   // F5.1: upravljanje popustov in promocij.
   "promotions.manage",
+  // F5.5.4.6.5 (varnost #1318): upravljanje e-računskih kanalov in poverilnic
+  // (povezave, certifikati, zasebni ključi) — ločeno od SAMO-BRALNEGA
+  // `finances.view`, da branje ni nikoli isto kot pravica za spreminjanje
+  // zunanjih povezav in tajnih materialov.
+  "einvoices.channels.manage",
 ] as const
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number]
@@ -90,6 +95,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       { key: "finances.documents.pay", label: "Knjižba plačil dokumentov" },
       { key: "finances.documents.credit", label: "Izdaja dobropisov" },
       { key: "settings.manage", label: "Urejanje nastavitev salona" },
+      { key: "einvoices.channels.manage", label: "Upravljanje e-računskih kanalov in poverilnic" },
     ],
   },
 ]

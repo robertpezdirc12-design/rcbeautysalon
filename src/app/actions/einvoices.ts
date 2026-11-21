@@ -21,11 +21,13 @@ import { buildUbl21Xml } from "@/lib/einvoice/ubl21"
 import { buildEslog20Xml } from "@/lib/einvoice/eslog20"
 import { validateEInvoice, EInvoiceValidationResult } from "@/lib/einvoice/validate"
 import { validateOfficial } from "@/lib/einvoice/official"
-import { encryptSecret, decryptSecret, redact } from "@/lib/einvoice/secrets"
+import { encryptSecret, redact } from "@/lib/einvoice/secrets"
+import { decryptChannelCredentialsOrg } from "@/lib/einvoice/channel-credentials"
 import { formatLabel } from "@/lib/einvoice/format"
 import { buildEinvoiceArchive } from "@/lib/einvoice/archive"
 import { buildProvider } from "@/lib/einvoice/providers"
-import type { SubmitPayload, ChannelCfg } from "@/lib/einvoice/channel"
+import { assertPublicHttpsUrl } from "@/lib/einvoice/endpoint-validation"
+import type { SubmitPayload, ChannelCfg, DeliveryState } from "@/lib/einvoice/channel"
 import { writeFile, mkdir } from "node:fs/promises"
 import * as path from "node:path"
 
@@ -295,15 +297,13 @@ export async function exportEinvoiceArchive(
   })
   return { filename: file.filename, content: file.content, sha256: file.sha256 }
 }
-export async function getEinvoiceChannels() {
-  const { org } = await requirePermissionOrg("finances.view")
-  return prisma.eInvoiceChannelConfig.findMany({ where: { organizationId: org.id } })
-}
 
 /**
  * F5.5.4.6.4 — shrani (ali posodobi) org-scoped ponudniški kanal. Poverilnice so
- * ŠIFRIRANE (AES-256-GCM) prek secrets.ts; v DB nikoli ne shranimo čistih.
- * Poverilnic ne vračamo naprej. Dejansko pošiljanje NI sproženo.
+ * ŠIFRIRANE (AES-256-GCM); v DB nikoli ne shranimo čistih in jih ne vračamo naprej.
+ * #1318: upravljanje kanalov zahteva `einvoices.channels.manage` (ne zgolj
+ * `finances.view`), endpoint preverimo SSRF-varne in pri posodobitvi brez
+ * ponovno poslanih poverilnic obdržimo obstoječe (ne izbrišemo po nesreči).
  */
 export async function saveEinvoiceChannel(input: {
   channel: string
@@ -315,15 +315,19 @@ export async function saveEinvoiceChannel(input: {
   if (!input.channel || !["direct", "ujp", "peppol"].includes(input.channel)) {
     return { ok: false, error: "INVALID_CHANNEL: dovoljeni so direct, ujp ali peppol." }
   }
-  if (input.providerEndpoint && !/^https:\/\//i.test(input.providerEndpoint)) {
-    return { ok: false, error: "INVALID_ENDPOINT: providerEndpoint mora biti HTTPS URL." }
+  if (input.providerEndpoint) {
+    // #1318 SSRF-zaščita ob shranjevanju (ne samo regex HTTPS).
+    const v = assertPublicHttpsUrl(input.providerEndpoint)
+    if (!v.ok) {
+      return { ok: false, error: `INVALID_ENDPOINT: ${v.error}` }
+    }
   }
   if (input.channel !== "direct" && input.providerEndpoint && !input.credentials) {
     // UJP/PEPPOL brez certifikata lahko shraniš (mTLS pripravi pozneje),
     // ampak brez certifikata pošiljanje ne bo uspelo — opozori prek statusa PENDING.
   }
 
-  const { org } = await requirePermissionOrg("finances.view")
+  const { org } = await requirePermissionOrg("einvoices.channels.manage")
 
   try {
     // Šifriraj vsako neobčutljivo poverilnico posebej v en JSON payload.
@@ -381,14 +385,10 @@ export async function listEinvoiceChannelsRedacted() {
   }))
 }
 
-/** Preberi dešifrirane poverilnice (samo za interno kanalno obdelavo; klicev ne vračaj). */
-export async function readChannelCredentials(channel: string): Promise<Record<string, string> | null> {
-  const { org } = await requirePermissionOrg("finances.view")
-  const row = await prisma.eInvoiceChannelConfig.findFirst({ where: { organizationId: org.id, channel } })
-  const dec = decryptSecret(row?.encryptedSecret ?? null)
-  if (!dec) return null
-  try { return JSON.parse(dec) } catch { return null }
-}
+/** Dešifriranje poverilnic je izključno interna (ne-"use server") servisna funkcija
+ *  v src/lib/einvoice/channel-credentials.ts — stranka dešifriranih skrivnosti
+ *  NE dobiva; `submitEinvoice` pokliče decryptChannelCredentialsOrg po lastnem
+ *  requirePermissionOrg("finances.documents.manage"). (#1318) */
 
 /**
  * F5.5.4.6.4 — POŠLJI NESPREMENLJIVO ARHIVIRAN e-račun na ponudnika e-poti.
@@ -416,8 +416,10 @@ export async function submitEinvoice(einvoiceId: string, channel: string): Promi
   })
   if (!row) return { ok: false, error: "E-račun ne obstaja." }
 
-  // Idempotenca: že poslan → vrni obstoječe, brez novega klica.
-  if (row.status === "DELIVERED" || row.status === "SENT") {
+  // Idempotenca: že poslan (karkoli po tehničnem sprejemu) → vrni obstoječe,
+  // brez novega klica. SUBMITTED = tehnično sprejeto (2xx), še ne vsebinsko
+  // potrjeno; DELIVERED = telematsko potrjeno. Nobeno od teh se ne posilja 2×.
+  if (row.status === "DELIVERED" || row.status === "SENT" || row.status === "SUBMITTED") {
     return { ok: true, state: row.status, alreadySubmitted: true }
   }
 
@@ -438,7 +440,7 @@ export async function submitEinvoice(einvoiceId: string, channel: string): Promi
   }
 
   const provider = buildProvider(channel)
-  const credentials = await readChannelCredentials(channel)
+  const credentials = await decryptChannelCredentialsOrg(org.id, channel)
   const payload: SubmitPayload = {
     einvoiceId: row.id,
     organizationId: org.id,
@@ -461,7 +463,22 @@ export async function submitEinvoice(einvoiceId: string, channel: string): Promi
   }
 
   const result = await provider.submit(org.id, submitCfg, payload)
-  const state = result.accepted ? ("SENT" as const) : ("FAILED" as const)
+
+  // #1318-F5.5.4.6.4: NE združujemo tehničnega sprejema s potrditvijo dostave.
+  //   SUBMITTED (2xx, technicalOnly) → status SUBMITTED — še NI dostavljeno.
+  //   DELIVERED  → status DELIVERED + receipt kind DELIVERY_ACK (pravo potrdilo,
+  //                pride z webhooka/pollinga oz. neposredno iz testnega stuba).
+  //   REJECTED   → status REJECTED + receipt kind REJECTION (vsebinska zavrnitev).
+  //   kar koli drugega → FAILED (tehnična/neprocesirana napaka).
+  const mapState = (d: DeliveryState): "SUBMITTED" | "DELIVERED" | "REJECTED" | "FAILED" => {
+    if (d === "SUBMITTED") return "SUBMITTED"
+    if (d === "DELIVERED") return "DELIVERED"
+    if (d === "REJECTED") return "REJECTED"
+    return "FAILED"
+  }
+  const state = mapState(result.state)
+  const receiptKind =
+    state === "DELIVERED" ? "DELIVERY_ACK" : state === "REJECTED" ? "REJECTION" : state === "SUBMITTED" ? "SUBMITTED" : "FAILURE"
 
   await prisma.$transaction(async (tx) => {
     await tx.eInvoice.update({ where: { id: row.id }, data: { status: state } })
@@ -469,9 +486,10 @@ export async function submitEinvoice(einvoiceId: string, channel: string): Promi
       data: {
         organizationId: org.id,
         einvoiceId: row.id,
-        kind: state === "FAILED" ? "FAILED" : "SENT",
-        message:
-          result.errors.length > 0
+        kind: state === "FAILED" ? "FAILED" : state === "DELIVERED" ? "DELIVERED" : state === "REJECTED" ? "REJECTED" : "SUBMITTED",
+        message: state === "SUBMITTED"
+          ? `E-račun tehnično posredovan prek '${channel}' (${provider.label}) — čaka na potrditev dostave. Provider: ${result.providerMessageId ?? "?"}`
+          : result.errors.length > 0
             ? `Pošiljanje prek '${channel}': ${result.errors.join("; ")}`
             : result.providerMessageId
               ? `E-račun poslan prek '${channel}' (${provider.label}). Provider: ${result.providerMessageId}`
@@ -483,7 +501,7 @@ export async function submitEinvoice(einvoiceId: string, channel: string): Promi
       data: {
         organizationId: org.id,
         einvoiceId: row.id,
-        kind: state === "SENT" ? "DELIVERY_ACK" : "FAILURE",
+        kind: receiptKind,
         status: state,
         message: result.errors.length ? result.errors.join("; ") : null,
         data: result.providerMessageId ? Buffer.from(result.providerMessageId).toString("base64") : null,

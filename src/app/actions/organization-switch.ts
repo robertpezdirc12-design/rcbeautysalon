@@ -39,10 +39,13 @@ export async function switchActiveOrganization(
   }
 
   // Legacy kazalec + seja usklajena (drugi naprave / svež JWT).
-  // POMEMBNO: preklop mora osvežiti tudi VLOGO v seji. Brez tega bi
-  // uporabnik, ki je v ciljni org ADMIN, ostal s staro vlogo STAFF in bi
-  // `requireRole(["ADMIN"])` zavrnil dostop do plošče (org-scoped pravice
-  // so sicer pravilne, a vstopna vrata bi bila zaprta).
+  // #1318 / #132: `User.organizationId` je ZDRUŽLJIVOSTNI/PRIVZETI kazalec
+  // (delovni prostor ob sveži prijavi), nikoli dokaz članstva. DB `User.role`
+  // vzdržujemo le kot SOŠTALIP VPRENJENEGA default org (tako, da sveža
+  // prijava v privzeti delovni prostor dobi skladno vlogo) — ne kot vir pravic.
+  // Vse org-občutljive vstopne poti (requirePermissionOrg / requireSessionOrg)
+  // berejo vlogo SVEŽE iz članstva ciljne org; globalna DB vloga nobenemu
+  // drugemu delovnemu prostoru ne daje pravic.
   const targetRole = target.role as "ADMIN" | "STAFF" | "CLIENTE"
   await prisma.user.update({
     where: { id: session.user.id },

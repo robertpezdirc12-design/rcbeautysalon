@@ -194,4 +194,38 @@ describe("F131 read-only data-integrity audit", () => {
     const issues = await auditOrganizationIntegrity(ORGA)
     expect(issues.filter((i) => i.kind === "multiple-active-advance-allocation")).toEqual([])
   })
+
+  it("alokacija A na dokument B → org-neskladje zaznano (cross-tenant)", async () => {
+    // Alokacija v org A se ne sme sklicevati na predujem org B (cross-org).
+    const invA = await mintInvoice(60)
+    state.session = { user: { id: ADMB, role: "ADMIN", organizationId: ORGB, email: "b@f.test" } }
+    const advB = await createDocument({ type: "ADVANCE", customerId: "f131-cust-b", issueDate: "2026-01-05", dueDate: "2026-02-05", items: [line("P", 60, 22)] })
+    expect(advB.ok).toBe(true)
+    await changeDocumentStatus(advB.id!, "ISSUED")
+    state.session = { user: { id: ADMA, role: "ADMIN", organizationId: ORGA, email: "a@f.test" } }
+
+    // Alokacija v org A, ki se sklicuje na predujem org B (cross-org napaka).
+    await prisma.documentAdvanceAllocation.create({
+      data: { organizationId: ORGA, advanceId: advB.id!, appliedToInvoice: invA, amount: 60, taxBase: 0, taxTotal: 0 },
+    })
+
+    const issues = await auditOrganizationIntegrity(ORGA)
+    const mism = issues.filter((i) => i.kind === "advance-org-mismatch")
+    expect(mism.length).toBeGreaterThan(0)
+  })
+
+  it("FK prepreči alokacijo na neobstoječ predujem → vnos zavrnjen (missing parent)", async () => {
+    const invA = await mintInvoice(50)
+    // Oracle: DocumentAdvanceAllocation.advanceId → Document.id je FK
+    // (onDelete: Restrict). Alokacija na neobstoječ dokument (manjkajoči
+    // predujem) torej na bazi FIZIČNO ni možna — prikažemo, da DB to zavrne.
+    // Audit še vedno defenzivno preveri `LEFT JOIN adv IS NULL` za primer,
+    // da bi relacija kdaj koli odpovedala / bilo starejših podatkov.
+    const ghostId = "doc-ghost-nonexistent"
+    await expect(
+      prisma.documentAdvanceAllocation.create({
+        data: { organizationId: ORGA, advanceId: ghostId, appliedToInvoice: invA, amount: 50, taxBase: 0, taxTotal: 0 },
+      })
+    ).rejects.toThrow()
+  })
 })

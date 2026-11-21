@@ -27,32 +27,14 @@ import {
 // komponente in akcije ga delita.
 import {
   baseCapabilitiesOf,
-  buildSeedRows,
   planActivation,
 } from "@/lib/modules/activation"
 import type { CapabilityState } from "@/lib/profiles/types"
 
-
-export async function seedNewOrgModuleStates(
-  organizationId: string,
-  vertical: string | null,
-  secondaryVertical?: string | null,
-  profileOverrides?: unknown
-): Promise<void> {
-  const base = baseCapabilitiesOf({
-    vertical,
-    secondaryVertical,
-    profileOverrides,
-  })
-  const rows = buildSeedRows(base).map((r: { moduleId: string; state: ModuleState }) => ({
-    organizationId,
-    moduleId: r.moduleId,
-    state: r.state,
-  }))
-  if (rows.length > 0) {
-    await prisma.organizationModuleState.createMany({ data: rows })
-  }
-}
+// NOTE (#1318): začetno seedanje modulov (`seedNewOrgModuleStates`) je bilo
+// prestavljeno v INTERNI servis src/lib/modules/seeding.ts (ne-"use server"),
+// da ta javni "use server" modul ne izpostavlja več akcije brez preverjanja
+// pravic (klicljive za poseganje v stanje modulov katere koli org).
 
 /**
  * F5.4.2 §3 — upravljanje modulov je ORG-SCOPED in PERMISSION-BASED
@@ -149,7 +131,12 @@ export async function getModuleOverview(): Promise<{
 
   const modules: ModuleView[] = MODULES.map((m) => {
     const baseState = (base[m.id] ?? "optional") as CapabilityState
-    const state = states[m.id] ?? "ACTIVE"
+    // #1318 default-manjkajoče-vrstice: če row za modul v DB manjka (seed
+    // ni uspel ali še ni bil ustvarjen), default je po buildSeedRows politiki
+    // required → ACTIVE, optional/disabled → DEACTIVATED. Nikoli ne smemo
+    // vsega "brez vrstice" razumeti kot ACTIVE — to bi opt-in vtišalo.
+    const fallback: ModuleState = baseState === "required" ? "ACTIVE" : "DEACTIVATED"
+    const state = states[m.id] ?? fallback
     const policy = modulePolicyFor(baseState, state)
     const { reasonSl, reasonEn } = policyReason(baseState, state)
     return {
@@ -303,25 +290,31 @@ export async function enableModuleWithDependencies(
 
   const actorEmail = session.user.email ?? "unknown"
   const enabled: string[] = []
-  for (const m of plan.toEnable) {
-    const previous = rows[m.id] ?? "ACTIVE"
-    if (previous === "ACTIVE") continue // že aktiven — ni spremembe
-    await prisma.organizationModuleState.upsert({
-      where: { organizationId_moduleId: { organizationId: org.id, moduleId: m.id } },
-      create: { organizationId: org.id, moduleId: m.id, state: "ACTIVE" },
-      update: { state: "ACTIVE" },
-    })
-    enabled.push(m.id)
-    await recordConfigChange({
-      organizationId: org.id,
-      actorEmail,
-      entityKey: `module:${m.id}`,
-      action: "UPDATE",
-      summary: `Modul ${m.nameSl}: ${previous} → ACTIVE (vklop prek mreže modulov)`,
-      previous: { state: previous },
-      next: { state: "ACTIVE" },
-    }).catch(() => undefined)
-  }
+  const pending = plan.toEnable.map((m) => ({ m, previous: rows[m.id] ?? "ACTIVE" as ModuleState }))
+    .filter(({ previous }) => previous !== "ACTIVE") // že aktivni preskoči
+
+  // #1318 atomsko: aktivacija modulov + zgodovina sprememb v eni transakciji,
+  // da prekinitev na pol poti nikoli ne pusti delno vklopljene mreže.
+  await prisma.$transaction(async (tx) => {
+    for (const { m, previous } of pending) {
+      await tx.organizationModuleState.upsert({
+        where: { organizationId_moduleId: { organizationId: org.id, moduleId: m.id } },
+        create: { organizationId: org.id, moduleId: m.id, state: "ACTIVE" },
+        update: { state: "ACTIVE" },
+      })
+      await recordConfigChange({
+        organizationId: org.id,
+        actorEmail,
+        entityKey: `module:${m.id}`,
+        action: "UPDATE",
+        summary: `Modul ${m.nameSl}: ${previous} → ACTIVE (vklop prek mreže modulov)`,
+        previous: { state: previous },
+        next: { state: "ACTIVE" },
+        tx, // #1318: log gre skozi ISTO transakcijo kot vklop.
+      }).catch(() => undefined)
+    }
+  })
+  enabled.push(...pending.map(({ m }) => m.id))
 
   revalidatePath("/dashboard")
   revalidatePath("/dashboard/modules")

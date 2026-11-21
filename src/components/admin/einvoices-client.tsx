@@ -67,6 +67,7 @@ type Labels = {
   sentState: string
   failedSend: string
   alreadySent: string
+  submittedWait: string
   needsChannel: string
   chooseChannel: string
   noChannelConfigured: string
@@ -271,7 +272,9 @@ export function EinvoicesClient({
         // preobrusi podatke; lokalno status pustimo isti, iz strani jo sproži owner.
         row.status = res.state ?? row.status
         if (res.state === "FAILED") setNotice({ kind: "err", text: res.error ?? labels.failedSend })
-        else if (res.state === "SENT" || res.state === "DELIVERED") setNotice({ kind: "ok", text: labels.sentState })
+        else if (res.state === "DELIVERED") setNotice({ kind: "ok", text: labels.sentState }) // potrjena dostava
+        else if (res.state === "SUBMITTED") setNotice({ kind: "ok", text: labels.submittedWait }) // tehnično sprejeto, čaka potrditev
+        else setNotice({ kind: "ok", text: labels.sentState })
       } else {
         setNotice({ kind: "err", text: res.error ?? labels.failedSend })
       }
@@ -512,14 +515,15 @@ export function EinvoicesClient({
               const pill = validatePill(r, labels)
               const st = stages(r, labels)
               const sent = r.status === "SENT" || r.status === "DELIVERED"
+  const submittedPending = r.status === "SUBMITTED"
               return (
                 <tr key={r.id} className="align-top">
                   <td className="px-3 py-2 font-mono text-xs">{r.docCode}</td>
                   <td className="hidden px-3 py-2 sm:table-cell">{r.kindLabel}</td>
                   <td className="hidden px-3 py-2 md:table-cell text-xs">{r.format}</td>
                   <td className="px-3 py-2">
-                    <span className={`rounded px-1.5 py-0.5 text-xs ${sent ? "bg-emerald-500/15 text-emerald-600" : r.status === "FAILED" ? "bg-red-500/15 text-red-600" : r.status === "VALIDATED" ? "bg-emerald-500/15 text-emerald-600" : "bg-amber-500/15 text-amber-600"}`}>
-                      {r.status}
+                    <span className={`rounded px-1.5 py-0.5 text-xs ${sent ? "bg-emerald-500/15 text-emerald-600" : submittedPending ? "bg-sky-500/15 text-sky-600" : r.status === "FAILED" ? "bg-red-500/15 text-red-600" : r.status === "VALIDATED" ? "bg-emerald-500/15 text-emerald-600" : "bg-amber-500/15 text-amber-600"}`}>
+                      {submittedPending ? labels.submittedWait : r.status}
                     </span>
                     {r.standardVersion ? (
                       <span className="block mt-1 text-[10px] text-muted-foreground">{r.standardVersion}</span>

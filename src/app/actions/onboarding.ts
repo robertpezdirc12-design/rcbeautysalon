@@ -23,7 +23,7 @@ import {
   allowVerificationFallback,
   isEmailServiceConfigured,
 } from "@/lib/email/config"
-import { seedNewOrgModuleStates } from "@/app/actions/modules"
+import { seedNewOrgModuleStates } from "@/lib/modules/seeding"
 
 export interface CreateSalonInput {
   name: string
@@ -248,7 +248,15 @@ export async function createSalonOrganization(input: CreateSalonInput): Promise<
     // vrednosti tiho izpustimo, omejitve števila/dolžine proti zlorabi).
     const skd = sanitizeSkdInput(input.skdCodes, input.customTags)
 
-    const org = await prisma.organization.create({
+    // VSTOPNA IZKUŠNJA (2026-11): novi tenant začne z opt-in moduli —
+  // required jedro aktivno, ostalo izklopljeno dokler lastnik ne doda.
+  // #1318 atomsko: org + začetna stanja modulov V ENO transakcijo, da org
+  // nikoli ne obstaja brez svojega module-seeda (ali polovično). Prej je bil
+  // seed v ločenem try/catch zunaj transakcije — prekinjen seed je pustil org
+  // z manjkajočimi vrsticami. Zdaj je ali vse ali nič (fail-open v varno
+  // je nadomestil novi loadStates default ali-ob-ali — glej modules.ts).
+  const org = await prisma.$transaction(async (tx) => {
+    const created = await tx.organization.create({
       data: {
         slug,
         name,
@@ -265,19 +273,19 @@ export async function createSalonOrganization(input: CreateSalonInput): Promise<
         ...(onboardingAnswers ? { onboardingAnswers } : {}),
       },
     })
-
-    let staffId: string | null = null
-    // VSTOPNA IZKUŠNJA (2026-11): novi tenant začne z opt-in moduli —
-    // required jedro aktivno, ostalo izklopljeno dokler lastnik ne doda.
-    // Če seed pade, org obstaja (ni transakcije) — sanitizeModuleStates
-    // ob naslednji zahtevi sanira manjkajoča stanja; fail-open v varno.
+    // Seed v ISTI transakciji kot kreacija org — atomično (vse ali nič).
     try {
-      await seedNewOrgModuleStates(org.id, profile.id, secondaryVertical)
+      await seedNewOrgModuleStates(created.id, profile.id, secondaryVertical, undefined, tx)
     } catch (err) {
       console.error("[onboarding] seedNewOrgModuleStates pade:", err)
+      throw err // prekliči cel transakcijo → org se NE ustvari
     }
-    try {
-      if (linkUserId) {
+    return created
+  })
+
+  let staffId: string | null = null
+  try {
+    if (linkUserId) {
         // #100 8.A (M1): članstvo za NOVO podjetje (backfill pokrije stare;
         // vsaka nova kreacija ga ustvari takoj — isDefault samo za prvo).
         await prisma.organizationMember.create({

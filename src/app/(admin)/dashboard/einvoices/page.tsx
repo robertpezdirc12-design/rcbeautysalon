@@ -94,6 +94,7 @@ export default async function EinvoicesPage() {
           sentState: d.sentState,
           failedSend: d.failedSend,
           alreadySent: d.alreadySent,
+          submittedWait: d.submittedWait,
           needsChannel: d.needsChannel,
           chooseChannel: d.chooseChannel,
           noChannelConfigured: d.noChannelConfigured,

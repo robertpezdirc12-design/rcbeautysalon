@@ -256,15 +256,17 @@ describe("F5.5.4.6.4 — oddaja e-računa (submitEinvoice)", () => {
         channel: "direct",
         label: "Partner proxy",
         status: "ENABLED",
-        providerEndpoint: "https://partner.local/api/submit",
+        providerEndpoint: "https://provider.example/api/submit",
         config: {},
         encryptedSecret: "",
       },
     })
   }
 
-  it("2xx → status SENT, DeliveryEvent + DELIVERY_ACK receipt, provider ID", async () => {
-    // DirectHttpProvider prebere globalni fetch ob klicu (vi.stubGlobal).
+  it("2xx → STATUS SUBMITTED (tehnično sprejeto), NE DELIVERY_ACK (šele čaka potrditev)", async () => {
+    // DirectHttpProvider: HTTP 202 = tehnično sprejeto (technicalOnly). To NIKAKOR
+    // ni potrditev dostave — po F5.5.4.6.4 se loči SUBMITTED od DELIVERED, in
+    // DELIVERY_ACK se zabeleži ŠELE ob resnični potrditvi dostave (webhook/poll).
     vi.stubGlobal("fetch", vi.fn(async () =>
       new Response("submitted", { status: 202, headers: { "x-provider-message-id": "pm-1" } }) as Response
     ))
@@ -275,22 +277,24 @@ describe("F5.5.4.6.4 — oddaja e-računa (submitEinvoice)", () => {
 
     const res = await submitEinvoice(gen.id!, "direct")
     expect(res.ok).toBe(true)
-    expect(res.state).toBe("SENT")
+    expect(res.state).toBe("SUBMITTED")
 
     const row = await prisma.eInvoice.findUnique({ where: { id: gen.id! } })
-    expect(row!.status).toBe("SENT")
+    expect(row!.status).toBe("SUBMITTED")
 
     const evts = await prisma.eInvoiceDeliveryEvent.findMany({
       where: { einvoiceId: gen.id!, organizationId: ORGA },
     })
-    expect(evts.map((e) => e.kind)).toContain("SENT")
+    expect(evts.map((e) => e.kind)).toContain("SUBMITTED")
 
     const rcpts = await prisma.eInvoiceReceipt.findMany({
       where: { einvoiceId: gen.id!, organizationId: ORGA },
       orderBy: { receivedAt: "desc" },
     })
-    expect(rcpts[0].kind).toBe("DELIVERY_ACK")
-    expect(rcpts[0].status).toBe("SENT")
+    // Ključno: 2xx NI delivery ack. Premalo je, da se status postavi na
+    // "poslano" — dokler ponudnik ni potrdil dejanske dostave, ostane SUBMITTED.
+    expect(rcpts[0].kind).toBe("SUBMITTED")
+    expect(rcpts[0].status).toBe("SUBMITTED")
   })
 
   it("idempotenca: ponovni submit istega e-računa ne pošlje znova", async () => {
